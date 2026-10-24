@@ -45,6 +45,9 @@ you'd rather not expose your personal email.
 
 ## 3. Running locally (once M0 exists)
 
+Docker Desktop must be running: `bootRun` starts Postgres in it, and the tests start
+their own throwaway Postgres with Testcontainers.
+
 ```powershell
 cd backend; ./gradlew bootRun      # starts Postgres through compose.yaml automatically
 cd frontend; npm install; npm run dev

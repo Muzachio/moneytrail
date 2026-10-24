@@ -89,6 +89,8 @@ included, so private data must never reach a commit.
 - For every PR, verify each "Done when" item of the linked issue against real evidence
   (build output, CI run, settings), tick the boxes in the issue, and make sure the issue
   ends up closed. An item that is not met blocks the merge.
+- Every PR also ticks the `docs/roadmap.md` lines it completes. A line stays unticked
+  while any part of it is still pending.
 - A change that alters architecture comes with a new ADR in `docs/adr/`.
 - Explain non-obvious decisions in the PR description. The maintainer must be able to
   defend every line in an interview.

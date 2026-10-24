@@ -31,14 +31,24 @@ dependencyManagement {
 
 dependencies {
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.flyway)
+    implementation(libs.flyway.database.postgresql)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.jspecify)
+    runtimeOnly(libs.postgresql)
+    developmentOnly(libs.spring.boot.docker.compose)
 
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
 
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.modulith.starter.test)
+    testImplementation(libs.spring.boot.starter.jdbc.test)
+    testImplementation(libs.spring.boot.starter.flyway.test)
+    testImplementation(libs.spring.boot.testcontainers)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
