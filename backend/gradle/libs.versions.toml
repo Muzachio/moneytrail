@@ -1,0 +1,24 @@
+[versions]
+spring-boot = "4.1.2"
+spring-dependency-management = "1.1.7"
+spotless = "8.10.4"
+palantir-java-format = "2.102.0"
+errorprone-plugin = "5.1.1"
+errorprone = "2.51.0"
+nullaway = "0.14.3"
+jspecify = "1.0.1"
+
+[libraries]
+# Versions of Spring Boot starters come from the Spring Boot BOM.
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }

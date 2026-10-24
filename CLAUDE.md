@@ -81,7 +81,9 @@ included, so private data must never reach a commit.
   - The body explains *why*. Breaking changes use `!` (`feat(api)!: …`) plus a
     `BREAKING CHANGE:` footer.
   - No `Co-Authored-By` or other AI attribution lines.
-- Branches: `<type>/<issue number>-<short-description>`, e.g. `feat/14-money-record`.
+- Branches: `<prefix>/<issue number>-<short-description>`. The prefix is `feature/` for
+  `feat`, `bugfix/` for `fix`, otherwise the commit type (`docs/`, `build/`, `ci/`, …).
+  E.g. `feature/14-money-record`, `bugfix/31-balance-lock-order`.
 - PR title follows the commit format, the description includes `Closes #<issue>`, and PRs
   are merged with "Squash and merge".
 - A change that alters architecture comes with a new ADR in `docs/adr/`.
