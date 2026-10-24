@@ -10,10 +10,10 @@ Priority order: a person's income and expenses through the month (M1), then grou
 Goal: an empty app deployed end to end, so every later feature ships on a working pipeline.
 
 - [ ] Repository on GitHub: README, license (MIT), branch protection on `main`, Renovate
-- [ ] `backend/`: Spring Boot 4 + Java 25, Gradle Kotlin DSL, version catalog, Spotless, Error Prone/NullAway
-- [ ] Spring Modulith skeleton with `ModularityTests`
-- [ ] Postgres via `compose.yaml` + Spring Boot docker-compose support. Flyway `V1__baseline.sql`
-- [ ] Testcontainers base test class (`@ServiceConnection`)
+- [x] `backend/`: Spring Boot 4 + Java 25, Gradle Kotlin DSL, version catalog, Spotless, Error Prone/NullAway
+- [x] Spring Modulith skeleton with `ModularityTests`
+- [x] Postgres via `compose.yaml` + Spring Boot docker-compose support. Flyway `V1__baseline.sql`
+- [x] Testcontainers base test class (`@ServiceConnection`)
 - [ ] `api/openapi.yaml` with `GET /v1/health` and `GET /v1/me`. Server interfaces generated
 - [ ] `frontend/`: Vite + React + TS, Tailwind + shadcn/ui, generated client, layout shell
 - [ ] Google login end to end (Spring Security OAuth2 + Spring Session JDBC)

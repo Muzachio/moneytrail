@@ -1,0 +1,18 @@
+# Local development database, started by Spring Boot's docker-compose support on bootRun.
+# The credentials only exist inside this local container; production uses Fly secrets.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: moneytrail
+      POSTGRES_USER: moneytrail
+      POSTGRES_PASSWORD: moneytrail
+    ports:
+      # Bound to localhost only, so the database is not reachable from the network.
+      - "127.0.0.1::5432"
+    volumes:
+      # Postgres 18 images keep their data under /var/lib/postgresql (not .../data).
+      - postgres-data:/var/lib/postgresql
+
+volumes:
+  postgres-data:
