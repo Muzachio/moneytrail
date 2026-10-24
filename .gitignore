@@ -1,0 +1,46 @@
+# This repository is public: see "Public repository (privacy)" in CLAUDE.md.
+
+# --- Secrets and local configuration ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+application-local.*
+*.local.yml
+*.local.yaml
+
+# --- Real personal data for manual testing (bank statements, receipts, DB dumps) ---
+local/
+*.dump
+
+# --- Claude Code personal settings ---
+.claude/settings.local.json
+CLAUDE.local.md
+
+# --- Backend (Gradle / Java) ---
+.gradle/
+build/
+*.class
+*.log
+hs_err_pid*
+
+# --- Frontend (Node / Vite) ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# --- IDE and OS ---
+.idea/
+*.iml
+out/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
