@@ -1,6 +1,7 @@
 [versions]
 spring-boot = "4.1.2"
 spring-dependency-management = "1.1.7"
+spring-modulith = "2.1.1"
 spotless = "8.10.4"
 palantir-java-format = "2.102.0"
 errorprone-plugin = "5.1.1"
@@ -13,6 +14,10 @@ jspecify = "1.0.1"
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# Versions of Spring Modulith artifacts come from the Spring Modulith BOM.
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
+spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }

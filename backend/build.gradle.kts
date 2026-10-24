@@ -23,14 +23,22 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+    imports {
+        mavenBom(libs.spring.modulith.bom.get().toString())
+    }
+}
+
 dependencies {
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.modulith.starter.core)
     implementation(libs.jspecify)
 
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
 
     testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.modulith.starter.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

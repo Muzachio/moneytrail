@@ -86,6 +86,9 @@ included, so private data must never reach a commit.
   E.g. `feature/14-money-record`, `bugfix/31-balance-lock-order`.
 - PR title follows the commit format, the description includes `Closes #<issue>`, and PRs
   are merged with "Squash and merge".
+- For every PR, verify each "Done when" item of the linked issue against real evidence
+  (build output, CI run, settings), tick the boxes in the issue, and make sure the issue
+  ends up closed. An item that is not met blocks the merge.
 - A change that alters architecture comes with a new ADR in `docs/adr/`.
 - Explain non-obvious decisions in the PR description. The maintainer must be able to
   defend every line in an interview.
