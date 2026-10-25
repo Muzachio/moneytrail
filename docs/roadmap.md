@@ -15,7 +15,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Postgres via `compose.yaml` + Spring Boot docker-compose support. Flyway `V1__baseline.sql`
 - [x] Testcontainers base test class (`@ServiceConnection`)
 - [x] `api/openapi.yaml` with `GET /v1/health` and `GET /v1/me`. Server interfaces generated
-- [ ] `frontend/`: Vite + React + TS, Tailwind + shadcn/ui, generated client, layout shell
+- [x] `frontend/`: Vite + React + TS, Tailwind + shadcn/ui, generated client, layout shell
 - [ ] Google login end to end (Spring Security OAuth2 + Spring Session JDBC)
 - [ ] CI (GitHub Actions): build, test, spec lint, frontend lint/test, image build and scan
 - [ ] CD: Fly.io app (api + worker process groups), Neon database, Cloudflare Pages, custom domain
