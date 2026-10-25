@@ -21,6 +21,8 @@ cd backend
 
 cd frontend
 npm run dev | npm test | npm run lint | npm run generate:api
+
+npx @redocly/cli lint           # lint api/openapi.yaml (from the repository root)
 ```
 
 ## Non-negotiable rules (money)

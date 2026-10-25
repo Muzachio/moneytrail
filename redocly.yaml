@@ -1,0 +1,10 @@
+extends:
+  - recommended
+
+apis:
+  moneytrail:
+    root: api/openapi.yaml
+
+rules:
+  # GET /v1/health is public and has no client errors to document.
+  operation-4xx-response: off
