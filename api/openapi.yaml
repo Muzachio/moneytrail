@@ -1,0 +1,112 @@
+openapi: 3.1.0
+info:
+  title: MoneyTrail API
+  version: 0.1.0
+  summary: Personal and shared expense tracking on top of a double-entry ledger.
+  description: |
+    Source of truth for the MoneyTrail API (spec-first, see docs/adr/0006-spec-first-openapi.md).
+    The backend generates its Spring interfaces from this file and the frontend generates its
+    TypeScript client from it. Errors use RFC 9457 problem details with a stable `code`.
+  license:
+    name: MIT
+    url: https://github.com/Muzachio/moneytrail/blob/main/LICENSE
+servers:
+  - url: /
+    description: Same host that serves the API (the public domain is set up with the deployment).
+tags:
+  - name: system
+    description: Service status.
+  - name: identity
+    description: The signed-in user.
+security:
+  - sessionCookie: []
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      tags: [system]
+      summary: Check that the API is up
+      description: Public liveness check, used by the deployment to know the app started.
+      security: []
+      responses:
+        '200':
+          description: The API is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /v1/me:
+    get:
+      operationId: getCurrentUser
+      tags: [identity]
+      summary: Get the signed-in user
+      description: Returns the user of the current session. Until sign-in exists, every call returns 401.
+      responses:
+        '200':
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-SESSION
+      description: Server-side session cookie set after Google sign-in (see docs/adr/0007-authentication.md).
+  responses:
+    Unauthenticated:
+      description: There is no valid session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UP]
+          description: Always `UP` when the API answers.
+    CurrentUser:
+      type: object
+      required: [id, email, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          description: Profile picture from the identity provider, when it has one.
+    Problem:
+      type: object
+      description: RFC 9457 problem details, plus a stable `code` that clients can rely on.
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        code:
+          type: string
+          description: Stable, machine-readable error code, e.g. `unauthenticated`.

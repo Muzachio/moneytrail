@@ -1,7 +1,7 @@
 name: CI
 
-# No path filters on purpose: the "backend" job is a required check on main, and a
-# filtered workflow would never report on docs-only PRs, leaving them blocked.
+# No path filters on purpose: the jobs are required checks on main, and a filtered
+# workflow would never report on docs-only PRs, leaving them blocked.
 on:
   pull_request:
     branches: [main]
@@ -44,3 +44,16 @@ jobs:
           name: backend-test-reports
           path: backend/build/reports/
           retention-days: 7
+
+  api-spec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Lint the OpenAPI spec
+        run: npx --yes @redocly/cli@2.71.0 lint
