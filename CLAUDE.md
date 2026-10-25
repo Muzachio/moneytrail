@@ -20,7 +20,7 @@ cd backend
 ./gradlew bootRun               # run locally (starts Postgres via compose.yaml)
 
 cd frontend
-npm run dev | npm test | npm run lint | npm run generate:api
+npm run dev | npm test | npm run lint | npm run typecheck | npm run format | npm run generate:api
 
 npx @redocly/cli lint           # lint api/openapi.yaml (from the repository root)
 ```
