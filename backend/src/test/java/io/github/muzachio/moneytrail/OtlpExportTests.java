@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.MethodMode;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -55,7 +57,10 @@ class OtlpExportTests extends PostgresIntegrationTest {
         collector.stop(0);
     }
 
+    // The context publishes a last batch of metrics when it closes, so it must close while the
+    // collector is still running, not at the end of the JVM.
     @Test
+    @DirtiesContext(methodMode = MethodMode.AFTER_METHOD)
     void exportsTracesAndMetricsOfHttpRequests() {
         assertThat(mvc.get().uri("/v1/health")).hasStatusOk();
         tracerProvider.forceFlush();

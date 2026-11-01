@@ -115,6 +115,10 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // One line per test in the build output, so CI logs show which tests ran.
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
 
 // Logback is configured once per JVM, so a test that needs the production log format (JSON)
