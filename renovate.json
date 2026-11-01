@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/Lisbon",
+  "schedule": ["* 0-8 * * 1"],
+  "minimumReleaseAge": "3 days",
+  "commitMessageLowerCase": "never",
+  "semanticCommitScope": "deps",
+  "packageRules": [
+    {
+      "description": "Commit type per CLAUDE.md: dependencies are build changes.",
+      "matchPackageNames": ["*"],
+      "semanticCommitType": "build"
+    },
+    {
+      "description": "GitHub Actions updates change the CI.",
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "ci"
+    },
+    {
+      "description": "Minor, patch and digest updates arrive together in one weekly PR; majors stay separate.",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "groupName": "non-major dependencies",
+      "groupSlug": "non-major"
+    },
+    {
+      "description": "Postgres stays on Neon's major version (ADR-0008); that upgrade is done on purpose.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
