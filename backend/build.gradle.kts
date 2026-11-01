@@ -33,6 +33,8 @@ dependencyManagement {
 dependencies {
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
@@ -48,6 +50,8 @@ dependencies {
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.spring.boot.starter.jdbc.test)
     testImplementation(libs.spring.boot.starter.flyway.test)
+    testImplementation(libs.spring.boot.starter.actuator.test)
+    testImplementation(libs.spring.boot.starter.opentelemetry.test)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
@@ -81,6 +85,9 @@ openApiGenerate {
         "annotationLibrary" to "none",
         // Without it every build writes a new date into the sources and recompiles them.
         "hideGenerationTimestamp" to "true",
+        // Explicit defaults: JSON inclusion and null handling stay with the global ObjectMapper.
+        "generateJsonIncludeAnnotations" to "false",
+        "generateJsonSetterNullsAnnotations" to "false",
     )
 }
 
@@ -110,10 +117,32 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Logback is configured once per JVM, so a test that needs the production log format (JSON)
+// cannot run after other Spring tests have set up logging. It gets a fresh JVM of its own.
+val structuredLoggingTest = tasks.register<Test>("structuredLoggingTest") {
+    description = "Checks the production (JSON) log format in a fresh JVM."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter { includeTestsMatching("*StructuredLoggingTests") }
+}
+
+tasks.test {
+    filter { excludeTestsMatching("*StructuredLoggingTests") }
+}
+
+tasks.check {
+    dependsOn(structuredLoggingTest)
+}
+
 // Locally the app only listens on this machine: no firewall prompt and nothing exposed on the
 // network. Only bootRun is affected; the production jar keeps listening on all interfaces.
 tasks.bootRun {
     systemProperty("server.address", "127.0.0.1")
+    // ./gradlew bootRun -Pobservability also starts the local Grafana stack (compose.yaml).
+    if (project.hasProperty("observability")) {
+        systemProperty("spring.profiles.active", "observability")
+    }
 }
 
 spotless {

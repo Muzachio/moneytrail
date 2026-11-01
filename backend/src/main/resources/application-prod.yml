@@ -1,0 +1,6 @@
+# Production. One JSON object per log line (Elastic Common Schema), so the log backend can
+# search by field, including the traceId and userId that every request line carries.
+logging:
+  structured:
+    format:
+      console: ecs

@@ -1,0 +1,14 @@
+# Local observability stack: ./gradlew bootRun -Pobservability
+# Starts the grafana/otel-lgtm container from compose.yaml; Spring Boot points the OTLP
+# exporters at it automatically. Grafana: http://127.0.0.1:3000
+spring:
+  docker:
+    compose:
+      profiles:
+        active: observability
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: true
