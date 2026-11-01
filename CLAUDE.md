@@ -77,7 +77,8 @@ included, so private data must never reach a commit.
 - Conventional Commits, in English: `<type>(<scope>): <Description>`.
   - Type in lowercase: `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`, `perf`.
   - Scope is a module (`ledger`, `personal`, `groups`, `budgets`, `invoices`, `imports`,
-    `reports`, `identity`, `shared`) or `api`, `frontend`, `db`, `deploy`, `adr`.
+    `reports`, `identity`, `shared`) or `api`, `frontend`, `db`, `deploy`, `adr`, `deps`
+    (dependency updates).
   - Description starts with a capital letter, imperative mood, no final period, first
     line ≤ 72 chars. Example: `feat(ledger): Add Money record with minor units`.
   - The body explains *why*. Breaking changes use `!` (`feat(api)!: …`) plus a
@@ -86,6 +87,9 @@ included, so private data must never reach a commit.
 - Branches: `<prefix>/<issue number>-<short-description>`. The prefix is `feature/` for
   `feat`, `bugfix/` for `fix`, otherwise the commit type (`docs/`, `build/`, `ci/`, …).
   E.g. `feature/14-money-record`, `bugfix/31-balance-lock-order`.
+- Renovate (`renovate.json`) opens the dependency PRs on `renovate/…` branches with
+  `build(deps)` / `ci(deps)` titles, weekly on Monday mornings. They need the same green
+  checks and a human squash merge; there is no issue to tick for them.
 - PR title follows the commit format, the description includes `Closes #<issue>`, and PRs
   are merged with "Squash and merge".
 - For every PR, verify each "Done when" item of the linked issue against real evidence
