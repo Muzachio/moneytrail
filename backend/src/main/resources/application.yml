@@ -1,3 +1,29 @@
 spring:
   application:
     name: moneytrail
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health: env, beans, configprops and friends would leak configuration.
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # Not ready to take traffic while the database is unreachable.
+          include: readinessState,db
+  tracing:
+    sampling:
+      # Low traffic: keep every trace.
+      probability: 1.0
+  otlp:
+    metrics:
+      export:
+        # Off unless a collector exists (observability profile locally, Grafana Cloud in
+        # production); otherwise every export attempt would log a connection error.
+        enabled: false

@@ -52,3 +52,7 @@ their own throwaway Postgres with Testcontainers.
 cd backend; ./gradlew bootRun      # starts Postgres through compose.yaml automatically
 cd frontend; npm install; npm run dev
 ```
+
+To look at traces and metrics, start the backend with `./gradlew bootRun -Pobservability`
+instead. It also starts a local Grafana stack (`grafana/otel-lgtm`, about 1 GB to download
+the first time) and Grafana opens at http://127.0.0.1:3000.

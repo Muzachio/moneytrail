@@ -18,6 +18,7 @@ cd backend
 ./gradlew test --tests '*Ledger*'
 ./gradlew spotlessApply         # format
 ./gradlew bootRun               # run locally (starts Postgres via compose.yaml)
+./gradlew bootRun -Pobservability  # also starts Grafana (traces, metrics) on http://127.0.0.1:3000
 
 cd frontend
 npm run dev | npm test | npm run lint | npm run typecheck | npm run format | npm run generate:api

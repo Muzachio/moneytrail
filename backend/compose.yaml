@@ -1,5 +1,6 @@
-# Local development database, started by Spring Boot's docker-compose support on bootRun.
-# The credentials only exist inside this local container; production uses Fly secrets.
+# Local development services, started by Spring Boot's docker-compose support on bootRun.
+# The credentials only exist inside these local containers; production uses Fly secrets.
+# Every port is bound to 127.0.0.1, so nothing is reachable from the network.
 services:
   postgres:
     image: postgres:18
@@ -8,11 +9,21 @@ services:
       POSTGRES_USER: moneytrail
       POSTGRES_PASSWORD: moneytrail
     ports:
-      # Bound to localhost only, so the database is not reachable from the network.
       - "127.0.0.1::5432"
     volumes:
       # Postgres 18 images keep their data under /var/lib/postgresql (not .../data).
       - postgres-data:/var/lib/postgresql
+
+  # Grafana with Tempo (traces), Prometheus (metrics), Loki (logs) and an OpenTelemetry
+  # collector in one container. Only started with ./gradlew bootRun -Pobservability.
+  grafana-lgtm:
+    image: grafana/otel-lgtm:0.37.0
+    profiles: [observability]
+    ports:
+      # Fixed port so the Grafana link is always http://127.0.0.1:3000
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1::4317"
+      - "127.0.0.1::4318"
 
 volumes:
   postgres-data:
