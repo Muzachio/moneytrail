@@ -8,6 +8,9 @@
   "timezone": "Europe/Lisbon",
   "schedule": ["* 0-8 * * 1"],
   "minimumReleaseAge": "3 days",
+  "constraints": {
+    "npm": "^11"
+  },
   "commitMessageLowerCase": "never",
   "semanticCommitScope": "deps",
   "packageRules": [
