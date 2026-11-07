@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 @AutoConfigureMockMvc
@@ -37,6 +38,7 @@ class ApiEndpointsTests extends PostgresIntegrationTest {
     }
 
     @Test
+    @WithMockUser
     void unknownPathIsNotFoundProblemWithCode() {
         assertThat(mvc.get().uri("/v1/does-not-exist"))
                 .hasStatus(HttpStatus.NOT_FOUND)
@@ -44,5 +46,11 @@ class ApiEndpointsTests extends PostgresIntegrationTest {
                 .bodyJson()
                 .extractingPath("$.code")
                 .isEqualTo("not_found");
+    }
+
+    @Test
+    void unknownPathWithoutSessionIsUnauthenticated() {
+        // Without a session nothing beyond the health check answers, not even with a 404.
+        assertThat(mvc.get().uri("/v1/does-not-exist")).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 }

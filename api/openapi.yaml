@@ -40,7 +40,7 @@ paths:
       operationId: getCurrentUser
       tags: [identity]
       summary: Get the signed-in user
-      description: Returns the user of the current session. Until sign-in exists, every call returns 401.
+      description: Returns the user of the current session. Without a session (or after sign-out) it returns 401.
       responses:
         '200':
           description: The signed-in user.

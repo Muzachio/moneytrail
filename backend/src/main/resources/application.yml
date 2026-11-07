@@ -1,6 +1,24 @@
 spring:
   application:
     name: moneytrail
+  config:
+    # Local secrets (the Google OAuth client) live in backend/.env, which git ignores.
+    # .env.example lists the keys.
+    import: optional:file:.env[.properties]
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # The placeholders let the app start before an OAuth client exists; signing in then
+            # fails at Google. Production requires real values (application-prod.yml).
+            client-id: ${GOOGLE_CLIENT_ID:not-configured}
+            client-secret: ${GOOGLE_CLIENT_SECRET:not-configured}
+            scope: openid, email, profile
+  session:
+    jdbc:
+      # Flyway owns the schema (V3__spring_session.sql).
+      initialize-schema: never
 
 management:
   endpoints:
