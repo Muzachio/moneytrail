@@ -143,6 +143,15 @@ tasks.check {
     dependsOn(structuredLoggingTest)
 }
 
+// One artifact with a fixed name, so backend/Dockerfile does not depend on the version.
+tasks.jar {
+    enabled = false
+}
+
+tasks.bootJar {
+    archiveFileName = "moneytrail.jar"
+}
+
 // Locally the app only listens on this machine: no firewall prompt and nothing exposed on the
 // network. Only bootRun is affected; the production jar keeps listening on all interfaces.
 tasks.bootRun {

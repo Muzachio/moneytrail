@@ -70,6 +70,40 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The same image that will run in production (ADR-0008), built but not pushed: the
+      # deploy pipeline on main publishes it.
+      - name: Build the backend image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: backend/Dockerfile
+          tags: moneytrail-backend:ci
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Fails on HIGH or CRITICAL vulnerabilities that already have a fix, in the OS packages
+      # or the Java libraries. Pinned by commit to an immutable release: the action's tags were
+      # rewritten in the March 2026 supply chain attack (CVE-2026-33634).
+      - name: Scan the image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: moneytrail-backend:ci
+          version: v0.76.2
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
   api-spec:
     runs-on: ubuntu-latest
     timeout-minutes: 5

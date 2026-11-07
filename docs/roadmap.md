@@ -17,7 +17,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] `api/openapi.yaml` with `GET /v1/health` and `GET /v1/me`. Server interfaces generated
 - [x] `frontend/`: Vite + React + TS, Tailwind + shadcn/ui, generated client, layout shell
 - [x] Google login end to end (Spring Security OAuth2 + Spring Session JDBC)
-- [ ] CI (GitHub Actions): build, test, spec lint, frontend lint/test, image build and scan
+- [x] CI (GitHub Actions): build, test, spec lint, frontend lint/test, image build and scan
 - [ ] CD: Fly.io app (api + worker process groups), Neon database, Cloudflare Pages, custom domain
 - [ ] Structured logs, Actuator health, OTLP export to Grafana Cloud
 
