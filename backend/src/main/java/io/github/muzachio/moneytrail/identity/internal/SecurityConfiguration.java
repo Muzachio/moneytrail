@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.identity.internal;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.session.autoconfigure.DefaultCookieSerializerCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,8 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
  * redirect by default; SignInTests pins that.
  */
 @Configuration(proxyBeanMethods = false)
+// The worker process (application-worker.yml) has no HTTP server, so nothing here applies to it.
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties(WebProperties.class)
 class SecurityConfiguration {
 

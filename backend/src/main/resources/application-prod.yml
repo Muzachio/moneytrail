@@ -14,6 +14,20 @@ spring:
             # No placeholder: without the Fly secrets the app must refuse to start.
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
+  # The connection itself comes from the Fly secrets SPRING_DATASOURCE_URL, _USERNAME and
+  # _PASSWORD (docs/deploy.md).
+  datasource:
+    hikari:
+      # Neon's free compute stops after a few idle minutes and wakes on the next query. Idle
+      # connections close after a minute, so they do not hold it awake; a handful is plenty here.
+      maximum-pool-size: 5
+      minimum-idle: 0
+      # Milliseconds: Hikari binds this as a plain number, "60s" stops the app from starting.
+      idle-timeout: 60000
+  session:
+    jdbc:
+      # Deleting expired sessions every minute (the default) would wake Neon around the clock.
+      cleanup-cron: "0 0 * * * *"
 
 # The app and the API on subdomains of one domain (ADR-0007), e.g. MONEYTRAIL_APP_URL
 # https://app.example.com and MONEYTRAIL_COOKIE_DOMAIN example.com. No defaults, like the
@@ -28,3 +42,7 @@ server:
   # Without trusting it the app would think it is on HTTP and send Google an http:// redirect
   # URI. Every request reaches the app through that proxy.
   forward-headers-strategy: framework
+  tomcat:
+    threads:
+      # A few friends on a 512 MB machine: 50 threads instead of 200 saves their stack memory.
+      max: 50

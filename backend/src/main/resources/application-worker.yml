@@ -1,0 +1,5 @@
+# The worker process group (backend/fly.toml): the same image and code as the API, without an
+# HTTP server, for background work (imports, budget alerts) once there is some.
+spring:
+  main:
+    web-application-type: none
