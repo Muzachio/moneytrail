@@ -64,8 +64,17 @@ The deploy token expires after a year: renew it and update the GitHub secret.
 
 ### 3. Cloudflare
 
-- **DNS** (zone `muzachio.dev`): `CNAME` `api.moneytrail` → `moneytrail-api.fly.dev`, proxy status
-  **DNS only**. Fly.io terminates HTTPS and issues the certificate itself.
+- **DNS** (zone `muzachio.dev`), the records `fly certs setup api.moneytrail.muzachio.dev` prints,
+  all with proxy status **DNS only** (Fly.io terminates HTTPS and issues the certificate itself):
+
+  | Type | Name | Target |
+  |---|---|---|
+  | `CNAME` | `api.moneytrail` | `oq21go5.moneytrail-api.fly.dev` |
+  | `CNAME` | `_acme-challenge.api.moneytrail` | `api.moneytrail.muzachio.dev.oq21go5.flydns.net` |
+  | `TXT` | `_fly-ownership.api.moneytrail` | `app-oq21go5` |
+
+  The ACME record lets Fly.io issue the certificate before the first deploy; the TXT record
+  proves ownership while the app has no IPv6 address yet.
 - **API token** (My Profile → API Tokens → Create Token → Custom): permission
   *Account · Cloudflare Pages · Edit*, for your account only. → GitHub secret `CLOUDFLARE_API_TOKEN`.
 - **Account ID** (shown on the account's overview page) → GitHub secret `CLOUDFLARE_ACCOUNT_ID`.
