@@ -1,18 +1,18 @@
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from '@/api/client'
+import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/renderApp'
 
 describe('AppLayout', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(api, 'GET').mockResolvedValue({ data: { status: 'UP' } } as never)
+    mockApi()
   })
 
-  it('shows the main navigation and the summary page', () => {
+  it('shows the main navigation and the summary page', async () => {
     renderApp('/')
 
-    const nav = screen.getByRole('navigation', { name: 'Main' })
+    const nav = await screen.findByRole('navigation', { name: 'Main' })
     expect(nav).toHaveTextContent('Summary')
     expect(nav).toHaveTextContent('Accounts')
     expect(nav).toHaveTextContent('Transactions')
@@ -21,11 +21,11 @@ describe('AppLayout', () => {
     ).toBeInTheDocument()
   })
 
-  it('marks the link of the current page as active', () => {
+  it('marks the link of the current page as active', async () => {
     renderApp('/accounts')
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Accounts' }),
+      await screen.findByRole('heading', { level: 1, name: 'Accounts' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Accounts' })).toHaveAttribute(
       'aria-current',
@@ -33,11 +33,11 @@ describe('AppLayout', () => {
     )
   })
 
-  it('shows a not found page for unknown paths', () => {
+  it('shows a not found page for unknown paths', async () => {
     renderApp('/does-not-exist')
 
     expect(
-      screen.getByRole('heading', { level: 1, name: 'Page not found' }),
+      await screen.findByRole('heading', { level: 1, name: 'Page not found' }),
     ).toBeInTheDocument()
   })
 })

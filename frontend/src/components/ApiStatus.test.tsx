@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/api/client'
+import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/renderApp'
 
 describe('ApiStatus', () => {
@@ -9,9 +10,7 @@ describe('ApiStatus', () => {
   })
 
   it('shows the API as online when the health check answers UP', async () => {
-    const get = vi
-      .spyOn(api, 'GET')
-      .mockResolvedValue({ data: { status: 'UP' } } as never)
+    const get = mockApi()
 
     renderApp()
 
@@ -25,5 +24,8 @@ describe('ApiStatus', () => {
     renderApp()
 
     expect(await screen.findByText('API offline')).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Could not load your account/),
+    ).toBeInTheDocument()
   })
 })
