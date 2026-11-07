@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiBaseUrl } from './client'
+import { api, apiBaseUrl, withCookies } from './client'
 import { csrfHeaders } from './csrf'
 import type { components } from './schema'
 
@@ -39,6 +39,7 @@ export function useSignOut() {
       const response = await fetch(new URL('/logout', apiBaseUrl), {
         method: 'POST',
         headers: csrfHeaders(),
+        credentials: withCookies,
       })
       if (!response.ok) {
         throw new Error(`Signing out failed (${response.status})`)

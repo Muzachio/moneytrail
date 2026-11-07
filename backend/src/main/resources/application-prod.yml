@@ -14,3 +14,17 @@ spring:
             # No placeholder: without the Fly secrets the app must refuse to start.
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
+
+# The app and the API on subdomains of one domain (ADR-0007), e.g. MONEYTRAIL_APP_URL
+# https://app.example.com and MONEYTRAIL_COOKIE_DOMAIN example.com. No defaults, like the
+# Google client: a missing value stops the app from starting.
+moneytrail:
+  web:
+    app-url: ${MONEYTRAIL_APP_URL}
+    csrf-cookie-domain: ${MONEYTRAIL_COOKIE_DOMAIN}
+
+server:
+  # HTTPS ends at Fly.io's proxy, which forwards plain HTTP with X-Forwarded-Proto: https.
+  # Without trusting it the app would think it is on HTTP and send Google an http:// redirect
+  # URI. Every request reaches the app through that proxy.
+  forward-headers-strategy: framework

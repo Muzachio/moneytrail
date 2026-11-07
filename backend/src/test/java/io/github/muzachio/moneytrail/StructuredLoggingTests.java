@@ -18,8 +18,14 @@ import org.springframework.test.context.TestPropertySource;
 
 /** The production log format: one JSON line per event, carrying the traceId and the MDC. */
 @ActiveProfiles("prod")
-// The prod profile refuses to start without the Google client (application-prod.yml).
-@TestPropertySource(properties = {"GOOGLE_CLIENT_ID=test-client-id", "GOOGLE_CLIENT_SECRET=test-client-secret"})
+// The prod profile refuses to start without these (application-prod.yml).
+@TestPropertySource(
+        properties = {
+            "GOOGLE_CLIENT_ID=test-client-id",
+            "GOOGLE_CLIENT_SECRET=test-client-secret",
+            "MONEYTRAIL_APP_URL=https://app.example.com",
+            "MONEYTRAIL_COOKIE_DOMAIN=example.com"
+        })
 @AutoConfigureTracing
 @ExtendWith(OutputCaptureExtension.class)
 class StructuredLoggingTests extends PostgresIntegrationTest {

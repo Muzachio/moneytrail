@@ -53,6 +53,7 @@ describe('AccountMenu', () => {
     expect(init).toMatchObject({
       method: 'POST',
       headers: { 'X-XSRF-TOKEN': 'test-csrf-token' },
+      credentials: 'include',
     })
   })
 })
