@@ -17,6 +17,11 @@ RUN --mount=type=cache,target=/root/.gradle \
 RUN java -Djarmode=tools -jar build/libs/moneytrail.jar extract --layers --destination /workspace/extracted
 
 FROM eclipse-temurin:25-jre-noble@sha256:a98128a57de944a72bd31fbc79b898edd5a5864d3652071d5bbd2160ab7d7dce
+# Ubuntu security fixes released after the base image was built: the CI scan fails on fixable
+# HIGH and CRITICAL vulnerabilities, and the base image is only rebuilt every few weeks.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 # A user without a shell or home: if someone breaks into the app, they are not root.
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin moneytrail
 WORKDIR /app
