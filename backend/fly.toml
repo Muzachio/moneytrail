@@ -1,0 +1,40 @@
+# The backend on Fly.io (ADR-0008). .github/workflows/deploy.yml deploys the image it pushed to
+# GitHub Container Registry; secrets are set once in Fly (docs/deploy.md), never here.
+app = "moneytrail-api"
+# Frankfurt, next to the Neon database (AWS eu-central-1): every request runs several queries.
+primary_region = "fra"
+
+[env]
+  MONEYTRAIL_APP_URL = "https://moneytrail.muzachio.dev"
+  MONEYTRAIL_COOKIE_DOMAIN = "moneytrail.muzachio.dev"
+  # Sized for a 512 MB machine: a smaller heap share leaves room for metaspace, threads and the
+  # OS, the serial collector needs the least memory of its own, and threads get smaller stacks.
+  JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError"
+
+# Arguments to the image's `java -jar moneytrail.jar`.
+[processes]
+  api = "--spring.profiles.active=prod"
+  # Background work from M1 on. Kept at 0 machines until there is some (see deploy.yml).
+  worker = "--spring.profiles.active=prod,worker"
+
+[http_service]
+  processes = ["api"]
+  internal_port = 8080
+  force_https = true
+  # Spring Boot takes ~10 s to start: keep one machine running instead of waking it per visit.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # Liveness, not readiness: readiness also queries the database, and checking it every 15 s
+  # would keep Neon's free compute from ever going to sleep.
+  [[http_service.checks]]
+    grace_period = "40s"
+    interval = "15s"
+    timeout = "5s"
+    method = "GET"
+    path = "/actuator/health/liveness"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

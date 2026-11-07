@@ -1,0 +1,98 @@
+# Deployment
+
+How `main` reaches production (ADR-0008), and the one-time setup behind it. Secret values are
+typed straight into Fly.io, GitHub or Cloudflare; they never go into this repository or a chat.
+
+## Production
+
+| Piece | Where | Address |
+|---|---|---|
+| App (frontend) | Cloudflare Pages project `moneytrail` | https://moneytrail.muzachio.dev |
+| API (backend) | Fly.io app `moneytrail-api`, region `fra`, one `shared-cpu-1x` machine with 512 MB | https://api.moneytrail.muzachio.dev |
+| Database | Neon project `moneytrail`, AWS Europe Central 1 (Frankfurt), Postgres 18, branch `production` | not public |
+| Images | `ghcr.io/muzachio/moneytrail-api`, public | |
+| DNS and domain | Cloudflare, zone `muzachio.dev` | |
+
+## What a deploy does
+
+Every push to `main` runs CI. When CI passes, `.github/workflows/deploy.yml`:
+
+1. builds the backend image and pushes `ghcr.io/muzachio/moneytrail-api:<commit>`;
+2. scans that image with Trivy (fails on fixable HIGH/CRITICAL);
+3. applies Flyway migrations to Neon; a failing migration stops the deploy while the running
+   version keeps serving;
+4. deploys the image to Fly.io (the first deploy creates the machines and scales the `worker`
+   group to 0; later deploys only update the existing machines);
+5. checks `GET /v1/health` and that `GET /v1/me` answers 401;
+6. builds the frontend with `VITE_API_BASE_URL=https://api.moneytrail.muzachio.dev` and uploads it to
+   Cloudflare Pages (creating the project on the first run);
+7. checks that the app's page loads.
+
+A failed run can be re-run from the Actions tab once the cause is fixed.
+
+## One-time setup
+
+Done once, in this order, before the first deploy.
+
+### 1. Neon
+
+- Project `moneytrail`, region AWS Europe Central 1 (Frankfurt), Postgres 18.
+- In **Connect**, choose the **direct** connection (not the pooled one; Flyway needs a direct one)
+  and note host, database, user and password. As JDBC:
+  `jdbc:postgresql://<host>/<database>?sslmode=require`.
+
+### 2. Fly.io
+
+With [`flyctl`](https://fly.io/docs/flyctl/install/), after `fly auth login`:
+
+```
+fly apps create moneytrail-api --org personal
+fly tokens create deploy --app moneytrail-api --expiry 8760h   # → GitHub secret FLY_API_TOKEN
+fly certs add api.moneytrail.muzachio.dev --app moneytrail-api
+```
+
+Secrets, in the dashboard (**moneytrail-api → Secrets**), so the values never reach a shell history:
+
+| Secret | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | the Google OAuth client |
+| `SPRING_DATASOURCE_URL` | the Neon JDBC URL above |
+| `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | the Neon user and password |
+
+`MONEYTRAIL_APP_URL` and `MONEYTRAIL_COOKIE_DOMAIN` are not secret; they are in `backend/fly.toml`.
+The deploy token expires after a year: renew it and update the GitHub secret.
+
+### 3. Cloudflare
+
+- **DNS** (zone `muzachio.dev`): `CNAME` `api.moneytrail` → `moneytrail-api.fly.dev`, proxy status
+  **DNS only**. Fly.io terminates HTTPS and issues the certificate itself.
+- **API token** (My Profile → API Tokens → Create Token → Custom): permission
+  *Account · Cloudflare Pages · Edit*, for your account only. → GitHub secret `CLOUDFLARE_API_TOKEN`.
+- **Account ID** (shown on the account's overview page) → GitHub secret `CLOUDFLARE_ACCOUNT_ID`.
+- After the first deploy created the Pages project: **Workers & Pages → moneytrail → Custom
+  domains → Set up a custom domain** → `moneytrail.muzachio.dev`. Cloudflare adds the DNS record.
+
+### 4. Google
+
+On the OAuth client (Google Auth Platform):
+
+- **Clients → MoneyTrail web → Authorized redirect URIs**: add
+  `https://api.moneytrail.muzachio.dev/login/oauth2/code/google`; keep the local one.
+- **Branding → Authorized domains**: add `muzachio.dev`.
+
+### 5. GitHub
+
+- **Settings → Environments → New environment** `production`, deployment branches limited to
+  `main`.
+- Its secrets, one by one with `gh secret set <NAME> --env production` (prompts for the value):
+  `FLY_API_TOKEN`, `DATABASE_URL` (the Neon JDBC URL), `DATABASE_USERNAME`, `DATABASE_PASSWORD`,
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+
+### 6. First deploy
+
+1. Merge to `main`. The first run pushes the image, which GitHub creates as a **private** package,
+   so the Fly.io step fails to pull it.
+2. Make it public: **github.com → Packages → moneytrail-api → Package settings → Change
+   visibility → Public**. The repository is public and the image holds no secrets.
+3. Re-run the failed jobs. After that, every green CI run on `main` deploys on its own.
+4. Add the Pages custom domain (step 3) and check https://moneytrail.muzachio.dev.

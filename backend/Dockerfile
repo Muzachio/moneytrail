@@ -33,5 +33,8 @@ USER 10001
 EXPOSE 8080
 # The heap gets 75% of the machine's memory; metaspace, threads and the OS need the rest.
 # On OutOfMemoryError the process exits, so the platform restarts it instead of leaving a
-# half-working JVM running.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+ExitOnOutOfMemoryError", "-jar", "moneytrail.jar"]
+# half-working JVM running. An environment variable, so a smaller machine can override it
+# (backend/fly.toml) without a new image.
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+# Arguments after the image name (fly.toml's process groups) go to Spring Boot.
+ENTRYPOINT ["java", "-jar", "moneytrail.jar"]

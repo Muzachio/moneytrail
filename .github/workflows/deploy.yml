@@ -1,0 +1,160 @@
+name: Deploy
+
+# Every push to main whose CI passed goes live (ADR-0008). It runs after CI instead of
+# repeating it: that commit was already built, tested and scanned there. One-time setup of the
+# accounts and secrets: docs/deploy.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One deploy at a time, and a newer one waits instead of cancelling a half-done deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha }}
+  IMAGE: ghcr.io/muzachio/moneytrail-api
+  API_URL: https://api.moneytrail.muzachio.dev
+  APP_URL: https://moneytrail.muzachio.dev
+
+jobs:
+  api:
+    # Only CI runs of pushes to main that passed; pull request runs never deploy.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tagged with the commit, so every deploy points at exactly one commit.
+      - name: Build and push the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: backend/Dockerfile
+          tags: ${{ env.IMAGE }}:${{ env.SHA }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The image is rebuilt here (with the Ubuntu updates of today), so the one that will run
+      # is scanned too. Same pin and rules as the CI job (CVE-2026-33634).
+      - name: Scan the image that will run
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ env.SHA }}
+          version: v0.76.2
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Before the new code runs, and stops the deploy if a migration fails; the running version
+      # keeps serving meanwhile. Same Flyway version as the app (Spring Boot's BOM).
+      - name: Apply database migrations
+        uses: docker://flyway/flyway:12.4.0@sha256:5be18367a9b3979a9f37234c371b80da457a448fb9577bd94d4bf24d923fafac
+        env:
+          FLYWAY_URL: ${{ secrets.DATABASE_URL }}
+          FLYWAY_USER: ${{ secrets.DATABASE_USERNAME }}
+          FLYWAY_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          FLYWAY_LOCATIONS: filesystem:/github/workspace/backend/src/main/resources/db/migration
+        with:
+          args: migrate
+
+      - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+        with:
+          version: 0.5.5
+
+      # The worker group stays at 0 machines until M1 (fly.toml). A plain deploy launches a
+      # machine for every empty group, so only the first deploy is plain; later ones update the
+      # existing machines (--update-only). --ha=false: one machine, not a costly standby.
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          api_machines=$(flyctl machines list --app moneytrail-api --json \
+            | jq '[.[] | select(.config.metadata.fly_process_group == "api")] | length')
+          if [ "$api_machines" -eq 0 ]; then
+            flyctl deploy --config backend/fly.toml --image "$IMAGE:$SHA" --ha=false --wait-timeout 5m
+            flyctl scale count worker=0 --app moneytrail-api --yes
+          else
+            flyctl deploy --config backend/fly.toml --image "$IMAGE:$SHA" --update-only --wait-timeout 5m
+          fi
+
+      - name: Smoke test the API
+        run: |
+          curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors \
+            "$API_URL/v1/health" | grep --quiet '"status":"UP"'
+          # Without a session the API must refuse with 401, not fail.
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$API_URL/v1/me")" = 401
+
+  app:
+    needs: api
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      # The API's address is fixed at build time (src/api/client.ts).
+      - run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ env.API_URL }}
+
+      - name: Create the Pages project on the first deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          projects="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          if ! curl --silent --fail --header "$auth" "$projects/moneytrail" > /dev/null; then
+            curl --silent --show-error --fail --header "$auth" --header "Content-Type: application/json" \
+              --data '{"name":"moneytrail","production_branch":"main"}' "$projects" > /dev/null
+          fi
+
+      # Without a 404.html Pages serves index.html for unknown paths, which the SPA router needs.
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: 4.158.0
+          command: pages deploy frontend/dist --project-name=moneytrail --branch=main --commit-hash=${{ env.SHA }}
+
+      - name: Smoke test the app
+        run: |
+          curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors \
+            "$APP_URL/" | grep --quiet '<title>MoneyTrail</title>'
