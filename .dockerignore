@@ -1,0 +1,9 @@
+# The backend image only needs api/ and backend/ (see backend/Dockerfile). Everything else,
+# above all local secrets, stays out of the build context.
+*
+!api/
+!backend/
+backend/build/
+backend/.gradle/
+**/.env
+**/.env.*

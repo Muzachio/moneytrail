@@ -24,6 +24,7 @@ cd frontend
 npm run dev | npm test | npm run lint | npm run typecheck | npm run format | npm run generate:api
 
 npx @redocly/cli lint           # lint api/openapi.yaml (from the repository root)
+docker build -f backend/Dockerfile -t moneytrail-backend .   # production image (from the repository root)
 ```
 
 ## Non-negotiable rules (money)
