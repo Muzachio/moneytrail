@@ -7,9 +7,17 @@ import type { paths } from './schema'
 export const apiBaseUrl: string =
   import.meta.env.VITE_API_BASE_URL ?? window.location.origin
 
+// Sent with every API call: across origins (app.<domain> → api.<domain>) the browser only
+// attaches the session cookie when asked to. The API's CORS rules accept that for the app's
+// origin alone.
+export const withCookies: RequestCredentials = 'include'
+
 // Typed from api/openapi.yaml: a path, parameter or response that the spec does not declare
 // fails type-checking.
-export const api = createClient<paths>({ baseUrl: apiBaseUrl })
+export const api = createClient<paths>({
+  baseUrl: apiBaseUrl,
+  credentials: withCookies,
+})
 
 api.use({
   onRequest({ request }) {
