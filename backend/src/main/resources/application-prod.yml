@@ -4,3 +4,13 @@ logging:
   structured:
     format:
       console: ecs
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # No placeholder: without the Fly secrets the app must refuse to start.
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}

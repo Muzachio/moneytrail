@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 @AutoConfigureMockMvc
@@ -37,6 +38,7 @@ class ActuatorTests extends PostgresIntegrationTest {
     }
 
     @Test
+    @WithMockUser // Without a session the answer would be 401; even signed in they must not exist.
     void sensitiveEndpointsAreNotExposed() {
         assertThat(mvc.get().uri("/actuator/env")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(mvc.get().uri("/actuator/beans")).hasStatus(HttpStatus.NOT_FOUND);
