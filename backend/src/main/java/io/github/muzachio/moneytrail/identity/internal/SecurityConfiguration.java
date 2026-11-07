@@ -52,6 +52,10 @@ class SecurityConfiguration {
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(signInUserService))
                         .defaultSuccessUrl("/", true)
                         .failureUrl("/?sign-in=failed"))
+                // The request cache saves a refused request in a new session, to resume it after
+                // sign-in. Sign-in always lands on "/", so it would only add a session row for
+                // every anonymous call.
+                .requestCache(cache -> cache.disable())
                 // An API answers 401/403 with a problem detail instead of redirecting to Google;
                 // the exceptions go through ProblemDetailsAdvice like any other error.
                 .exceptionHandling(exceptions -> exceptions

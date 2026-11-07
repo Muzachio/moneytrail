@@ -81,6 +81,15 @@ class SignInTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void anonymousApiCallsCreateNoSession() {
+        MvcTestResult result = mvc.get().uri("/v1/me").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+                .noneMatch(header -> header.startsWith(SESSION_COOKIE + "="));
+    }
+
+    @Test
     void sessionCookieSignsTheUserIn() {
         OidcUser account = TestUsers.googleAccount("Ana Teste", true);
         UUID userId = users.signIn(SignInProfile.of("google", account));
