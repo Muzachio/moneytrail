@@ -1,0 +1,53 @@
+package io.github.muzachio.moneytrail.ledger.internal;
+
+import io.github.muzachio.moneytrail.shared.DomainException;
+import java.util.Currency;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+
+/** A ledger rule was broken. The codes are listed on {@code LedgerService}. */
+final class LedgerException extends DomainException {
+
+    private LedgerException(HttpStatus status, String code, String message) {
+        super(status, code, message);
+    }
+
+    static LedgerException ledgerNotFound(UUID ledgerId) {
+        return new LedgerException(HttpStatus.NOT_FOUND, "ledger_not_found", "Ledger " + ledgerId + " does not exist.");
+    }
+
+    static LedgerException accountNotFound(UUID accountId) {
+        return new LedgerException(
+                HttpStatus.NOT_FOUND, "account_not_found", "Account " + accountId + " does not exist.");
+    }
+
+    static LedgerException tooFewPostings(int count) {
+        return invalid("too_few_postings", "A journal entry needs at least 2 postings, not " + count + ".");
+    }
+
+    static LedgerException zeroAmount() {
+        return invalid("zero_amount", "A posting cannot be zero.");
+    }
+
+    static LedgerException unbalancedEntry(Currency currency) {
+        return invalid("unbalanced_entry", "The " + currency + " postings do not sum to zero.");
+    }
+
+    static LedgerException amountTooLarge(Currency currency) {
+        return invalid("amount_too_large", "The " + currency + " postings add up to more than the ledger can hold.");
+    }
+
+    static LedgerException accountNotInLedger(UUID accountId, UUID ledgerId) {
+        return invalid("account_not_in_ledger", "Account " + accountId + " is not in ledger " + ledgerId + ".");
+    }
+
+    static LedgerException currencyMismatch(UUID accountId, Currency accountCurrency, Currency postingCurrency) {
+        return invalid(
+                "currency_mismatch",
+                "Account " + accountId + " is in " + accountCurrency + ", not " + postingCurrency + ".");
+    }
+
+    private static LedgerException invalid(String code, String message) {
+        return new LedgerException(HttpStatus.UNPROCESSABLE_CONTENT, code, message);
+    }
+}

@@ -28,6 +28,8 @@ build/
 *.class
 *.log
 hs_err_pid*
+# jqwik's record of failed property samples, replayed first on the next local run.
+.jqwik-database
 
 # --- Frontend (Node / Vite) ---
 node_modules/

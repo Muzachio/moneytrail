@@ -22,7 +22,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Structured logs, Actuator health, OTLP export to Grafana Cloud
 
 ## M1 — Personal finance MVP (v0.1)
-- [ ] `ledger`: `Money`, accounts, journal entries, postings, `LedgerService.post()` with validation
+- [x] `ledger`: `Money`, accounts, journal entries, postings, `LedgerService.post()` with validation
 - [ ] DB guarantees: deferred balance trigger, immutability triggers, composite currency FK
 - [ ] `account_balances` projection with ordered `FOR UPDATE` locking
 - [ ] jqwik property tests + concurrency test for the ledger

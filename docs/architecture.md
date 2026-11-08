@@ -173,7 +173,7 @@ accounts         (id uuid pk, ledger_id fk, kind text, subtype text, name, curre
                   archived_at, created_at, unique(id, currency))
 journal_entries  (id uuid pk, ledger_id fk, occurred_on date, description, merchant_tax_id,
                   reverses_entry_id fk null unique, created_by fk users, created_at)
-postings         (id bigserial pk, entry_id fk, account_id, currency,
+postings         (id bigint identity pk, entry_id fk, account_id, currency,
                   amount_minor bigint check (amount_minor <> 0),
                   fk(account_id, currency) → accounts(id, currency))
 account_balances (account_id pk fk, balance_minor bigint, version bigint, updated_at)
