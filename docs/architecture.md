@@ -28,11 +28,13 @@ flowchart LR
 |---|---|
 | App, profile `api` | REST API (`/v1`), authentication, validation, ledger writes, event publication |
 | App, profile `worker` | Event listeners and scheduled jobs: recurring transactions, CSV imports, budget alerts, FX rates, nightly ledger invariant check, idempotency key cleanup |
+| App, profile `migrate` | Fly.io's release command on every deploy: applies the Flyway migrations, then exits ([ADR-0009](adr/0009-migrations-as-release-command.md)) |
 | PostgreSQL | System of record, plus the sessions table, the event publication registry (outbox) and ShedLock locks. No Kafka or Redis to run or pay for |
 | Frontend | Vite SPA. Talks to the API through a TypeScript client generated from the OpenAPI spec |
 
-There is one artifact (a single jar / image) running in two roles. Locally and at the
-start of production both profiles can run in one process.
+There is one artifact (a single jar / image) running in two roles, plus a short `migrate`
+run on every deploy. Locally and at the start of production both roles can run in one
+process.
 
 ## Tech stack
 
@@ -43,7 +45,7 @@ start of production both profiles can run in one process.
 | Build | Gradle (Kotlin DSL), version catalog `gradle/libs.versions.toml` |
 | Modularity | Spring Modulith (`ApplicationModules.verify()` in tests, generated module docs) |
 | Persistence | Spring Data JPA (Hibernate) for aggregates. `JdbcClient` for reports and ledger hot paths |
-| Migrations | Flyway |
+| Migrations | Flyway. In production only the release command applies them; the other processes validate ([ADR-0009](adr/0009-migrations-as-release-command.md)) |
 | Events / outbox | Spring Modulith event publication registry (JDBC). Optional Kafka externalisation later |
 | Scheduling | `@Scheduled` + **ShedLock** (safe with more than one instance) |
 | API contract | OpenAPI 3.1, spec-first, `openapi-generator` (Spring interfaces + TS client) |

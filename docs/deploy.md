@@ -20,16 +20,21 @@ Every push to `main` runs CI. When CI passes, `.github/workflows/deploy.yml`:
 
 1. builds the backend image and pushes `ghcr.io/muzachio/moneytrail-api:<commit>`;
 2. scans that image with Trivy (fails on fixable HIGH/CRITICAL);
-3. applies Flyway migrations to Neon; a failing migration stops the deploy while the running
-   version keeps serving;
-4. deploys the image to Fly.io (the first deploy creates the machines and scales the `worker`
-   group to 0; later deploys only update the existing machines);
-5. checks `GET /v1/health` and that `GET /v1/me` answers 401;
-6. builds the frontend with `VITE_API_BASE_URL=https://api.moneytrail.muzachio.dev` and uploads it to
+3. deploys the image to Fly.io. Fly.io first runs the `release_command` of `backend/fly.toml`
+   (ADR-0009): a temporary machine starts the new image with the `migrate` profile, applies the
+   Flyway migrations to Neon and exits. A failing migration stops the deploy before any machine
+   changes, and the running version keeps serving. Then the first deploy creates the machines and
+   scales the `worker` group to 0; later deploys only update the existing machines. The `api`
+   process checks at startup that every migration was applied;
+4. checks `GET /v1/health` and that `GET /v1/me` answers 401;
+5. builds the frontend with `VITE_API_BASE_URL=https://api.moneytrail.muzachio.dev` and uploads it to
    Cloudflare Pages (creating the project on the first run);
-7. checks that the app's page loads.
+6. checks that the app's page loads.
 
-A failed run can be re-run from the Actions tab once the cause is fixed.
+A failed run can be re-run from the Actions tab once the cause is fixed. When the release command
+succeeds, the deploy log only says so; when it fails, flyctl tries to add its last 100 log lines.
+Either way, Flyway's own lines (`Successfully applied …`, or `Schema … is up to date`) are in
+`fly logs --app moneytrail-api` and in Grafana.
 
 ## One-time setup
 
@@ -40,9 +45,9 @@ Done once, in this order, before the first deploy.
 - Project `moneytrail`, region AWS Europe Central 1 (Frankfurt), Postgres 18.
 - In **Connect**, choose the **direct** connection (not the pooled one; Flyway needs a direct one).
   Neon shows `postgresql://<user>:<password>@<host>/<database>?sslmode=require&channel_binding=require`.
-  Java and Flyway need the JDBC form, **without** user and password (they are separate secrets):
-  `jdbc:postgresql://<host>/<database>?sslmode=require`. Neon's own form fails with "No Flyway
-  database plugin found".
+  The app, and the Flyway inside it, need the JDBC form, **without** user and password (they are
+  separate secrets): `jdbc:postgresql://<host>/<database>?sslmode=require`. Neon's own form is not
+  a JDBC URL.
 
 ### 2. Fly.io
 
@@ -63,6 +68,8 @@ Secrets, in the dashboard (**moneytrail-api → Secrets**), so the values never 
 | `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | the Neon user and password |
 | `GRAFANA_OTLP_AUTHORIZATION` | `Basic <…>`: Grafana Cloud → OpenTelemetry → *View connection details* → generate a token; take the `OTEL_EXPORTER_OTLP_HEADERS` value after `Authorization=`, with `%20` turned into a space |
 
+The release command migrates with the same `SPRING_DATASOURCE_*` secrets, so the database
+credentials live only here.
 `MONEYTRAIL_APP_URL`, `MONEYTRAIL_COOKIE_DOMAIN` and `GRAFANA_OTLP_ENDPOINT` (the stack's OTLP
 gateway) are not secret; they are in `backend/fly.toml`.
 The deploy token expires after a year: renew it and update the GitHub secret.
@@ -98,11 +105,10 @@ On the OAuth client (Google Auth Platform):
 
 - **Settings → Environments → New environment** `production`, deployment branches limited to
   `main`.
-- Its secrets: `FLY_API_TOKEN`, `DATABASE_URL` (the Neon **JDBC** URL), `DATABASE_USERNAME`,
-  `DATABASE_PASSWORD`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. Paste the values in the
-  environment's page (pencil → *Value* → *Update secret*), or pass them with `--body` /
+- Its secrets: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. Paste the values
+  in the environment's page (pencil → *Value* → *Update secret*), or pass them with `--body` /
   standard input. Not through the hidden prompt of a bare `gh secret set` on Windows: pasting
-  there stored empty values, which only showed up as an empty `FLYWAY_URL` in the deploy log.
+  there stored empty values, which only showed up when the deploy failed.
   The Fly.io token never needs to be seen:
   `fly tokens create deploy --app moneytrail-api --expiry 8760h | gh secret set FLY_API_TOKEN --env production`.
 

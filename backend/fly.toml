@@ -14,6 +14,14 @@ primary_region = "fra"
   # OS, the serial collector needs the least memory of its own, and threads get smaller stacks.
   JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError"
 
+# Database migrations (ADR-0009). On every deploy, before any machine runs the new image, Fly.io
+# starts a temporary machine from it, the size of the api machine, with the app's secrets and
+# [env], and passes these arguments to the image's `java -jar moneytrail.jar`. The migrate profile
+# applies the Flyway migrations and exits. A non-zero exit, or no exit within 5 minutes, stops the
+# deploy, and the running machines keep serving the old version.
+[deploy]
+  release_command = "--spring.profiles.active=prod,migrate"
+
 # Arguments to the image's `java -jar moneytrail.jar`.
 [processes]
   api = "--spring.profiles.active=prod"

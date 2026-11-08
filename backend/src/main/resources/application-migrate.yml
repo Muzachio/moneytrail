@@ -1,0 +1,7 @@
+# Fly.io's release_command (backend/fly.toml, ADR-0009): the same image and code, started on every
+# deploy before any machine runs the new version. Flyway migrates the database while the
+# application starts, then MoneyTrailApplication exits. Nothing reaches this process, so it has no
+# HTTP server, and it must not start background work either: it lives for a few seconds.
+spring:
+  main:
+    web-application-type: none
