@@ -9,6 +9,7 @@ errorprone = "2.52.0"
 nullaway = "0.14.3"
 jspecify = "1.0.1"
 openapi-generator = "7.27.0"
+jqwik = "1.10.2"
 # Must be built for the OpenTelemetry version Spring Boot manages (1.62.0 in Boot 4.1.2);
 # 2.28.x is, newer releases target newer APIs. Update it together with Spring Boot.
 opentelemetry-logback-appender = "2.28.1-alpha"
@@ -24,6 +25,8 @@ spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-
 spring-boot-starter-opentelemetry-test = { module = "org.springframework.boot:spring-boot-starter-opentelemetry-test" }
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
 spring-boot-starter-jdbc-test = { module = "org.springframework.boot:spring-boot-starter-jdbc-test" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
 spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway" }
 spring-boot-starter-flyway-test = { module = "org.springframework.boot:spring-boot-starter-flyway-test" }
 spring-boot-starter-security-oauth2-client = { module = "org.springframework.boot:spring-boot-starter-security-oauth2-client" }
@@ -36,6 +39,7 @@ flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql
 postgresql = { module = "org.postgresql:postgresql" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 # Versions of Spring Modulith artifacts come from the Spring Modulith BOM.
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }

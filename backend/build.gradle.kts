@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.github.muzachio"
-version = "0.0.2"
+version = "0.1.0-SNAPSHOT"
 description = "MoneyTrail backend"
 
 java {
@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.opentelemetry.logback.appender)
     implementation(libs.spring.boot.starter.jdbc)
+    implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.spring.boot.starter.security.oauth2.client)
@@ -52,6 +53,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.spring.boot.starter.jdbc.test)
+    testImplementation(libs.spring.boot.starter.data.jpa.test)
     testImplementation(libs.spring.boot.starter.flyway.test)
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.opentelemetry.test)
@@ -60,6 +62,7 @@ dependencies {
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.jqwik)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

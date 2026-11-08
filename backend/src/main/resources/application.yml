@@ -19,6 +19,12 @@ spring:
     jdbc:
       # Flyway owns the schema (V3__spring_session.sql).
       initialize-schema: never
+  jpa:
+    # Services return records, not entities, so nothing loads lazily while the response is written.
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks at startup that the entities match it.
+      ddl-auto: validate
 
 management:
   endpoints:
