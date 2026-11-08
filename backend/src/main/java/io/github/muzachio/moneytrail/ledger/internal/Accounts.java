@@ -6,7 +6,8 @@ import org.springframework.data.repository.Repository;
 
 interface Accounts extends Repository<AccountEntity, UUID> {
 
-    AccountEntity save(AccountEntity account);
+    // Flushed at once: its account_balances row, written with plain SQL, references it.
+    AccountEntity saveAndFlush(AccountEntity account);
 
     List<AccountEntity> findAllById(Iterable<UUID> ids);
 }

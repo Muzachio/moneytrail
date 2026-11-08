@@ -11,6 +11,7 @@ import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.NewAccount;
 import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
+import io.github.muzachio.moneytrail.shared.Money;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,11 +27,13 @@ class DefaultLedgerService implements LedgerService {
     private final Ledgers ledgers;
     private final Accounts accounts;
     private final JournalEntries entries;
+    private final AccountBalances balances;
 
-    DefaultLedgerService(Ledgers ledgers, Accounts accounts, JournalEntries entries) {
+    DefaultLedgerService(Ledgers ledgers, Accounts accounts, JournalEntries entries, AccountBalances balances) {
         this.ledgers = ledgers;
         this.accounts = accounts;
         this.entries = entries;
+        this.balances = balances;
     }
 
     @Override
@@ -43,14 +46,23 @@ class DefaultLedgerService implements LedgerService {
         if (!ledgers.existsById(account.ledgerId())) {
             throw LedgerException.ledgerNotFound(account.ledgerId());
         }
-        return accounts.save(new AccountEntity(account)).toAccount();
+        Account opened = accounts.saveAndFlush(new AccountEntity(account)).toAccount();
+        balances.open(opened.id());
+        return opened;
     }
 
     @Override
     public JournalEntry post(NewJournalEntry entry) {
         PostingRules.checkAmounts(entry.postings());
         PostingRules.checkAccounts(entry, accountsOf(entry));
+        balances.apply(entry.postings());
         return entries.save(new JournalEntryEntity(entry)).toJournalEntry();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Money balance(UUID accountId) {
+        return balances.find(accountId).orElseThrow(() -> LedgerException.accountNotFound(accountId));
     }
 
     @Override

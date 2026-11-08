@@ -24,7 +24,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 ## M1 — Personal finance MVP (v0.1)
 - [x] `ledger`: `Money`, accounts, journal entries, postings, `LedgerService.post()` with validation
 - [x] DB guarantees: deferred balance trigger, immutability triggers, composite currency FK
-- [ ] `account_balances` projection with ordered `FOR UPDATE` locking
+- [x] `account_balances` projection with ordered `FOR UPDATE` locking
 - [ ] jqwik property tests + concurrency test for the ledger
 - [ ] Idempotency-Key interceptor and storage
 - [ ] Default categories created on sign-up (as EXPENSE/INCOME accounts)
