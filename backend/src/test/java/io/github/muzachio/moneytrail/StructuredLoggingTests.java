@@ -24,7 +24,10 @@ import org.springframework.test.context.TestPropertySource;
             "GOOGLE_CLIENT_ID=test-client-id",
             "GOOGLE_CLIENT_SECRET=test-client-secret",
             "MONEYTRAIL_APP_URL=https://app.example.com",
-            "MONEYTRAIL_COOKIE_DOMAIN=example.com"
+            "MONEYTRAIL_COOKIE_DOMAIN=example.com",
+            // Port 9 (discard): nothing listens, so the exporters fail fast and harmlessly.
+            "GRAFANA_OTLP_ENDPOINT=http://127.0.0.1:9/otlp",
+            "GRAFANA_OTLP_AUTHORIZATION=Basic dGVzdDp0ZXN0"
         })
 @AutoConfigureTracing
 @ExtendWith(OutputCaptureExtension.class)

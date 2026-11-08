@@ -12,6 +12,7 @@ typed straight into Fly.io, GitHub or Cloudflare; they never go into this reposi
 | Database | Neon project `moneytrail`, AWS Europe Central 1 (Frankfurt), Postgres 18, branch `production` | not public |
 | Images | `ghcr.io/muzachio/moneytrail-api`, public | |
 | DNS and domain | Cloudflare, zone `muzachio.dev` | |
+| Telemetry | Grafana Cloud stack in EU Germany (`eu-west-4`): traces, metrics and logs over OTLP | https://orangewalnut306.grafana.net |
 
 ## What a deploy does
 
@@ -60,8 +61,10 @@ Secrets, in the dashboard (**moneytrail-api → Secrets**), so the values never 
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | the Google OAuth client |
 | `SPRING_DATASOURCE_URL` | the Neon JDBC URL above |
 | `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | the Neon user and password |
+| `GRAFANA_OTLP_AUTHORIZATION` | `Basic <…>`: Grafana Cloud → OpenTelemetry → *View connection details* → generate a token; take the `OTEL_EXPORTER_OTLP_HEADERS` value after `Authorization=`, with `%20` turned into a space |
 
-`MONEYTRAIL_APP_URL` and `MONEYTRAIL_COOKIE_DOMAIN` are not secret; they are in `backend/fly.toml`.
+`MONEYTRAIL_APP_URL`, `MONEYTRAIL_COOKIE_DOMAIN` and `GRAFANA_OTLP_ENDPOINT` (the stack's OTLP
+gateway) are not secret; they are in `backend/fly.toml`.
 The deploy token expires after a year: renew it and update the GitHub secret.
 
 ### 3. Cloudflare
