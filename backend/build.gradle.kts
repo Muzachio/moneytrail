@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.github.muzachio"
-version = "0.0.1-SNAPSHOT"
+version = "0.0.2"
 description = "MoneyTrail backend"
 
 java {
