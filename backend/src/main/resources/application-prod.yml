@@ -37,6 +37,33 @@ moneytrail:
     app-url: ${MONEYTRAIL_APP_URL}
     csrf-cookie-domain: ${MONEYTRAIL_COOKIE_DOMAIN}
 
+# Traces, metrics and logs to Grafana Cloud's OTLP gateway (ADR-0008). GRAFANA_OTLP_ENDPOINT is
+# the stack's gateway (backend/fly.toml); GRAFANA_OTLP_AUTHORIZATION, "Basic <base64 of
+# instanceId:token>", is a Fly secret. No defaults: without them the app refuses to start.
+management:
+  opentelemetry:
+    resource-attributes:
+      "[deployment.environment.name]": production
+    tracing:
+      export:
+        otlp:
+          endpoint: ${GRAFANA_OTLP_ENDPOINT}/v1/traces
+          headers:
+            Authorization: ${GRAFANA_OTLP_AUTHORIZATION}
+    logging:
+      export:
+        otlp:
+          endpoint: ${GRAFANA_OTLP_ENDPOINT}/v1/logs
+          headers:
+            Authorization: ${GRAFANA_OTLP_AUTHORIZATION}
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${GRAFANA_OTLP_ENDPOINT}/v1/metrics
+        headers:
+          Authorization: ${GRAFANA_OTLP_AUTHORIZATION}
+
 server:
   # HTTPS ends at Fly.io's proxy, which forwards plain HTTP with X-Forwarded-Proto: https.
   # Without trusting it the app would think it is on HTTP and send Google an http:// redirect

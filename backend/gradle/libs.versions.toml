@@ -9,6 +9,9 @@ errorprone = "2.52.0"
 nullaway = "0.14.3"
 jspecify = "1.0.1"
 openapi-generator = "7.27.0"
+# Must be built for the OpenTelemetry version Spring Boot manages (1.62.0 in Boot 4.1.2);
+# 2.28.x is, newer releases target newer APIs. Update it together with Spring Boot.
+opentelemetry-logback-appender = "2.28.1-alpha"
 
 [libraries]
 # Versions of Spring Boot starters come from the Spring Boot BOM.
@@ -39,6 +42,7 @@ spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-b
 spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-logback-appender" }
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 

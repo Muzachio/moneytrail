@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.opentelemetry.logback.appender)
     implementation(libs.spring.boot.starter.jdbc)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)

@@ -7,6 +7,9 @@ primary_region = "fra"
 [env]
   MONEYTRAIL_APP_URL = "https://moneytrail.muzachio.dev"
   MONEYTRAIL_COOKIE_DOMAIN = "moneytrail.muzachio.dev"
+  # Grafana Cloud stack in EU Germany. The Authorization header is the Fly secret
+  # GRAFANA_OTLP_AUTHORIZATION (docs/deploy.md).
+  GRAFANA_OTLP_ENDPOINT = "https://otlp-gateway-prod-eu-west-4.grafana.net/otlp"
   # Sized for a 512 MB machine: a smaller heap share leaves room for metaspace, threads and the
   # OS, the serial collector needs the least memory of its own, and threads get smaller stacks.
   JAVA_TOOL_OPTIONS = "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError"
