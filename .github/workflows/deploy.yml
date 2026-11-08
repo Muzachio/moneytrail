@@ -69,22 +69,13 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
-      # Before the new code runs, and stops the deploy if a migration fails; the running version
-      # keeps serving meanwhile. Same Flyway version as the app (Spring Boot's BOM).
-      - name: Apply database migrations
-        uses: docker://flyway/flyway:12.4.0@sha256:5be18367a9b3979a9f37234c371b80da457a448fb9577bd94d4bf24d923fafac
-        env:
-          FLYWAY_URL: ${{ secrets.DATABASE_URL }}
-          FLYWAY_USER: ${{ secrets.DATABASE_USERNAME }}
-          FLYWAY_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
-          FLYWAY_LOCATIONS: filesystem:/github/workspace/backend/src/main/resources/db/migration
-        with:
-          args: migrate
-
       - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
         with:
           version: 0.5.5
 
+      # Every flyctl deploy first runs fly.toml's release_command: the new image applies the
+      # database migrations with the app's own Flyway (ADR-0009). If that fails, no machine is
+      # touched and the running version keeps serving.
       # The worker group stays at 0 machines until M1 (fly.toml). A plain deploy launches a
       # machine for every empty group, so only the first deploy is plain; later ones update the
       # existing machines (--update-only). --ha=false: one machine, not a costly standby.

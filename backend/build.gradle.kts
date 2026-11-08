@@ -138,13 +138,16 @@ val structuredLoggingTest = tasks.register<Test>("structuredLoggingTest") {
 
 tasks.test {
     filter { excludeTestsMatching("*StructuredLoggingTests") }
+    // ReleaseCommandTests starts the production jar, the way Fly.io's release_command does.
+    dependsOn(tasks.bootJar)
 }
 
 tasks.check {
     dependsOn(structuredLoggingTest)
 }
 
-// One artifact with a fixed name, so backend/Dockerfile does not depend on the version.
+// One artifact with a fixed name, so backend/Dockerfile and ReleaseCommandTests do not depend on
+// the version.
 tasks.jar {
     enabled = false
 }

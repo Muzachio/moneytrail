@@ -1,6 +1,7 @@
 # ADR-0008: Deploy on Fly.io, Neon and Cloudflare Pages
 
-- **Status:** Accepted
+- **Status:** Accepted. How migrations are applied is superseded by
+  [ADR-0009](0009-migrations-as-release-command.md)
 - **Date:** 2026-10-14
 
 ## Context
@@ -44,6 +45,7 @@ Details settled while setting it up (#10); the decision above stands. Setup: `do
   would double the cost.
 - **Migrations** run in the pipeline with the Flyway container (same version as the app) before
   `flyctl deploy`, so a failing migration stops the deploy while the old version keeps serving.
+  Superseded by [ADR-0009](0009-migrations-as-release-command.md): Fly.io's release command.
 - **Frontend** is built in the pipeline and uploaded with `wrangler pages deploy`, rather than
   through Cloudflare Pages' Git integration: the same commit as the API, and no extra GitHub app.
 - **Domain** `muzachio.dev` (Cloudflare Registrar): app `moneytrail.muzachio.dev`, API

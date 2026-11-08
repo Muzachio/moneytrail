@@ -13,9 +13,11 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class PostgresTestcontainersConfiguration {
 
+    static final DockerImageName POSTGRES = DockerImageName.parse("postgres:18");
+
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
-        return new PostgreSQLContainer(DockerImageName.parse("postgres:18"));
+        return new PostgreSQLContainer(POSTGRES);
     }
 }

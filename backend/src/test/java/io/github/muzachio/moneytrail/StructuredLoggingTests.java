@@ -4,15 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
@@ -56,5 +61,19 @@ class StructuredLoggingTests extends PostgresIntegrationTest {
         assertThat(line).startsWith("{").endsWith("}");
         assertThat(line).contains(span.context().traceId());
         assertThat(line).contains("\"userId\":\"test-user-id\"");
+    }
+
+    /**
+     * With the prod profile the app only validates the schema (ADR-0009): in production the
+     * release command has migrated it before the app starts. Here the test does that instead.
+     */
+    @TestConfiguration(proxyBeanMethods = false)
+    static class MigratedFirstLikeTheReleaseCommand {
+
+        @Bean
+        @Primary
+        FlywayMigrationStrategy migrate() {
+            return Flyway::migrate;
+        }
     }
 }
