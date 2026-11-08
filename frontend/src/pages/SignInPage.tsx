@@ -15,7 +15,7 @@ export function SignInPage() {
   const failed = searchParams.get('sign-in') === 'failed'
 
   return (
-    <div className="flex min-h-svh flex-col bg-muted/40">
+    <div className="flex min-h-svh flex-col">
       <main className="flex flex-1 items-center justify-center px-4 pt-12 pb-6">
         <div className="flex w-full max-w-100 flex-col gap-6">
           <div className="flex flex-col items-center gap-2 text-center">

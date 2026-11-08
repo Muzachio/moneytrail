@@ -121,8 +121,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* The page tint lives on body rather than on a min-h-svh wrapper: when a phone browser hides
+     its toolbars the viewport grows past svh, and the wrapper left a white strip below it. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-muted/40 text-foreground;
   }
   html {
     @apply font-sans;
