@@ -7,7 +7,7 @@ typed straight into Fly.io, GitHub or Cloudflare; they never go into this reposi
 
 | Piece | Where | Address |
 |---|---|---|
-| App (frontend) | Cloudflare Pages project `moneytrail` | https://moneytrail.muzachio.dev |
+| App (frontend) | Cloudflare Pages project `moneytrail` (`moneytrail-63c.pages.dev`; `moneytrail.pages.dev` belongs to someone else) | https://moneytrail.muzachio.dev |
 | API (backend) | Fly.io app `moneytrail-api`, region `fra`, one `shared-cpu-1x` machine with 512 MB | https://api.moneytrail.muzachio.dev |
 | Database | Neon project `moneytrail`, AWS Europe Central 1 (Frankfurt), Postgres 18, branch `production` | not public |
 | Images | `ghcr.io/muzachio/moneytrail-api`, public | |
@@ -37,9 +37,11 @@ Done once, in this order, before the first deploy.
 ### 1. Neon
 
 - Project `moneytrail`, region AWS Europe Central 1 (Frankfurt), Postgres 18.
-- In **Connect**, choose the **direct** connection (not the pooled one; Flyway needs a direct one)
-  and note host, database, user and password. As JDBC:
-  `jdbc:postgresql://<host>/<database>?sslmode=require`.
+- In **Connect**, choose the **direct** connection (not the pooled one; Flyway needs a direct one).
+  Neon shows `postgresql://<user>:<password>@<host>/<database>?sslmode=require&channel_binding=require`.
+  Java and Flyway need the JDBC form, **without** user and password (they are separate secrets):
+  `jdbc:postgresql://<host>/<database>?sslmode=require`. Neon's own form fails with "No Flyway
+  database plugin found".
 
 ### 2. Fly.io
 
@@ -93,15 +95,23 @@ On the OAuth client (Google Auth Platform):
 
 - **Settings → Environments → New environment** `production`, deployment branches limited to
   `main`.
-- Its secrets, one by one with `gh secret set <NAME> --env production` (prompts for the value):
-  `FLY_API_TOKEN`, `DATABASE_URL` (the Neon JDBC URL), `DATABASE_USERNAME`, `DATABASE_PASSWORD`,
-  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+- Its secrets: `FLY_API_TOKEN`, `DATABASE_URL` (the Neon **JDBC** URL), `DATABASE_USERNAME`,
+  `DATABASE_PASSWORD`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. Paste the values in the
+  environment's page (pencil → *Value* → *Update secret*), or pass them with `--body` /
+  standard input. Not through the hidden prompt of a bare `gh secret set` on Windows: pasting
+  there stored empty values, which only showed up as an empty `FLYWAY_URL` in the deploy log.
+  The Fly.io token never needs to be seen:
+  `fly tokens create deploy --app moneytrail-api --expiry 8760h | gh secret set FLY_API_TOKEN --env production`.
 
 ### 6. First deploy
 
-1. Merge to `main`. The first run pushes the image, which GitHub creates as a **private** package,
-   so the Fly.io step fails to pull it.
-2. Make it public: **github.com → Packages → moneytrail-api → Package settings → Change
-   visibility → Public**. The repository is public and the image holds no secrets.
-3. Re-run the failed jobs. After that, every green CI run on `main` deploys on its own.
-4. Add the Pages custom domain (step 3) and check https://moneytrail.muzachio.dev.
+1. Merge to `main`. The image package inherits the public visibility of the repository, so Fly.io
+   can pull it without credentials (an anonymous pull of the manifest answers 200).
+2. The `app` job publishes the site and creates the Pages project, but its smoke test fails until
+   the custom domain exists: add it (step 3), wait for **Active**, and re-run the failed job.
+3. After that, every green CI run on `main` deploys on its own.
+
+Testing right after adding a DNS name: a resolver that looked the name up before it existed keeps
+the "does not exist" answer for up to 30 minutes (the zone's negative TTL), so a home router may
+show `DNS_PROBE_FINISHED_NXDOMAIN` while the rest of the internet already sees the site. Try
+another network (a phone on mobile data) or wait.
