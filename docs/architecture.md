@@ -156,7 +156,7 @@ until every balance is zero. That gives at most *n − 1* payments.
 |---|---|
 | Every entry balances | Validated in `LedgerService` **and** by deferred constraint triggers on `journal_entries` and `postings`, checked at commit (`SUM(amount) = 0` per entry and currency, at least 2 postings). jqwik property tests on top |
 | History is immutable | Triggers reject `UPDATE`, `DELETE` and `TRUNCATE` on `journal_entries` and `postings`. JPA entities are `@Immutable` |
-| Balances are correct under concurrency | `account_balances` is updated in the same transaction. Rows are locked with `SELECT … FOR UPDATE` (`@Lock(PESSIMISTIC_WRITE)`) **in ascending account id order** to avoid deadlocks |
+| Balances are correct under concurrency | `account_balances` is updated in the same transaction. Rows are locked first, in one `SELECT … ORDER BY account_id FOR UPDATE`, so **in ascending account id order** to avoid deadlocks |
 | Balances are rebuildable | A nightly job recomputes `SUM(postings)` per account and raises an alert metric on any mismatch with `account_balances` |
 | Posting currency = account currency | Check in `LedgerService`, plus a composite FK `(account_id, currency)` |
 | Retries don't duplicate | Idempotency keys (below) |

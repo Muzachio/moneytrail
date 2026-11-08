@@ -1,6 +1,7 @@
 package io.github.muzachio.moneytrail.ledger;
 
 import io.github.muzachio.moneytrail.shared.DomainException;
+import io.github.muzachio.moneytrail.shared.Money;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,7 +21,8 @@ public interface LedgerService {
     Account openAccount(NewAccount account);
 
     /**
-     * Records a journal entry. Entries are append-only: nothing ever updates or deletes them.
+     * Records a journal entry and adds it to its accounts' balances, in the same transaction.
+     * Entries are append-only: nothing ever updates or deletes them.
      *
      * @throws DomainException with one of these codes:
      *     <ul>
@@ -38,4 +40,12 @@ public interface LedgerService {
     JournalEntry post(NewJournalEntry entry);
 
     Optional<JournalEntry> findEntry(UUID entryId);
+
+    /**
+     * The account's balance: the sum of all its postings, in its currency, read from one row kept up
+     * to date by {@link #post}.
+     *
+     * @throws DomainException {@code account_not_found} (404)
+     */
+    Money balance(UUID accountId);
 }
