@@ -10,6 +10,7 @@ nullaway = "0.14.3"
 jspecify = "1.0.1"
 openapi-generator = "7.27.0"
 jqwik = "1.10.2"
+shedlock = "7.11.0"
 # Must be built for the OpenTelemetry version Spring Boot manages (1.62.0 in Boot 4.1.2);
 # 2.28.x is, newer releases target newer APIs. Update it together with Spring Boot.
 opentelemetry-logback-appender = "2.28.1-alpha"
@@ -40,6 +41,8 @@ postgresql = { module = "org.postgresql:postgresql" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 # Versions of Spring Modulith artifacts come from the Spring Modulith BOM.
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
