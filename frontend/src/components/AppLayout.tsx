@@ -1,4 +1,5 @@
 import { WalletMinimal } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
 import { useCurrentUser } from '@/api/session'
 import { AccountMenu } from '@/components/AccountMenu'
@@ -6,15 +7,14 @@ import { ApiStatus } from '@/components/ApiStatus'
 import { cn } from '@/lib/utils'
 import { SignInPage } from '@/pages/SignInPage'
 
-type NavItem = { to: string; label: string; end?: boolean }
-
-const navItems: NavItem[] = [
-  { to: '/', label: 'Summary', end: true },
-  { to: '/accounts', label: 'Accounts' },
-  { to: '/transactions', label: 'Transactions' },
-]
+const navItems = [
+  { to: '/', label: 'nav.summary', end: true },
+  { to: '/accounts', label: 'nav.accounts', end: false },
+  { to: '/transactions', label: 'nav.transactions', end: false },
+] as const
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const currentUser = useCurrentUser()
 
   if (currentUser.data === null) {
@@ -25,7 +25,7 @@ export function AppLayout() {
   return (
     <div className="min-h-svh">
       <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
           <NavLink
             to="/"
             className="flex items-center gap-2 font-heading text-lg font-semibold"
@@ -35,7 +35,7 @@ export function AppLayout() {
           </NavLink>
           {user && (
             <nav
-              aria-label="Main"
+              aria-label={t('nav.label')}
               className="order-last flex w-full gap-1 sm:order-none sm:w-auto"
             >
               {navItems.map((item) => (
@@ -50,7 +50,7 @@ export function AppLayout() {
                     )
                   }
                 >
-                  {item.label}
+                  {t(item.label)}
                 </NavLink>
               ))}
             </nav>
@@ -61,16 +61,15 @@ export function AppLayout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {user ? (
           <Outlet />
         ) : currentUser.isError ? (
           <p role="alert" className="text-muted-foreground">
-            Could not load your account. Check that the API is online and reload
-            the page.
+            {t('app.loadFailed')}
           </p>
         ) : (
-          <p className="text-muted-foreground">Loading…</p>
+          <p className="text-muted-foreground">{t('app.loading')}</p>
         )}
       </main>
     </div>

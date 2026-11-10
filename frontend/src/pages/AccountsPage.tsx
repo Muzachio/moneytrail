@@ -1,11 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { PlaceholderPage } from '@/components/PlaceholderPage'
 
 export function AccountsPage() {
+  const { t } = useTranslation()
+
   return (
     <PlaceholderPage
-      title="Accounts"
-      description="Your checking, savings, credit card and cash accounts, each with its balance."
-      plannedFor="M1 — personal finance"
+      title={t('accounts.title')}
+      description={t('accounts.description')}
+      plannedFor={t('placeholder.m1')}
     />
   )
 }

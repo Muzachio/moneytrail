@@ -1,0 +1,57 @@
+{
+  "app": {
+    "loading": "A carregar…",
+    "loadFailed": "Não foi possível carregar a tua conta. Verifica se a API está online e recarrega a página."
+  },
+  "nav": {
+    "label": "Principal",
+    "summary": "Resumo",
+    "accounts": "Contas",
+    "transactions": "Movimentos"
+  },
+  "apiStatus": {
+    "checking": "A verificar a API…",
+    "online": "API online",
+    "offline": "API offline"
+  },
+  "accountMenu": {
+    "label": "A tua conta",
+    "signOut": "Terminar sessão"
+  },
+  "language": {
+    "label": "Idioma"
+  },
+  "signIn": {
+    "title": "Entrar no MoneyTrail",
+    "lead": "Segue o rasto de cada cêntimo: as tuas contas, os teus gastos e para onde foi o dinheiro.",
+    "failed": "Não foi possível entrar. Usa uma conta Google com o endereço de email verificado e tenta novamente.",
+    "google": "Continuar com o Google",
+    "scope": "Só recebemos o teu nome, endereço de email e foto de perfil.",
+    "history": "Editar nunca apaga o histórico: cada alteração fica registada.",
+    "noTrackers": "Sem anúncios nem rastreadores de terceiros.",
+    "license": "Código aberto com licença MIT",
+    "github": "Ver no GitHub"
+  },
+  "placeholder": {
+    "comingSoon": "Em breve",
+    "plannedFor": "Previsto para {{milestone}}",
+    "m1": "M1 — finanças pessoais"
+  },
+  "summary": {
+    "title": "Resumo",
+    "description": "Gastos por categoria este mês, a tendência dos últimos seis meses e o saldo de cada conta."
+  },
+  "accounts": {
+    "title": "Contas",
+    "description": "As tuas contas à ordem, poupanças, cartões de crédito e dinheiro, cada uma com o seu saldo."
+  },
+  "transactions": {
+    "title": "Movimentos",
+    "description": "Regista as tuas receitas, despesas e transferências ao longo do mês."
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "description": "Esta página não existe (ainda).",
+    "back": "Voltar ao resumo"
+  }
+}

@@ -1,25 +1,54 @@
 import { LogOut } from 'lucide-react'
+import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import { type CurrentUser, useSignOut } from '@/api/session'
+import { LanguageToggle } from '@/components/LanguageToggle'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
-/** The signed-in person in the header: photo (or initials), name and sign-out. */
+/**
+ * The signed-in person in the header: their photo (or initials) opens a panel with their name, the
+ * language toggle and sign-out, as the "Your account" button in the design canvas.
+ */
 export function AccountMenu({ user }: { user: CurrentUser }) {
+  const { t } = useTranslation()
   const signOut = useSignOut()
+  const languageLabel = useId()
 
   return (
-    <div className="flex items-center gap-3">
-      <Avatar user={user} />
-      <span className="hidden text-sm font-medium sm:inline">{user.name}</span>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => signOut.mutate()}
-        disabled={signOut.isPending}
+    <Popover>
+      <PopoverTrigger
+        aria-label={t('accountMenu.label')}
+        className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <LogOut aria-hidden />
-        Sign out
-      </Button>
-    </div>
+        <Avatar user={user} />
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 gap-3 p-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <p className="truncate font-medium">{user.name}</p>
+          <p className="truncate text-muted-foreground">{user.email}</p>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t pt-3">
+          <span id={languageLabel} className="text-muted-foreground">
+            {t('language.label')}
+          </span>
+          <LanguageToggle aria-labelledby={languageLabel} />
+        </div>
+        <Button
+          variant="ghost"
+          className="justify-start"
+          onClick={() => signOut.mutate()}
+          disabled={signOut.isPending}
+        >
+          <LogOut aria-hidden />
+          {t('accountMenu.signOut')}
+        </Button>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -32,7 +61,7 @@ function Avatar({ user }: { user: CurrentUser }) {
         src={user.avatarUrl}
         alt=""
         referrerPolicy="no-referrer"
-        className={className}
+        className={`${className} block`}
       />
     )
   }
