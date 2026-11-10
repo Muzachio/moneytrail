@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -19,6 +20,8 @@ export function PlaceholderPage({
   description,
   plannedFor,
 }: PlaceholderPageProps) {
+  const { t } = useTranslation()
+
   return (
     <section className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold tracking-tight">
@@ -26,11 +29,13 @@ export function PlaceholderPage({
       </h1>
       <Card>
         <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
+          <CardTitle>{t('placeholder.comingSoon')}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Badge variant="outline">Planned for {plannedFor}</Badge>
+          <Badge variant="outline">
+            {t('placeholder.plannedFor', { milestone: plannedFor })}
+          </Badge>
         </CardContent>
       </Card>
     </section>

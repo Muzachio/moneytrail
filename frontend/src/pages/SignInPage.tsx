@@ -1,15 +1,15 @@
 import { CircleCheck, WalletMinimal } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { signInUrl } from '@/api/session'
+import { LanguageToggle } from '@/components/LanguageToggle'
 import { Button } from '@/components/ui/button'
 
-const points = [
-  'Edits never erase history: every change is kept.',
-  'No ads and no third-party trackers.',
-]
+const points = ['signIn.history', 'signIn.noTrackers'] as const
 
 /** Shown instead of the app while there is no session. */
 export function SignInPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   // The API sends people back here with ?sign-in=failed, e.g. for an unverified Google email.
   const failed = searchParams.get('sign-in') === 'failed'
@@ -23,12 +23,9 @@ export function SignInPage() {
               <WalletMinimal aria-hidden className="size-6" />
             </span>
             <h1 className="mt-3 font-heading text-2xl font-semibold tracking-tight">
-              Sign in to MoneyTrail
+              {t('signIn.title')}
             </h1>
-            <p className="text-muted-foreground">
-              Follow the trail of every cent: your accounts, your spending and
-              where it all went.
-            </p>
+            <p className="text-muted-foreground">{t('signIn.lead')}</p>
           </div>
 
           <div className="flex flex-col gap-3 rounded-xl border bg-card p-6">
@@ -37,18 +34,17 @@ export function SignInPage() {
                 role="alert"
                 className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
               >
-                Signing in did not work. Use a Google account with a verified
-                email address and try again.
+                {t('signIn.failed')}
               </p>
             )}
             <Button asChild variant="outline" size="lg" className="h-11">
               <a href={signInUrl}>
                 <GoogleLogo />
-                Continue with Google
+                {t('signIn.google')}
               </a>
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              We only receive your name, email address and profile photo.
+              {t('signIn.scope')}
             </p>
           </div>
 
@@ -56,21 +52,24 @@ export function SignInPage() {
             {points.map((point) => (
               <li key={point} className="flex items-start gap-2.5">
                 <CircleCheck aria-hidden className="mt-0.5 size-4 flex-none" />
-                <span>{point}</span>
+                <span>{t(point)}</span>
               </li>
             ))}
           </ul>
         </div>
       </main>
 
-      <footer className="px-6 pt-4 pb-6 text-center text-sm text-muted-foreground">
-        Open source under the MIT licence ·{' '}
-        <a
-          href="https://github.com/Muzachio/moneytrail"
-          className="underline-offset-4 hover:underline"
-        >
-          View on GitHub
-        </a>
+      <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-6 pt-4 pb-6 text-center text-sm text-muted-foreground">
+        <span>
+          {t('signIn.license')} ·{' '}
+          <a
+            href="https://github.com/Muzachio/moneytrail"
+            className="underline-offset-4 hover:underline"
+          >
+            {t('signIn.github')}
+          </a>
+        </span>
+        <LanguageToggle />
       </footer>
     </div>
   )

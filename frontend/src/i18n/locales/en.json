@@ -1,0 +1,57 @@
+{
+  "app": {
+    "loading": "Loading…",
+    "loadFailed": "Could not load your account. Check that the API is online and reload the page."
+  },
+  "nav": {
+    "label": "Main",
+    "summary": "Summary",
+    "accounts": "Accounts",
+    "transactions": "Transactions"
+  },
+  "apiStatus": {
+    "checking": "Checking API…",
+    "online": "API online",
+    "offline": "API offline"
+  },
+  "accountMenu": {
+    "label": "Your account",
+    "signOut": "Sign out"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "signIn": {
+    "title": "Sign in to MoneyTrail",
+    "lead": "Follow the trail of every cent: your accounts, your spending and where it all went.",
+    "failed": "Signing in did not work. Use a Google account with a verified email address and try again.",
+    "google": "Continue with Google",
+    "scope": "We only receive your name, email address and profile photo.",
+    "history": "Edits never erase history: every change is kept.",
+    "noTrackers": "No ads and no third-party trackers.",
+    "license": "Open source under the MIT licence",
+    "github": "View on GitHub"
+  },
+  "placeholder": {
+    "comingSoon": "Coming soon",
+    "plannedFor": "Planned for {{milestone}}",
+    "m1": "M1 — personal finance"
+  },
+  "summary": {
+    "title": "Summary",
+    "description": "Spending by category this month, the six-month trend and the balance of each account."
+  },
+  "accounts": {
+    "title": "Accounts",
+    "description": "Your checking, savings, credit card and cash accounts, each with its balance."
+  },
+  "transactions": {
+    "title": "Transactions",
+    "description": "Record your income, expenses and transfers through the month."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "This page does not exist (yet).",
+    "back": "Back to the summary"
+  }
+}

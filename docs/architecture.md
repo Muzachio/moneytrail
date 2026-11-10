@@ -67,8 +67,9 @@ process.
 | UI | Tailwind CSS + shadcn/ui, Recharts for charts |
 | Forms | React Hook Form + Zod |
 | Mobile | PWA (`vite-plugin-pwa`). QR scanning with the browser's `BarcodeDetector`, falling back to `@zxing/browser` |
-| i18n | Portuguese and English from day one (`i18next`) |
+| i18n | Portuguese and English from day one (`i18next`). Follows the browser until the person picks a language, which is remembered |
 | Money display | `Intl.NumberFormat` from `amountMinor` + currency, never floating-point maths |
+| Money input | Typed text (`12,50` or `12.50`) read as integer minor units, never `parseFloat`. More decimals than the currency has are refused |
 
 ## Module boundaries
 
@@ -236,6 +237,10 @@ Implemented once in `shared` as a `HandlerInterceptor` plus a small service:
 2. If the key exists: status `COMPLETED` → replay the stored response. `IN_PROGRESS` → `409 Conflict`. Different body hash → `422`.
 3. The business writes and the stored response are committed **in the same transaction**.
 4. A scheduled job deletes keys older than 24 h.
+
+The frontend creates the key with `crypto.randomUUID()` once per user action and sends the same
+key when that action is retried: TanStack Query's retries, a second tap, or Save pressed again
+after a network error with the same input (`useMoneyMutation`).
 
 ### Async work and the outbox
 

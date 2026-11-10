@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockApi } from '@/test/mockApi'
 import { renderApp } from '@/test/renderApp'
@@ -41,5 +41,31 @@ describe('SignInPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Signing in did not work',
     )
+  })
+
+  it('switches to Portuguese with the toggle and remembers it', async () => {
+    renderApp('/')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Português' }))
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Entrar no MoneyTrail',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Continuar com o Google' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Português' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+    expect(document.documentElement).toHaveAttribute('lang', 'pt-PT')
+    expect(localStorage.getItem('moneytrail.language')).toBe('pt-PT')
   })
 })

@@ -1,11 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { PlaceholderPage } from '@/components/PlaceholderPage'
 
 export function SummaryPage() {
+  const { t } = useTranslation()
+
   return (
     <PlaceholderPage
-      title="Summary"
-      description="Spending by category this month, the six-month trend and the balance of each account."
-      plannedFor="M1 — personal finance"
+      title={t('summary.title')}
+      description={t('summary.description')}
+      plannedFor={t('placeholder.m1')}
     />
   )
 }

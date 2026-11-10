@@ -1,12 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { useApiHealth } from '@/api/useApiHealth'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 export function ApiStatus() {
+  const { t } = useTranslation()
   const { data, isPending } = useApiHealth()
 
   if (isPending) {
-    return <Badge variant="outline">Checking API…</Badge>
+    return <Badge variant="outline">{t('apiStatus.checking')}</Badge>
   }
 
   const online = data?.status === 'UP'
@@ -19,7 +21,7 @@ export function ApiStatus() {
           online ? 'bg-emerald-500' : 'bg-current',
         )}
       />
-      {online ? 'API online' : 'API offline'}
+      {online ? t('apiStatus.online') : t('apiStatus.offline')}
     </Badge>
   )
 }
