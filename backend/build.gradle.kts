@@ -118,6 +118,12 @@ tasks.withType<JavaCompile>().configureEach {
         check("NullAway", CheckSeverity.ERROR)
         option("NullAway:OnlyNullMarked", "true")
         option("NullAway:JSpecifyMode", "true")
+        // NullAway knows that JUnit's @BeforeEach sets fields before a test runs. jqwik's
+        // equivalents are told here.
+        option(
+            "NullAway:CustomInitializerAnnotations",
+            "net.jqwik.api.lifecycle.BeforeProperty,net.jqwik.api.lifecycle.BeforeTry",
+        )
     }
 }
 
