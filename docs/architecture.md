@@ -188,8 +188,8 @@ budgets          (id, user_id, account_id (expense category), month date, limit_
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
 merchants        (user_id, tax_id, display_name, default_account_id, pk(user_id, tax_id))
 
-idempotency_keys (user_id, key, request_hash bytea, status, response_code, response_body jsonb,
-                  created_at, pk(user_id, key))
+idempotency_keys (user_id fk, key, request_hash bytea, response_status, response_headers jsonb,
+                  response_body bytea, created_at, pk(user_id, key))
 audit_log        (id bigserial, actor_id, action, target_type, target_id, data jsonb, at)
 event_publication -- managed by Spring Modulith (outbox)
 shedlock          -- managed by ShedLock
@@ -231,12 +231,25 @@ GET|POST|DELETE  /v1/budgets
 
 ### Idempotency flow
 
-Implemented once in `shared` as a `HandlerInterceptor` plus a small service:
+Implemented once in `shared.idempotency`. An endpoint opts in by declaring the
+`Idempotency-Key` header parameter in the spec; every controller method that takes it is
+wrapped by a method interceptor (a Spring AOP proxy, as for `@Transactional`), which runs
+around the controller in **one transaction**:
 
-1. `INSERT INTO idempotency_keys … ON CONFLICT DO NOTHING` with status `IN_PROGRESS` and a SHA-256 of the request body.
-2. If the key exists: status `COMPLETED` → replay the stored response. `IN_PROGRESS` → `409 Conflict`. Different body hash → `422`.
-3. The business writes and the stored response are committed **in the same transaction**.
-4. A scheduled job deletes keys older than 24 h.
+1. `pg_try_advisory_xact_lock` on the user and key, without waiting. Taken by a request
+   still running → `409 Conflict`.
+2. A stored response for the key: a request with another fingerprint (SHA-256 of the method,
+   path and body) → `422`; the same request → replay the stored status, headers and body.
+3. Otherwise the controller runs; its services join the transaction. Its response is
+   serialized, stored and committed **with the business writes**, before Spring MVC sends a
+   byte of it, and the client gets exactly the stored bytes.
+4. The worker deletes keys older than 24 h once a day (`@Scheduled` + ShedLock).
+
+A request that throws, or whose commit fails, leaves neither writes nor a key behind and can
+be retried with the same key. A `HandlerInterceptor` could not do this: it runs before and
+after the handler, not around it, so it can neither hold one transaction over the handler nor
+commit before the response is written. The advisory lock, released by commit, rollback or a
+dropped connection, replaces an `IN_PROGRESS` row that a crash could leave behind.
 
 The frontend creates the key with `crypto.randomUUID()` once per user action and sends the same
 key when that action is retried: TanStack Query's retries, a second tap, or Save pressed again

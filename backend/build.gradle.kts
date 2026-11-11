@@ -43,6 +43,8 @@ dependencies {
     implementation(libs.spring.boot.starter.security.oauth2.client)
     implementation(libs.spring.boot.starter.session.jdbc)
     implementation(libs.spring.modulith.starter.core)
+    implementation(libs.shedlock.spring)
+    implementation(libs.shedlock.provider.jdbc.template)
     implementation(libs.jspecify)
     runtimeOnly(libs.postgresql)
     developmentOnly(libs.spring.boot.docker.compose)
