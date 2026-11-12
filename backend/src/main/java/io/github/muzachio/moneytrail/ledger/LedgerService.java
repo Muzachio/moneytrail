@@ -85,7 +85,41 @@ public interface LedgerService {
      */
     JournalEntry post(NewJournalEntry entry);
 
+    /**
+     * Cancels an entry by posting its exact opposite: every posting negated, on the same day and with
+     * the same description, linked to it through {@code reversesEntryId}. Dated like the entry it
+     * cancels, so that the sums of that day, and of its month, end up as if it had never been posted.
+     * An entry is reversed at most once, and a reversal is never reversed itself.
+     *
+     * @param reversedBy the user who reverses it
+     * @return the reversal
+     * @throws DomainException {@code entry_not_found} (404), {@code entry_already_reversed} (409, also
+     *     when another transaction reverses it at the same time), {@code entry_is_a_reversal} (422)
+     */
+    JournalEntry reverse(UUID entryId, UUID reversedBy);
+
+    /**
+     * Corrects an entry: reverses it as {@link #reverse} does and posts the replacement, linked to it
+     * through {@code replacesEntryId}, both in the same transaction, so that neither exists without
+     * the other. The replacement follows the rules of {@link #post} and is reversed by its {@code
+     * createdBy}.
+     *
+     * @return the replacement
+     * @throws DomainException those of {@link #reverse} and {@link #post}, and {@code
+     *     replacement_in_another_ledger} (422)
+     */
+    JournalEntry replace(UUID entryId, NewJournalEntry replacement);
+
     Optional<JournalEntry> findEntry(UUID entryId);
+
+    /**
+     * Every version of an entry, oldest first: the first one, then, for each correction, the reversal
+     * of the version before it and the replacement. It ends with the version in effect, or with the
+     * reversal of the last version when that one was reversed without a replacement. The history of
+     * any entry in it, a reversal included, is the same list. An entry that was never reversed is its
+     * own history; an unknown one has none.
+     */
+    List<JournalEntry> history(UUID entryId);
 
     /**
      * The account's balance: the sum of all its postings, in its currency, read from one row kept up

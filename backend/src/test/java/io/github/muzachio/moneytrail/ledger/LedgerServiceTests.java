@@ -2,11 +2,14 @@ package io.github.muzachio.moneytrail.ledger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import io.github.muzachio.moneytrail.PostgresIntegrationTest;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
@@ -50,7 +53,16 @@ class LedgerServiceTests extends PostgresIntegrationTest {
         assertThat(posted.id().version()).isEqualTo(7);
         assertThat(posted)
                 .isEqualTo(new JournalEntry(
-                        posted.id(), personal.id(), LocalDate.of(2026, 11, 8), "Lunch", userId, postings));
+                        posted.id(),
+                        personal.id(),
+                        LocalDate.of(2026, 11, 8),
+                        "Lunch",
+                        userId,
+                        posted.createdAt(),
+                        null,
+                        null,
+                        postings));
+        assertThat(posted.createdAt()).isCloseTo(Instant.now(), within(1, ChronoUnit.MINUTES));
         assertThat(ledger.findEntry(posted.id())).contains(posted);
         assertThat(jdbc.sql("SELECT currency || ' ' || amount_minor FROM postings WHERE entry_id = :id ORDER BY id")
                         .param("id", posted.id())

@@ -23,6 +23,29 @@ final class LedgerException extends DomainException {
                 HttpStatus.NOT_FOUND, "account_not_found", "Account " + accountId + " does not exist.");
     }
 
+    static LedgerException entryNotFound(UUID entryId) {
+        return new LedgerException(
+                HttpStatus.NOT_FOUND, "entry_not_found", "Journal entry " + entryId + " does not exist.");
+    }
+
+    static LedgerException entryAlreadyReversed(UUID entryId) {
+        return new LedgerException(
+                HttpStatus.CONFLICT, "entry_already_reversed", "Journal entry " + entryId + " was already reversed.");
+    }
+
+    static LedgerException entryIsAReversal(UUID entryId) {
+        return invalid(
+                "entry_is_a_reversal",
+                "Journal entry " + entryId + " is a reversal. Post the entry again instead of reversing the reversal.");
+    }
+
+    static LedgerException replacementInAnotherLedger(UUID entryId, UUID ledgerId) {
+        return invalid(
+                "replacement_in_another_ledger",
+                "Journal entry " + entryId + " can only be replaced by an entry of its own ledger, not of " + ledgerId
+                        + ".");
+    }
+
     // The name is the user's own, but it stays out of the message: messages may end up in logs.
     static LedgerException categoryNameTaken(AccountKind kind) {
         return new LedgerException(

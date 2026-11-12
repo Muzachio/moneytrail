@@ -152,8 +152,11 @@ requests cannot get around it).
 | Expense:Food | +1250 |
 | Asset:Checking | −1250 |
 
-**Fixing that it was €15 instead:** reverse the entry (an exact negation, linked through
-`reverses_entry_id`), then post a new one. Nothing is ever updated or deleted.
+**Fixing that it was €15 instead:** reverse the entry (an exact negation, dated the same day and
+linked through `reverses_entry_id`), then post the corrected one, linked to the entry it replaces
+through `replaces_entry_id`, in the same database transaction. Nothing is ever updated or deleted.
+Because the reversal keeps the original's date, that day's and that month's sums end up as if the
+mistake had never been posted.
 
 **Group dinner, €30 paid by Pedro, split equally between Pedro, Ana and João**
 
@@ -173,6 +176,27 @@ always produces the same split and the total always matches.
 
 **Settle-up suggestions:** greedily match the largest creditor with the largest debtor
 until every balance is zero. That gives at most *n − 1* payments.
+
+### Personal transactions
+
+`personal` records each expense, income and transfer as one journal entry of the user's ledger,
+always with an amount above zero, and reads it back as a transaction from the kinds of the accounts
+it posts to:
+
+| Transaction | Postings |
+|---|---|
+| Expense | +category (`EXPENSE`) −account |
+| Income | −category (`INCOME`) +account |
+| Transfer | +to account −from account |
+
+Editing a transaction reverses its entry and posts the correction (above), so a transaction has a
+trail of versions: its first entry, then for each edit the reversal and the correction. Only the
+last version is in effect; reversing without a correction removes the transaction from the month.
+New transactions cannot use archived accounts or categories. A reversal may: it only takes back what
+was recorded, and refusing it would keep a mistake until the account was restored. A correction may
+keep an archived account or category that the version it replaces already used, but not pick
+another one. Reversals and opening balances are entries, not transactions: they appear only in a
+transaction's trail and in the accounts' balances.
 
 ### Guarantees and how they are enforced
 
@@ -198,7 +222,8 @@ accounts         (id uuid pk, ledger_id fk, kind text, subtype text, name, curre
                   archived_at, created_at, unique(id, currency),
                   unique(ledger_id, kind, lower(name)) where active EXPENSE/INCOME)
 journal_entries  (id uuid pk, ledger_id fk, occurred_on date, description, merchant_tax_id,
-                  reverses_entry_id fk null unique, created_by fk users, created_at)
+                  reverses_entry_id fk null unique, replaces_entry_id fk null unique,
+                  created_by fk users, created_at)
 postings         (id bigint identity pk, entry_id fk, account_id, currency,
                   amount_minor bigint check (amount_minor <> 0),
                   fk(account_id, currency) → accounts(id, currency))
