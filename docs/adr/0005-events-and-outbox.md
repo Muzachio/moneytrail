@@ -1,6 +1,7 @@
 # ADR-0005: Domain events through Spring Modulith's outbox, not Kafka
 
-- **Status:** Accepted
+- **Status:** Accepted. Refined by [ADR-0010](0010-synchronous-listeners.md): a listener whose
+  result the user needs at once runs synchronously, in the publisher's transaction
 - **Date:** 2026-10-14
 
 ## Context

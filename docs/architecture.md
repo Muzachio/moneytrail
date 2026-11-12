@@ -93,8 +93,21 @@ Rules:
   subpackages is private. `ModularityTests` fails the build on violations.
 - **Only `ledger` writes to `journal_entries`, `postings` and `account_balances`.**
 - Modules communicate through **calls to the public API** (synchronous, same transaction)
-  or **domain events** (`@ApplicationModuleListener`: async, after commit, persisted in the
-  event publication registry and retried if they fail).
+  or **domain events**. A module that must react to another's event without that module
+  depending on it picks one of two kinds of listener ([ADR-0010](adr/0010-synchronous-listeners.md)):
+  - **`@EventListener`: synchronous, in the publisher's transaction.** For state the user
+    needs at once, so that it never exists without the change that caused it. It runs before
+    the publisher's request answers and commits or rolls back with it, so a failure fails that
+    request, which can be retried. Example: `identity` publishes `UserSignedIn` inside the
+    sign-in transaction and `personal` opens the user's ledger with the default categories, so
+    no user ever exists without categories. Such a listener declares
+    `@Transactional(propagation = MANDATORY)`, so it refuses to run outside a transaction.
+  - **`@ApplicationModuleListener`: asynchronous, after commit, through the outbox** (below).
+    For work that may happen a little later and must neither slow down nor fail the request:
+    budget alerts, imports, notifications. This is the default.
+
+  Either way, listeners are idempotent: an outbox event can be delivered twice, and
+  `UserSignedIn` comes with every sign-in, not only the first.
 - Controllers are thin: map the request DTO → call the use case → map the response. No
   repositories in controllers.
 
@@ -110,6 +123,15 @@ money is a `Money(long minor, Currency currency)` record. `double` is never used
 
 Categories *are* ledger accounts of kind `EXPENSE` or `INCOME`, as in Beancount and
 GnuCash. This keeps reports a plain `SUM` over postings.
+
+Each user has one **personal ledger**, which `personal` opens the first time they sign in
+(users from before it existed: their next sign-in), with the default categories and an
+`Equity:Opening balances` account that the accounts' opening balances are posted against. A
+default category's stable key (`food`, `salary`, ...)
+lives in the account's `subtype`; the API sends that key and leaves the name out until the
+user renames the category, so the app shows it in the user's language. Within a ledger and a
+kind, active categories have different names, ignoring case (a unique index, so concurrent
+requests cannot get around it).
 
 | Account kind | Examples | Normal balance |
 |---|---|---|
@@ -169,9 +191,11 @@ users            (id uuid pk, email citext unique, name, avatar_url, created_at)
 identities       (provider, subject, user_id fk, pk(provider, subject))
 spring_session*  -- managed by Spring Session JDBC
 
-ledgers          (id uuid pk, owner_type text check in ('USER','GROUP'), owner_id uuid)
+ledgers          (id uuid pk, owner_type text check in ('USER','GROUP'), owner_id uuid,
+                  unique(owner_type, owner_id))
 accounts         (id uuid pk, ledger_id fk, kind text, subtype text, name, currency char(3),
-                  archived_at, created_at, unique(id, currency))
+                  archived_at, created_at, unique(id, currency),
+                  unique(ledger_id, kind, lower(name)) where active EXPENSE/INCOME)
 journal_entries  (id uuid pk, ledger_id fk, occurred_on date, description, merchant_tax_id,
                   reverses_entry_id fk null unique, created_by fk users, created_at)
 postings         (id bigint identity pk, entry_id fk, account_id, currency,
@@ -212,7 +236,7 @@ GET    /v1/me
 GET    /oauth2/authorization/google · POST /logout          (Spring Security)
 
 GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/archive only)
-GET|POST         /v1/categories
+GET|POST         /v1/categories         PATCH /v1/categories/{id} (rename/archive only)
 GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse
 GET              /v1/reports/spending?from=&to=&groupBy=category|month
@@ -263,6 +287,17 @@ Spring Modulith writes them to `event_publication` **in that same transaction**:
 the transactional outbox pattern ([ADR-0005](adr/0005-events-and-outbox.md)). Listeners
 run after commit. Publications that fail stay incomplete, get resubmitted, and are
 monitored. Each listener is idempotent.
+
+The outbox is the default, not the rule for every event. Its listeners run after the
+request has answered, so whatever they create may not exist yet when the client sends its
+next request. When the user needs the result at once, the listener is a plain
+`@EventListener` instead and joins the publisher's transaction ("Module boundaries" above).
+The first such case: on sign-in, `personal` opens the user's ledger with the default
+categories, because the app lists the categories right after sign-in. Opening it after commit
+would leave a short window, or after a failure a lasting one, with a user and no categories.
+It also has to be safe when two sign-ins of the same user overlap: `ledgers` is unique per
+owner, and the ledger is inserted with `ON CONFLICT DO NOTHING`, so the second insert waits for
+the first transaction and then does nothing instead of failing the sign-in.
 
 ## Security
 - Google login through Spring Security's OAuth2 client (authorization code + PKCE, `state`, `nonce`).

@@ -1,7 +1,9 @@
 package io.github.muzachio.moneytrail.ledger.internal;
 
+import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import java.util.Currency;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 
@@ -19,6 +21,14 @@ final class LedgerException extends DomainException {
     static LedgerException accountNotFound(UUID accountId) {
         return new LedgerException(
                 HttpStatus.NOT_FOUND, "account_not_found", "Account " + accountId + " does not exist.");
+    }
+
+    // The name is the user's own, but it stays out of the message: messages may end up in logs.
+    static LedgerException categoryNameTaken(AccountKind kind) {
+        return new LedgerException(
+                HttpStatus.CONFLICT,
+                "category_name_taken",
+                "An active " + kind.name().toLowerCase(Locale.ROOT) + " category already has this name.");
     }
 
     static LedgerException tooFewPostings(int count) {

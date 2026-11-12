@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.Currency;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -37,6 +38,8 @@ class AccountEntity {
     @JdbcTypeCode(SqlTypes.CHAR)
     private Currency currency;
 
+    private @Nullable Instant archivedAt;
+
     @SuppressWarnings("NullAway.Init") // For Hibernate, which sets the fields itself.
     protected AccountEntity() {}
 
@@ -48,7 +51,26 @@ class AccountEntity {
         this.currency = account.currency();
     }
 
+    AccountKind kind() {
+        return kind;
+    }
+
+    void rename(String name) {
+        this.name = name;
+    }
+
+    // Archiving twice keeps the first date.
+    void archive(Instant now) {
+        if (archivedAt == null) {
+            archivedAt = now;
+        }
+    }
+
+    void restore() {
+        archivedAt = null;
+    }
+
     Account toAccount() {
-        return new Account(id, ledgerId, kind, subtype, name, currency);
+        return new Account(id, ledgerId, kind, subtype, name, currency, archivedAt != null);
     }
 }

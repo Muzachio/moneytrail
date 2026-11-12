@@ -27,7 +27,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] `account_balances` projection with ordered `FOR UPDATE` locking
 - [x] jqwik property tests + concurrency test for the ledger
 - [x] Idempotency-Key interceptor and storage
-- [ ] Default categories created on sign-up (as EXPENSE/INCOME accounts)
+- [x] Default categories created on sign-up (as EXPENSE/INCOME accounts)
 - [ ] Accounts API + UI (create, rename, archive, balance)
 - [ ] Transactions API + UI: expense, income, transfer, reverse/edit. Cursor-paginated list with filters
 - [ ] Reports: spend by category (month), 6-month trend, dashboard UI
