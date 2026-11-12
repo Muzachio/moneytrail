@@ -1,11 +1,13 @@
 package io.github.muzachio.moneytrail.personal.internal;
 
 import io.github.muzachio.moneytrail.identity.UserSignedIn;
+import io.github.muzachio.moneytrail.ledger.Account;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.ledger.Ledger;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.NewAccount;
+import java.time.ZoneId;
 import java.util.Currency;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +30,12 @@ class PersonalLedgers {
     /** The subtype of the account that opening balances are posted against (#44). */
     static final String OPENING_BALANCES = "opening-balances";
 
+    /**
+     * The calendar that "today" and "this month" follow, until users can choose their own: the app
+     * is made for Portugal first. The server's clock runs in UTC, an hour behind Lisbon in summer.
+     */
+    static final ZoneId TIME_ZONE = ZoneId.of("Europe/Lisbon");
+
     private final LedgerService ledger;
 
     PersonalLedgers(LedgerService ledger) {
@@ -48,13 +56,25 @@ class PersonalLedgers {
     }
 
     /**
-     * The id of the user's personal ledger, opened now if they have none yet. The categories
-     * endpoints call it too, so a session that began before the ledgers existed still finds its
-     * categories.
+     * The id of the user's personal ledger, opened now if they have none yet. The categories and
+     * accounts endpoints call it too, so a session that began before the ledgers existed still finds
+     * its categories.
      */
     UUID ledgerOf(UUID userId) {
         LedgerOwner owner = LedgerOwner.user(userId);
         return ledger.findLedger(owner).or(() -> open(owner)).orElseThrow().id();
+    }
+
+    /** The {@code Equity:Opening balances} account that {@link #openDefaultAccounts} opened. */
+    UUID openingBalancesAccount(UUID ledgerId, Currency currency) {
+        return ledger.accounts(ledgerId).stream()
+                .filter(account -> account.kind() == AccountKind.EQUITY
+                        && OPENING_BALANCES.equals(account.subtype())
+                        && account.currency().equals(currency))
+                .map(Account::id)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Ledger " + ledgerId + " has no opening balances account in " + currency));
     }
 
     private Optional<Ledger> open(LedgerOwner owner) {

@@ -23,6 +23,8 @@ tags:
     description: Service status.
   - name: identity
     description: The signed-in user.
+  - name: accounts
+    description: The signed-in user's checking, savings, cash and credit card accounts.
   - name: categories
     description: The signed-in user's expense and income categories.
 security:
@@ -57,6 +59,95 @@ paths:
                 $ref: '#/components/schemas/CurrentUser'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List the user's accounts with their balances
+      description: |
+        Every checking, savings, cash and credit card account of the signed-in user, archived ones
+        included, in the order they were created. Categories are not accounts here, and neither is
+        the ledger's opening balances account. Each account comes with its balance and with how much
+        it changed this month.
+      responses:
+        '200':
+          description: The user's accounts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Create an account, with its balance today if it has one
+      description: |
+        Adds an account. With an `openingBalance` the account starts at that balance: a journal
+        entry dated today moves it from the user's `Equity:Opening balances` account, in the same
+        transaction as the new account, so the ledger balances from the first entry. An opening
+        balance of zero records no entry.
+
+        It moves money, so it takes an `Idempotency-Key`: a retry gets the first response again and
+        creates neither a second account nor a second entry.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAccount'
+      responses:
+        '201':
+          description: The new account, with its opening balance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/IdempotencyKeyInUse'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+  /v1/accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Rename, archive or restore an account
+      description: |
+        Changes the properties sent and leaves the others as they are. An archived account keeps its
+        history and its balance, but new transactions cannot use it. This moves no money, so it
+        takes no `Idempotency-Key`: sending the same change again gives the same result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpdate'
+      responses:
+        '200':
+          description: The account after the change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
   /v1/categories:
     get:
       operationId: listCategories
@@ -185,6 +276,20 @@ components:
             status: 400
             detail: Invalid request content.
             code: bad_request
+    AccountNotFound:
+      description: |
+        The user has no account with this id. Another user's account answers the same, so whether it
+        exists is not revealed, and so do categories and the opening balances account, which are not
+        accounts here.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no account with this id.
+            code: account_not_found
     CategoryNotFound:
       description: |
         The user has no category with this id. Another user's category answers the same, so whether
@@ -262,6 +367,111 @@ components:
           type: string
           format: uri
           description: Profile picture from the identity provider, when it has one.
+    Money:
+      type: object
+      required: [amountMinor, currency]
+      description: |
+        An amount in the minor units of a currency: `{"amountMinor": 1250, "currency": "EUR"}` is
+        €12.50. Never a decimal number (docs/architecture.md, "API").
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          # JavaScript's safe integers (2^53 − 1), so that every client reads the amount exactly.
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+          description: Whole minor units, such as cents. Negative for money owed or spent.
+          example: 1250
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 code.
+          example: EUR
+    CurrencyCode:
+      type: string
+      enum: [EUR]
+      description: The currency of an account. Only EUR for now; more currencies come later.
+    AccountType:
+      type: string
+      enum: [CHECKING, SAVINGS, CASH, CREDIT_CARD]
+      description: |
+        What the account is. Checking, savings and cash accounts hold money the user has (assets in
+        the ledger); a credit card holds money the user owes (a liability).
+    AccountName:
+      type: string
+      minLength: 1
+      maxLength: 50
+      # The same rule as CategoryName: at least one character that is not a space.
+      pattern: '^\s*\S[\s\S]*$'
+      description: Spaces around the name are removed. Two accounts may have the same name.
+      example: Everyday checking
+    Account:
+      type: object
+      required: [id, name, type, currency, balance, changeThisMonth, archived]
+      description: |
+        An `ASSET` or `LIABILITY` account of the user's personal ledger (docs/architecture.md, "The
+        ledger"). Amounts are signed as the ledger keeps them: what the user has is positive, and
+        what they owe, such as a credit card's balance, is negative.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Everyday checking
+        type:
+          $ref: '#/components/schemas/AccountType'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        balance:
+          $ref: '#/components/schemas/Money'
+          description: The sum of every entry on the account, the opening balance included.
+        changeThisMonth:
+          $ref: '#/components/schemas/Money'
+          description: |
+            The sum of the account's entries dated in the current calendar month (Europe/Lisbon). The
+            opening balance is left out: it is money the user already had, not money that moved.
+        archived:
+          type: boolean
+          description: Archived accounts keep their history and balance but cannot be used for new transactions.
+        archivedAt:
+          type: string
+          format: date-time
+          description: When the account was archived; only on archived accounts.
+    AccountList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+    NewAccount:
+      type: object
+      required: [name, type, currency]
+      properties:
+        name:
+          $ref: '#/components/schemas/AccountName'
+        type:
+          $ref: '#/components/schemas/AccountType'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        openingBalance:
+          $ref: '#/components/schemas/Money'
+          description: |
+            The account's balance today ("Balance today" in the app), in the account's currency and
+            signed as `balance` is: what a credit card owes ("Amount owed today") is negative. Leave
+            it out, or send zero, for an account that starts empty.
+    AccountUpdate:
+      type: object
+      minProperties: 1
+      description: The properties to change, at least one.
+      properties:
+        name:
+          $ref: '#/components/schemas/AccountName'
+        archived:
+          type: boolean
+          description: '`true` archives the account, `false` restores it.'
     CategoryKind:
       type: string
       enum: [EXPENSE, INCOME]

@@ -13,6 +13,8 @@ import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,18 +38,21 @@ class DefaultLedgerService implements LedgerService {
     private final Accounts accounts;
     private final JournalEntries entries;
     private final AccountBalances balances;
+    private final AccountChanges changes;
 
     DefaultLedgerService(
             Ledgers ledgers,
             LedgerInserts ledgerInserts,
             Accounts accounts,
             JournalEntries entries,
-            AccountBalances balances) {
+            AccountBalances balances,
+            AccountChanges changes) {
         this.ledgers = ledgers;
         this.ledgerInserts = ledgerInserts;
         this.accounts = accounts;
         this.entries = entries;
         this.balances = balances;
+        this.changes = changes;
     }
 
     @Override
@@ -100,7 +105,8 @@ class DefaultLedgerService implements LedgerService {
     @Override
     public Account archiveAccount(UUID accountId) {
         AccountEntity account = existingAccount(accountId);
-        account.archive(Instant.now());
+        // Postgres keeps microseconds: the date returned now is the one read back later.
+        account.archive(Instant.now().truncatedTo(ChronoUnit.MICROS));
         return save(account);
     }
 
@@ -123,6 +129,18 @@ class DefaultLedgerService implements LedgerService {
     @Transactional(readOnly = true)
     public Money balance(UUID accountId) {
         return balances.find(accountId).orElseThrow(() -> LedgerException.accountNotFound(accountId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Money> balances(UUID ledgerId) {
+        return balances.findByLedger(ledgerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Money> changes(UUID ledgerId, LocalDate from, LocalDate to) {
+        return changes.between(ledgerId, from, to);
     }
 
     @Override

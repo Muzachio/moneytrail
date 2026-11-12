@@ -167,7 +167,7 @@ class PostingRulesTests {
     }
 
     private static Account account(UUID ledgerId, AccountKind kind, String name, Currency currency) {
-        return new Account(UUID.randomUUID(), ledgerId, kind, null, name, currency, false);
+        return new Account(UUID.randomUUID(), ledgerId, kind, null, name, currency, null);
     }
 
     private static Map<UUID, Account> byId(Account... accounts) {

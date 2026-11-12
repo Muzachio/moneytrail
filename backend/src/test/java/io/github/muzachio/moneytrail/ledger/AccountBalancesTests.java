@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -103,6 +104,44 @@ class AccountBalancesTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void balancesHasEveryAccountOfTheLedgerAndNoOther() {
+        post(posting(salary, -250000), posting(checking, 250000));
+        post(posting(transport, 4000), posting(card, -4000));
+        Ledger someoneElses = ledger.openLedger(LedgerOwner.user(LedgerTestUsers.create(jdbc)));
+        ledger.openAccount(new NewAccount(someoneElses.id(), AccountKind.ASSET, null, "Checking", EUR));
+
+        assertThat(ledger.balances(personal.id()))
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        checking.id(), eur(250000),
+                        card.id(), eur(-4000),
+                        food.id(), eur(0),
+                        transport.id(), eur(4000),
+                        salary.id(), eur(-250000)));
+    }
+
+    @Test
+    void changesSumTheEntriesOfTheDaysAskedForLeavingOutEquity() {
+        Account openingBalances = open(AccountKind.EQUITY, "Opening balances");
+        LocalDate first = LocalDate.of(2026, 11, 1);
+        LocalDate last = LocalDate.of(2026, 11, 30);
+        postOn(first.minusDays(1), posting(food, 900), posting(checking, -900));
+        postOn(first, posting(salary, -250000), posting(checking, 250000));
+        postOn(first.plusDays(4), posting(checking, 100000), posting(openingBalances, -100000));
+        postOn(first.plusDays(9), posting(food, 1250), posting(card, -1250));
+        postOn(last, posting(card, 1250), posting(checking, -1250));
+        postOn(last.plusDays(1), posting(transport, 4000), posting(checking, -4000));
+
+        assertThat(ledger.changes(personal.id(), first, last))
+                .as("both days included; the card's payment cancels its charge, so it did not change")
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        checking.id(), eur(250000 - 1250),
+                        salary.id(), eur(-250000),
+                        food.id(), eur(1250)));
+        assertThat(ledger.changes(personal.id(), last.plusDays(2), last.plusDays(30)))
+                .isEmpty();
+    }
+
+    @Test
     void anUnknownAccountHasNoBalance() {
         assertThatThrownBy(() -> ledger.balance(UUID.randomUUID()))
                 .isInstanceOfSatisfying(
@@ -187,8 +226,11 @@ class AccountBalancesTests extends PostgresIntegrationTest {
     }
 
     private JournalEntry post(Posting... postings) {
-        return ledger.post(
-                new NewJournalEntry(personal.id(), LocalDate.of(2026, 11, 8), "Test", userId, List.of(postings)));
+        return postOn(LocalDate.of(2026, 11, 8), postings);
+    }
+
+    private JournalEntry postOn(LocalDate occurredOn, Posting... postings) {
+        return ledger.post(new NewJournalEntry(personal.id(), occurredOn, "Test", userId, List.of(postings)));
     }
 
     private long sumOfPostings(Account account) {
