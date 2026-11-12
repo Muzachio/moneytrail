@@ -2,7 +2,9 @@ package io.github.muzachio.moneytrail.ledger;
 
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -92,4 +94,16 @@ public interface LedgerService {
      * @throws DomainException {@code account_not_found} (404)
      */
     Money balance(UUID accountId);
+
+    /** The balance of every account of a ledger, archived ones included, read as {@link #balance} is. */
+    Map<UUID, Money> balances(UUID ledgerId);
+
+    /**
+     * How much each account of a ledger changed from one day to another, both included: the sum of
+     * its postings in the entries that occurred on those days. An entry that posts to an {@link
+     * AccountKind#EQUITY} account is left out, because it records money the owner already had, such
+     * as an account's opening balance, not money that moved then. Accounts that did not change are
+     * not in the map.
+     */
+    Map<UUID, Money> changes(UUID ledgerId, LocalDate from, LocalDate to);
 }

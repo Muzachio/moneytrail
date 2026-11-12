@@ -1,7 +1,11 @@
 package io.github.muzachio.moneytrail.ledger.internal;
 
+import static java.util.stream.Collectors.toMap;
+
 import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.Money;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Currency;
 import java.util.HashMap;
 import java.util.List;
@@ -58,8 +62,23 @@ class AccountBalances {
                         FROM account_balances balance JOIN accounts account ON account.id = balance.account_id
                         WHERE balance.account_id = :accountId""")
                 .param("accountId", accountId)
-                .query((rs, rowNum) ->
-                        new Money(rs.getLong("balance_minor"), Currency.getInstance(rs.getString("currency"))))
+                .query((rs, rowNum) -> balanceOf(rs))
                 .optional();
+    }
+
+    Map<UUID, Money> findByLedger(UUID ledgerId) {
+        return jdbc
+                .sql("""
+                        SELECT balance.account_id, balance.balance_minor, account.currency
+                        FROM account_balances balance JOIN accounts account ON account.id = balance.account_id
+                        WHERE account.ledger_id = :ledgerId""")
+                .param("ledgerId", ledgerId)
+                .query((rs, rowNum) -> Map.entry(rs.getObject("account_id", UUID.class), balanceOf(rs)))
+                .stream()
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private static Money balanceOf(ResultSet rs) throws SQLException {
+        return new Money(rs.getLong("balance_minor"), Currency.getInstance(rs.getString("currency")));
     }
 }

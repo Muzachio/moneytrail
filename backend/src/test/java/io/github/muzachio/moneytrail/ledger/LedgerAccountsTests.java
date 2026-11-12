@@ -7,6 +7,7 @@ import io.github.muzachio.moneytrail.PostgresIntegrationTest;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.util.Currency;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,12 +73,16 @@ class LedgerAccountsTests extends PostgresIntegrationTest {
         Account renamed = ledger.renameAccount(food.id(), "Groceries");
         Account archived = ledger.archiveAccount(food.id());
         Account archivedAgain = ledger.archiveAccount(food.id());
+        Optional<Account> readBack = ledger.findAccount(food.id());
         Account restored = ledger.restoreAccount(food.id());
 
         assertThat(renamed.name()).isEqualTo("Groceries");
         assertThat(archived.archived()).isTrue();
-        assertThat(archivedAgain).isEqualTo(archived);
+        assertThat(archived.archivedAt()).isNotNull();
+        assertThat(archivedAgain).as("keeps the first date").isEqualTo(archived);
+        assertThat(readBack).as("the date as the database keeps it").contains(archived);
         assertThat(restored).isEqualTo(renamed);
+        assertThat(restored.archivedAt()).isNull();
         assertThat(ledger.balance(food.id())).isEqualTo(new Money(0, EUR));
         assertThatThrownBy(() -> ledger.renameAccount(UUID.randomUUID(), "Lost"))
                 .isInstanceOfSatisfying(

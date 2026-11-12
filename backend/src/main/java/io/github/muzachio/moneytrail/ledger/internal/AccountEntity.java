@@ -71,6 +71,6 @@ class AccountEntity {
     }
 
     Account toAccount() {
-        return new Account(id, ledgerId, kind, subtype, name, currency, archivedAt != null);
+        return new Account(id, ledgerId, kind, subtype, name, currency, archivedAt);
     }
 }

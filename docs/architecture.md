@@ -126,9 +126,10 @@ GnuCash. This keeps reports a plain `SUM` over postings.
 
 Each user has one **personal ledger**, which `personal` opens the first time they sign in
 (users from before it existed: their next sign-in), with the default categories and an
-`Equity:Opening balances` account that the accounts' opening balances are posted against. A
-default category's stable key (`food`, `salary`, ...)
-lives in the account's `subtype`; the API sends that key and leaves the name out until the
+`Equity:Opening balances` account that the accounts' opening balances are posted against. Such an
+entry records money the user already had, so an account's change over a month (the accounts list
+shows this month's) leaves out every entry that posts to an `EQUITY` account. A default
+category's stable key (`food`, `salary`, ...) lives in the account's `subtype`; the API sends that key and leaves the name out until the
 user renames the category, so the app shows it in the user's language. Within a ledger and a
 kind, active categories have different names, ignoring case (a unique index, so concurrent
 requests cannot get around it).
@@ -224,7 +225,9 @@ UUIDs are **v7** (time-ordered, index-friendly), generated in the application.
 ## API
 
 - REST, JSON, versioned under `/v1`, **spec-first** in `api/openapi.yaml` ([ADR-0006](adr/0006-spec-first-openapi.md)).
-- Money in JSON is `{ "amountMinor": 1250, "currency": "EUR" }`. No floats on the wire either.
+- Money in JSON is `{ "amountMinor": 1250, "currency": "EUR" }`. No floats on the wire either:
+  a fraction such as `12.5` in an integer property is refused with `400`, never rounded.
+- Days such as *today* and *this month* follow Europe/Lisbon until users can choose a time zone.
 - Errors are **RFC 9457** `ProblemDetail` with a stable `code` property.
 - Lists use **cursor pagination** (keyset on `(occurred_on, id)`), never `OFFSET`.
 - Every money-moving `POST` **requires an `Idempotency-Key` header**.
@@ -235,7 +238,7 @@ Main resources:
 GET    /v1/me
 GET    /oauth2/authorization/google · POST /logout          (Spring Security)
 
-GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/archive only)
+GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/archive/restore only)
 GET|POST         /v1/categories         PATCH /v1/categories/{id} (rename/archive only)
 GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse

@@ -19,6 +19,10 @@ spring:
     # api/openapi.yaml leaves optional properties out rather than making them nullable (in OpenAPI
     # 3.1, a string is never null), so a missing value is left out instead of written as null.
     default-property-inclusion: non_null
+    deserialization:
+      # Jackson would read {"amountMinor": 12.5} as 12 and drop the half cent without a word. An
+      # integer property refuses a fraction (400) instead, so a client bug never changes an amount.
+      accept-float-as-int: false
   session:
     jdbc:
       # Flyway owns the schema (V3__spring_session.sql).
