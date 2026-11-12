@@ -58,8 +58,12 @@ included, so private data must never reach a commit.
 ## Code conventions
 - Packages: `io.github.muzachio.moneytrail.<module>`. A module's public API sits in the
   module root package. Implementation goes in `<module>.internal`. `ModularityTests` must pass.
-- Cross-module side effects go through domain events (`@ApplicationModuleListener`).
-  Listeners must be idempotent.
+- Cross-module side effects go through domain events. By default the listener is an
+  `@ApplicationModuleListener`: asynchronous, after commit, through the outbox. Only when the
+  user needs the result at once, and it must never be missing (the personal ledger and its
+  categories on sign-in), use a synchronous `@EventListener` with
+  `@Transactional(propagation = MANDATORY)`, which runs in the publisher's transaction and
+  fails it if it fails (ADR-0010). Listeners must be idempotent.
 - Controllers implement the generated OpenAPI interfaces. Change `api/openapi.yaml` first, then code.
 - Use records for DTOs and value objects, sealed interfaces for results and errors,
   constructor injection only, no Lombok.

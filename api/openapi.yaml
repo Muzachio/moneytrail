@@ -23,6 +23,8 @@ tags:
     description: Service status.
   - name: identity
     description: The signed-in user.
+  - name: categories
+    description: The signed-in user's expense and income categories.
 security:
   - sessionCookie: []
 paths:
@@ -55,6 +57,88 @@ paths:
                 $ref: '#/components/schemas/CurrentUser'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+  /v1/categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List the user's categories
+      description: |
+        Every expense and income category of the signed-in user, archived ones included. Expense
+        categories come first, then income ones. Within each kind the default categories come first,
+        in a fixed order, then the user's own in the order they were created.
+      responses:
+        '200':
+          description: The user's categories.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category
+      description: |
+        Adds an expense or income category of the user's own. Creating a category moves no money,
+        so it takes no `Idempotency-Key`: a retry of a request that succeeded answers `409`, because
+        the name is then taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCategory'
+      responses:
+        '201':
+          description: The new category.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/CategoryNameTaken'
+  /v1/categories/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Rename, archive or restore a category
+      description: |
+        Changes the properties sent and leaves the others as they are. An archived category keeps
+        its history, but new transactions cannot use it. Renaming a default category makes the app
+        show the new name instead of its translation of `key`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdate'
+      responses:
+        '200':
+          description: The category after the change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/CategoryNotFound'
+        '409':
+          $ref: '#/components/responses/CategoryNameTaken'
 components:
   securitySchemes:
     sessionCookie:
@@ -90,6 +174,43 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    BadRequest:
+      description: The request is malformed or breaks a rule of its schema, such as an empty name.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Bad Request
+            status: 400
+            detail: Invalid request content.
+            code: bad_request
+    CategoryNotFound:
+      description: |
+        The user has no category with this id. Another user's category answers the same, so whether
+        it exists is not revealed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no category with this id.
+            code: category_not_found
+    CategoryNameTaken:
+      description: |
+        Another active category of the same kind already has this name, ignoring case. Archived
+        categories do not count.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: An active expense category already has this name.
+            code: category_name_taken
     IdempotencyKeyInUse:
       description: |
         Another request with the same `Idempotency-Key` is still being processed. Retry once it has
@@ -141,6 +262,73 @@ components:
           type: string
           format: uri
           description: Profile picture from the identity provider, when it has one.
+    CategoryKind:
+      type: string
+      enum: [EXPENSE, INCOME]
+      description: Whether the category is for spending or for income.
+    CategoryName:
+      type: string
+      minLength: 1
+      maxLength: 50
+      # At least one character that is not a space. Anchored, so it means the same to JavaScript,
+      # which searches, and to Java's validator, which matches the whole value.
+      pattern: '^\s*\S[\s\S]*$'
+      description: Spaces around the name are removed.
+      example: Groceries
+    Category:
+      type: object
+      required: [id, kind, archived]
+      description: |
+        An `EXPENSE` or `INCOME` account of the user's personal ledger (docs/architecture.md, "The
+        ledger"). Show `name` when it is present, otherwise the app's translation of `key`.
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/CategoryKind'
+        key:
+          type: string
+          description: |
+            Only on the default categories, and it never changes: `housing`, `food`, `transport`,
+            `bills`, `shopping`, `leisure`, `health` and `other` for expenses, `salary`, `refunds`,
+            `gifts` and `other-income` for income. The app translates it and picks an icon from it.
+          example: food
+        name:
+          type: string
+          description: |
+            The name the user gave the category. A default category has none until the user renames
+            it, so each person sees it in their own language.
+          example: Groceries
+        archived:
+          type: boolean
+          description: Archived categories keep their history but cannot be used for new transactions.
+    CategoryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    NewCategory:
+      type: object
+      required: [kind, name]
+      properties:
+        kind:
+          $ref: '#/components/schemas/CategoryKind'
+        name:
+          $ref: '#/components/schemas/CategoryName'
+    CategoryUpdate:
+      type: object
+      minProperties: 1
+      description: The properties to change, at least one.
+      properties:
+        name:
+          $ref: '#/components/schemas/CategoryName'
+        archived:
+          type: boolean
+          description: '`true` archives the category, `false` restores it.'
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.
