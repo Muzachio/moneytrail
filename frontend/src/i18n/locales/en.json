@@ -41,9 +41,143 @@
     "title": "Summary",
     "description": "Spending by category this month, the six-month trend and the balance of each account."
   },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "tryAgain": "Try again"
+  },
+  "forms": {
+    "name": "Name",
+    "nameRequired": "Enter a name.",
+    "nameTooLong": "Use at most {{max}} characters.",
+    "amountInvalid": "Enter an amount in numbers, such as 1250.50.",
+    "amountTooManyDecimals": "Use at most {{digits}} decimal places.",
+    "amountTooLarge": "This amount is too large."
+  },
+  "errors": {
+    "network": "Could not reach MoneyTrail. Check your connection and try again.",
+    "unauthenticated": "Your session has ended. Reload the page and sign in again.",
+    "badRequest": "MoneyTrail could not accept these details. Check them and try again.",
+    "stillSaving": "Your previous attempt is still being saved. Wait a moment and try again.",
+    "notFound": "This no longer exists. Reload the page.",
+    "unexpected": "Something went wrong ({{status}}). Try again."
+  },
+  "rowMenu": {
+    "label": "More actions for {{name}}",
+    "rename": "Rename",
+    "archive": "Archive"
+  },
   "accounts": {
     "title": "Accounts",
-    "description": "Your checking, savings, credit card and cash accounts, each with its balance."
+    "lead": "Everything you own and owe. All amounts in euros.",
+    "add": "Add account",
+    "loading": "Loading your accounts…",
+    "loadFailed": "Could not load your accounts.",
+    "empty": {
+      "title": "No accounts yet",
+      "description": "Add your bank accounts, savings, cash and credit cards to see what you own and owe."
+    },
+    "allArchived": "Every account is archived. Restore one or add a new one.",
+    "netWorth": {
+      "title": "Net worth",
+      "up": "Up {{amount}} this month",
+      "down": "Down {{amount}} this month",
+      "same": "No change this month",
+      "assets": "Assets",
+      "liabilities": "Liabilities"
+    },
+    "groups": {
+      "cashAndBank": "Cash and bank",
+      "creditCards": "Credit cards"
+    },
+    "columns": {
+      "account": "Account",
+      "thisMonth": "This month",
+      "balance": "Balance"
+    },
+    "noChange": "No change",
+    "types": {
+      "CHECKING": "Checking",
+      "SAVINGS": "Savings",
+      "CREDIT_CARD": "Credit card",
+      "CASH": "Cash"
+    },
+    "owed": "{{type}} · what you owe",
+    "renameTitle": "Rename account",
+    "archiveHint": "Hides it from lists. Its history is kept.",
+    "archiveFailed": "Could not archive {{name}}.",
+    "restore": "Restore",
+    "restoreNamed": "Restore {{name}}",
+    "restoreFailed": "Could not restore {{name}}.",
+    "archived": {
+      "title": "Archived accounts ({{count}})",
+      "on": "{{type}} · archived on {{date}}"
+    },
+    "note": "Each balance is the sum of every entry on that account, so it always adds up. Archiving an account hides it; it never deletes its history.",
+    "form": {
+      "title": "Add account",
+      "namePlaceholder": "e.g. Everyday checking",
+      "type": "Type",
+      "currency": "Currency",
+      "euro": "EUR · Euro",
+      "balanceToday": "Balance today",
+      "owedToday": "Amount owed today",
+      "balanceHelp": "Saved as an opening entry, so the history adds up from day one.",
+      "owedHelp": "Saved as money you owe, so your net worth stays right.",
+      "moreCurrencies": "More currencies come later.",
+      "submit": "Add account"
+    }
+  },
+  "categories": {
+    "title": "Categories",
+    "lead": "They sort your expenses and income. Archiving a category keeps its history.",
+    "loading": "Loading your categories…",
+    "loadFailed": "Could not load your categories.",
+    "kinds": {
+      "EXPENSE": "Expenses",
+      "INCOME": "Income"
+    },
+    "kind": {
+      "EXPENSE": "Expense category",
+      "INCOME": "Income category"
+    },
+    "none": {
+      "EXPENSE": "No active expense categories.",
+      "INCOME": "No active income categories."
+    },
+    "new": {
+      "EXPENSE": "New expense category",
+      "INCOME": "New income category"
+    },
+    "add": "Add category",
+    "renameTitle": "Rename category",
+    "nameTaken": {
+      "EXPENSE": "You already have an expense category with this name.",
+      "INCOME": "You already have an income category with this name."
+    },
+    "archiveHint": "No longer offered for new transactions. Its history is kept.",
+    "archiveFailed": "Could not archive {{name}}.",
+    "restore": "Restore",
+    "restoreNamed": "Restore {{name}}",
+    "restoreFailed": "Could not restore {{name}}.",
+    "archived": {
+      "title": "Archived categories ({{count}})"
+    },
+    "defaults": {
+      "housing": "Housing",
+      "food": "Food",
+      "transport": "Transport",
+      "bills": "Bills",
+      "shopping": "Shopping",
+      "leisure": "Leisure",
+      "health": "Health",
+      "other": "Other",
+      "salary": "Salary",
+      "refunds": "Refunds",
+      "gifts": "Gifts",
+      "other-income": "Other income"
+    }
   },
   "transactions": {
     "title": "Transactions",

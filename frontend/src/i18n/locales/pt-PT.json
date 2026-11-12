@@ -41,9 +41,143 @@
     "title": "Resumo",
     "description": "Gastos por categoria este mês, a tendência dos últimos seis meses e o saldo de cada conta."
   },
+  "common": {
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "save": "Guardar",
+    "tryAgain": "Tentar novamente"
+  },
+  "forms": {
+    "name": "Nome",
+    "nameRequired": "Escreve um nome.",
+    "nameTooLong": "Usa no máximo {{max}} caracteres.",
+    "amountInvalid": "Escreve um valor em algarismos, como 1250,50.",
+    "amountTooManyDecimals": "Usa no máximo {{digits}} casas decimais.",
+    "amountTooLarge": "Este valor é demasiado grande."
+  },
+  "errors": {
+    "network": "Não foi possível contactar o MoneyTrail. Verifica a ligação e tenta novamente.",
+    "unauthenticated": "A tua sessão terminou. Recarrega a página e volta a entrar.",
+    "badRequest": "O MoneyTrail não aceitou estes dados. Revê-os e tenta novamente.",
+    "stillSaving": "A tentativa anterior ainda está a ser guardada. Espera um momento e tenta novamente.",
+    "notFound": "Isto já não existe. Recarrega a página.",
+    "unexpected": "Algo correu mal ({{status}}). Tenta novamente."
+  },
+  "rowMenu": {
+    "label": "Mais ações para {{name}}",
+    "rename": "Mudar o nome",
+    "archive": "Arquivar"
+  },
   "accounts": {
     "title": "Contas",
-    "description": "As tuas contas à ordem, poupanças, cartões de crédito e dinheiro, cada uma com o seu saldo."
+    "lead": "Tudo o que tens e o que deves. Todos os valores em euros.",
+    "add": "Adicionar conta",
+    "loading": "A carregar as tuas contas…",
+    "loadFailed": "Não foi possível carregar as tuas contas.",
+    "empty": {
+      "title": "Ainda não tens contas",
+      "description": "Adiciona as tuas contas bancárias, poupanças, dinheiro e cartões de crédito para veres o que tens e o que deves."
+    },
+    "allArchived": "Todas as contas estão arquivadas. Restaura uma ou adiciona uma nova.",
+    "netWorth": {
+      "title": "Património líquido",
+      "up": "Subiu {{amount}} este mês",
+      "down": "Desceu {{amount}} este mês",
+      "same": "Sem alterações este mês",
+      "assets": "Ativos",
+      "liabilities": "Passivos"
+    },
+    "groups": {
+      "cashAndBank": "Dinheiro e bancos",
+      "creditCards": "Cartões de crédito"
+    },
+    "columns": {
+      "account": "Conta",
+      "thisMonth": "Este mês",
+      "balance": "Saldo"
+    },
+    "noChange": "Sem alterações",
+    "types": {
+      "CHECKING": "Conta à ordem",
+      "SAVINGS": "Poupança",
+      "CREDIT_CARD": "Cartão de crédito",
+      "CASH": "Dinheiro"
+    },
+    "owed": "{{type}} · o que deves",
+    "renameTitle": "Mudar o nome da conta",
+    "archiveHint": "Deixa de aparecer nas listas. O histórico fica guardado.",
+    "archiveFailed": "Não foi possível arquivar {{name}}.",
+    "restore": "Restaurar",
+    "restoreNamed": "Restaurar {{name}}",
+    "restoreFailed": "Não foi possível restaurar {{name}}.",
+    "archived": {
+      "title": "Contas arquivadas ({{count}})",
+      "on": "{{type}} · arquivada a {{date}}"
+    },
+    "note": "O saldo de cada conta é a soma de todos os seus movimentos, por isso bate sempre certo. Arquivar uma conta esconde-a, mas nunca apaga o seu histórico.",
+    "form": {
+      "title": "Adicionar conta",
+      "namePlaceholder": "ex.: Conta do dia a dia",
+      "type": "Tipo",
+      "currency": "Moeda",
+      "euro": "EUR · Euro",
+      "balanceToday": "Saldo hoje",
+      "owedToday": "Valor em dívida hoje",
+      "balanceHelp": "Fica registado como movimento de abertura, para o histórico bater certo desde o primeiro dia.",
+      "owedHelp": "Fica registado como dinheiro que deves, para o teu património líquido estar certo.",
+      "moreCurrencies": "Mais moedas virão depois.",
+      "submit": "Adicionar conta"
+    }
+  },
+  "categories": {
+    "title": "Categorias",
+    "lead": "Organizam as tuas despesas e receitas. Arquivar uma categoria guarda o seu histórico.",
+    "loading": "A carregar as tuas categorias…",
+    "loadFailed": "Não foi possível carregar as tuas categorias.",
+    "kinds": {
+      "EXPENSE": "Despesas",
+      "INCOME": "Receitas"
+    },
+    "kind": {
+      "EXPENSE": "Categoria de despesa",
+      "INCOME": "Categoria de receita"
+    },
+    "none": {
+      "EXPENSE": "Sem categorias de despesa ativas.",
+      "INCOME": "Sem categorias de receita ativas."
+    },
+    "new": {
+      "EXPENSE": "Nova categoria de despesa",
+      "INCOME": "Nova categoria de receita"
+    },
+    "add": "Adicionar categoria",
+    "renameTitle": "Mudar o nome da categoria",
+    "nameTaken": {
+      "EXPENSE": "Já tens uma categoria de despesa com este nome.",
+      "INCOME": "Já tens uma categoria de receita com este nome."
+    },
+    "archiveHint": "Deixa de aparecer nos novos movimentos. O histórico fica guardado.",
+    "archiveFailed": "Não foi possível arquivar {{name}}.",
+    "restore": "Restaurar",
+    "restoreNamed": "Restaurar {{name}}",
+    "restoreFailed": "Não foi possível restaurar {{name}}.",
+    "archived": {
+      "title": "Categorias arquivadas ({{count}})"
+    },
+    "defaults": {
+      "housing": "Casa",
+      "food": "Alimentação",
+      "transport": "Transportes",
+      "bills": "Faturas",
+      "shopping": "Compras",
+      "leisure": "Lazer",
+      "health": "Saúde",
+      "other": "Outros",
+      "salary": "Salário",
+      "refunds": "Reembolsos",
+      "gifts": "Presentes",
+      "other-income": "Outras receitas"
+    }
   },
   "transactions": {
     "title": "Movimentos",
