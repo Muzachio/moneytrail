@@ -10,7 +10,13 @@ import org.springframework.data.repository.Repository;
  */
 interface JournalEntries extends Repository<JournalEntryEntity, UUID> {
 
-    JournalEntryEntity save(JournalEntryEntity entry);
+    // Flushed at once, so that an entry that reverses or replaces one already reversed or replaced
+    // fails here, where DefaultLedgerService can tell the caller why.
+    JournalEntryEntity saveAndFlush(JournalEntryEntity entry);
 
     Optional<JournalEntryEntity> findById(UUID id);
+
+    Optional<JournalEntryEntity> findByReversesEntryId(UUID reversedEntryId);
+
+    Optional<JournalEntryEntity> findByReplacesEntryId(UUID replacedEntryId);
 }

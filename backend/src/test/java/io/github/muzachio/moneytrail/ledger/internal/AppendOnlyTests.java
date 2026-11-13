@@ -21,6 +21,7 @@ class AppendOnlyTests {
         assertThat(JournalEntries.class.getInterfaces()).containsExactly(Repository.class);
         assertThat(JournalEntries.class.getDeclaredMethods())
                 .extracting(Method::getName)
-                .containsExactlyInAnyOrder("save", "findById");
+                .containsExactlyInAnyOrder(
+                        "saveAndFlush", "findById", "findByReversesEntryId", "findByReplacesEntryId");
     }
 }

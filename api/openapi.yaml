@@ -27,6 +27,8 @@ tags:
     description: The signed-in user's checking, savings, cash and credit card accounts.
   - name: categories
     description: The signed-in user's expense and income categories.
+  - name: transactions
+    description: The signed-in user's expenses, income and transfers between their accounts.
 security:
   - sessionCookie: []
 paths:
@@ -230,6 +232,115 @@ paths:
           $ref: '#/components/responses/CategoryNotFound'
         '409':
           $ref: '#/components/responses/CategoryNameTaken'
+  /v1/transactions:
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Record an expense, an income or a transfer
+      description: |
+        Records one money movement as a balanced journal entry of the user's ledger
+        (docs/architecture.md, "The ledger"):
+
+        - an expense debits its category and credits the account it was paid from
+          (`+category −account`);
+        - an income credits its category and debits the account it was received in
+          (`−category +account`);
+        - a transfer debits the account it goes to and credits the one it comes from
+          (`+to −from`).
+
+        Archived accounts and categories cannot be used. It moves money, so it takes an
+        `Idempotency-Key`: a retry gets the first response again and records nothing twice.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewTransaction'
+      responses:
+        '201':
+          description: The recorded transaction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/IdempotencyKeyInUse'
+        '422':
+          $ref: '#/components/responses/TransactionRefused'
+  /v1/transactions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/TransactionId'
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get a transaction with its postings and its trail
+      description: |
+        The transaction, the ledger postings it was recorded as, and its trail: every version of it
+        and every reversal, oldest first. An old version of an edited transaction can be read too;
+        it says that it was reversed and which version is the current one.
+      responses:
+        '200':
+          description: The transaction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetail'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/TransactionNotFound'
+  /v1/transactions/{id}/reverse:
+    parameters:
+      - $ref: '#/components/parameters/TransactionId'
+    post:
+      operationId: reverseTransaction
+      tags: [transactions]
+      summary: Reverse a transaction, or edit it by reversing it and recording its correction
+      description: |
+        Nothing in the ledger is ever changed or deleted. Reversing posts a new entry that is the
+        exact opposite of the transaction's, dated the same day and linked to it, so its accounts go
+        back to what they would have been without it. Both entries stay in the history.
+
+        With a `replacement`, the corrected transaction is recorded too, in the same database
+        transaction as the reversal: this is how a transaction is edited. It follows the same rules as
+        a new transaction, except that it may keep an archived account or category that the
+        transaction it corrects already used. A transaction is reversed at most once, so reversing
+        it again, or an old version of an edited one, answers `409`.
+
+        It moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionReversal'
+      responses:
+        '200':
+          description: |
+            The correction when a `replacement` was sent, otherwise the reversed transaction; both
+            with their trail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/TransactionNotFound'
+        '409':
+          $ref: '#/components/responses/ReversalConflict'
+        '422':
+          $ref: '#/components/responses/TransactionRefused'
 components:
   securitySchemes:
     sessionCookie:
@@ -258,6 +369,13 @@ components:
         minLength: 1
         maxLength: 255
       example: 3f2b8c1e-7d4a-4b9e-9f0c-5a6d7e8f9a0b
+    TransactionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     Unauthenticated:
       description: There is no valid session.
@@ -342,6 +460,58 @@ components:
             status: 422
             detail: This Idempotency-Key was already used for a different request.
             code: idempotency_key_reused
+    TransactionNotFound:
+      description: |
+        The user has no transaction with this id. Another user's transaction answers the same, so
+        whether it exists is not revealed, and so do the entries that are not transactions: a
+        reversal, which belongs to the trail of the transaction it cancels, and an account's opening
+        balance.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no transaction with this id.
+            code: transaction_not_found
+    ReversalConflict:
+      description: |
+        `transaction_already_reversed`: the transaction was already reversed, by itself or by an
+        edit, so it is not in effect any more; only the current version of an edited transaction can
+        be reversed or edited. `idempotency_key_in_use`: see `IdempotencyKeyInUse`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: This transaction was already reversed.
+            code: transaction_already_reversed
+    TransactionRefused:
+      description: |
+        The request is well formed, but the transaction cannot be recorded. `code` says why:
+
+        - `account_not_found`: the user has no account with this id. Another user's account
+          answers the same, and so does a category or the opening balances account.
+        - `category_not_found`: the user has no category with this id. Another user's category
+          answers the same, and so does an account.
+        - `category_kind_mismatch`: an expense needs an expense category, an income an income
+          category.
+        - `account_archived`, `category_archived`: archived accounts and categories cannot be
+          used for new transactions.
+        - `currency_mismatch`: the amount is not in the account's currency.
+        - `idempotency_key_reused`: see `IdempotencyKeyReused`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: Category 0193f6a2-6b1e-7c4d-9a2f-3e5d7c9b1a20 is archived.
+            code: category_archived
   schemas:
     Health:
       type: object
@@ -539,6 +709,190 @@ components:
         archived:
           type: boolean
           description: '`true` archives the category, `false` restores it.'
+    TransactionType:
+      type: string
+      enum: [EXPENSE, INCOME, TRANSFER]
+      description: |
+        What the transaction is. A transfer moves money between two of the user's own accounts, so it
+        is neither spending nor income.
+    PositiveMoney:
+      type: object
+      required: [amountMinor, currency]
+      description: A `Money` above zero.
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+          description: Whole minor units, such as cents.
+          example: 1250
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 code, the account's currency.
+          example: EUR
+    TransactionDescription:
+      type: string
+      minLength: 1
+      maxLength: 200
+      # The same rule as CategoryName: at least one character that is not a space.
+      pattern: '^\s*\S[\s\S]*$'
+      description: What the money was for. Spaces around it are removed.
+      example: Groceries
+    NewTransaction:
+      type: object
+      required: [type, amount, occurredOn, description]
+      description: |
+        An expense or an income takes `categoryId` and `accountId`; a transfer takes `fromAccountId`
+        and `toAccountId`, two different accounts. The properties of the other type are refused with
+        `400`.
+      properties:
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        amount:
+          $ref: '#/components/schemas/PositiveMoney'
+          description: How much moved, always above zero; `type` says in which direction.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the money moved, which can be in the past.
+          example: '2026-10-22'
+        description:
+          $ref: '#/components/schemas/TransactionDescription'
+        categoryId:
+          type: string
+          format: uuid
+          description: An expense category for an expense, an income category for an income.
+        accountId:
+          type: string
+          format: uuid
+          description: The account an expense was paid from, or an income was received in.
+        fromAccountId:
+          type: string
+          format: uuid
+          description: The account a transfer takes the money from.
+        toAccountId:
+          type: string
+          format: uuid
+          description: The account a transfer puts the money in.
+    TransactionReversal:
+      type: object
+      description: Send no body, or no `replacement`, to reverse the transaction without correcting it.
+      properties:
+        replacement:
+          $ref: '#/components/schemas/NewTransaction'
+          description: The corrected transaction, recorded together with the reversal.
+    Transaction:
+      type: object
+      required: [id, type, amount, occurredOn, description, recordedAt, edited, reversed]
+      description: |
+        One version of an expense, an income or a transfer: a journal entry of the user's ledger.
+        Expenses and income come with `categoryId` and `accountId`, transfers with `fromAccountId`
+        and `toAccountId`. Look the ids up in the user's categories and accounts, archived ones
+        included.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The id of the journal entry.
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: How much moved, above zero; `type` says in which direction.
+        occurredOn:
+          type: string
+          format: date
+        description:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        fromAccountId:
+          type: string
+          format: uuid
+        toAccountId:
+          type: string
+          format: uuid
+        recordedAt:
+          type: string
+          format: date-time
+          description: When this version was recorded.
+        edited:
+          type: boolean
+          description: This version is the correction of an earlier one.
+        reversed:
+          type: boolean
+          description: |
+            A later entry cancelled this version, on its own or as part of an edit. Only old versions
+            are reversed: the current version of a transaction never is.
+    Posting:
+      type: object
+      required: [accountId, amount]
+      description: One line of a journal entry. The postings of an entry add up to zero.
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: One of the user's accounts or categories.
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: A debit when positive, a credit when negative (docs/architecture.md, "The ledger").
+    TrailAction:
+      type: string
+      enum: [RECORDED, REVERSED, CORRECTED]
+      description: |
+        `RECORDED`: the first version. `REVERSED`: an entry that cancels the step before it.
+        `CORRECTED`: a later version, recorded together with the reversal before it.
+    TrailStep:
+      type: object
+      required: [entryId, action, type, amount, recordedAt]
+      properties:
+        entryId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/TrailAction'
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: The amount of the version, or of the version a reversal cancels.
+        recordedAt:
+          type: string
+          format: date-time
+        reversesEntryId:
+          type: string
+          format: uuid
+          description: Only on `REVERSED` steps, the entry they cancel.
+    TransactionDetail:
+      type: object
+      required: [transaction, postings, trail]
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        postings:
+          type: array
+          description: The ledger postings this version was recorded as.
+          items:
+            $ref: '#/components/schemas/Posting'
+        trail:
+          type: array
+          description: |
+            Every version of the transaction and every reversal, oldest first. A transaction that was
+            never edited or reversed has one step.
+          items:
+            $ref: '#/components/schemas/TrailStep'
+        currentId:
+          type: string
+          format: uuid
+          description: |
+            The version in effect, which may be this one. Absent when the last version was reversed
+            without a correction.
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.

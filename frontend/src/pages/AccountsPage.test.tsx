@@ -162,7 +162,7 @@ describe('AccountsPage', () => {
     get.mockImplementation(((path: string) =>
       path === '/v1/accounts'
         ? new Promise(() => {})
-        : answer(path as never)) as never)
+        : (answer as unknown as (path: string) => unknown)(path)) as never)
 
     renderApp('/accounts')
 
@@ -195,7 +195,7 @@ describe('AccountsPage', () => {
             error: { title: 'Error', status: 503, code: 'unavailable' },
             response: new Response(null, { status: 503 }),
           })
-        : answer(path as never)) as never)
+        : (answer as unknown as (path: string) => unknown)(path)) as never)
 
     renderApp('/accounts')
 

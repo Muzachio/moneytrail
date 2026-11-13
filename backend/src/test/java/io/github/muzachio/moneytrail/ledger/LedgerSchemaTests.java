@@ -103,6 +103,40 @@ class LedgerSchemaTests extends PostgresIntegrationTest {
         });
     }
 
+    @Test
+    void anEntryIsReversedAndReplacedAtMostOnceAndAReversalReplacesNothing() {
+        UUID lunch = postLunch().id();
+
+        transaction.executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            insertLinkedEntry("reverses_entry_id", lunch);
+            assertThatThrownBy(() -> insertLinkedEntry("reverses_entry_id", lunch))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("journal_entries_reverses_entry_id_key");
+        });
+        transaction.executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            insertLinkedEntry("replaces_entry_id", lunch);
+            assertThatThrownBy(() -> insertLinkedEntry("replaces_entry_id", lunch))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("journal_entries_replaces_entry_id_key");
+        });
+        transaction.executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            assertThatThrownBy(() -> jdbc.sql("""
+                                    INSERT INTO journal_entries
+                                        (ledger_id, occurred_on, description, created_by, reverses_entry_id,
+                                         replaces_entry_id)
+                                    VALUES (:ledgerId, DATE '2026-11-08', 'Lunch', :userId, :id, :id)""")
+                            .param("ledgerId", personal.id())
+                            .param("userId", userId)
+                            .param("id", lunch)
+                            .update())
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("journal_entries_reversal_is_no_replacement");
+        });
+    }
+
     // The postings UPDATE keeps the entry balanced, so only the append-only rule can refuse it.
     @ParameterizedTest
     @ValueSource(
@@ -167,6 +201,17 @@ class LedgerSchemaTests extends PostgresIntegrationTest {
                 .param("userId", userId)
                 .query(UUID.class)
                 .single();
+    }
+
+    /** Postings are left out: the transaction is rolled back before the deferred balance check. */
+    private void insertLinkedEntry(String link, UUID linkedEntryId) {
+        jdbc.sql("""
+                        INSERT INTO journal_entries (ledger_id, occurred_on, description, created_by, %s)
+                        VALUES (:ledgerId, DATE '2026-11-08', 'Lunch', :userId, :linked)""".formatted(link))
+                .param("ledgerId", personal.id())
+                .param("userId", userId)
+                .param("linked", linkedEntryId)
+                .update();
     }
 
     private void insertPosting(UUID entryId, Posting posting) {

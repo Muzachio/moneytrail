@@ -15,6 +15,7 @@ import io.github.muzachio.moneytrail.shared.Money;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,6 +33,9 @@ class DefaultLedgerService implements LedgerService {
 
     // V8__one_ledger_per_owner_and_category_names.sql
     private static final String CATEGORY_NAME_CONSTRAINT = "accounts_category_name_key";
+
+    // V4__ledger.sql: journal_entries.reverses_entry_id is UNIQUE.
+    private static final String REVERSED_ONCE_CONSTRAINT = "journal_entries_reverses_entry_id_key";
 
     private final Ledgers ledgers;
     private final LedgerInserts ledgerInserts;
@@ -119,10 +123,108 @@ class DefaultLedgerService implements LedgerService {
 
     @Override
     public JournalEntry post(NewJournalEntry entry) {
+        return record(entry, new JournalEntryEntity(entry));
+    }
+
+    @Override
+    public JournalEntry reverse(UUID entryId, UUID reversedBy) {
+        return postReversal(reversible(entryId), reversedBy);
+    }
+
+    @Override
+    public JournalEntry replace(UUID entryId, NewJournalEntry replacement) {
+        JournalEntry entry = reversible(entryId);
+        if (!entry.ledgerId().equals(replacement.ledgerId())) {
+            throw LedgerException.replacementInAnotherLedger(entryId, replacement.ledgerId());
+        }
+        // Before the reversal writes anything, though the exception would roll it back anyway.
+        PostingRules.checkAmounts(replacement.postings());
+        postReversal(entry, replacement.createdBy());
+        return record(replacement, JournalEntryEntity.replacement(replacement, entryId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JournalEntry> history(UUID entryId) {
+        Optional<JournalEntry> found = entries.findById(entryId).map(JournalEntryEntity::toJournalEntry);
+        if (found.isEmpty()) {
+            return List.of();
+        }
+        JournalEntry version = found.get();
+        UUID reversed = version.reversesEntryId();
+        if (reversed != null) {
+            version = existingEntry(reversed);
+        }
+        for (UUID replaced = version.replacesEntryId(); replaced != null; replaced = version.replacesEntryId()) {
+            version = existingEntry(replaced);
+        }
+        List<JournalEntry> history = new ArrayList<>(List.of(version));
+        while (true) {
+            Optional<JournalEntry> reversal =
+                    entries.findByReversesEntryId(version.id()).map(JournalEntryEntity::toJournalEntry);
+            if (reversal.isEmpty()) {
+                break;
+            }
+            history.add(reversal.get());
+            Optional<JournalEntry> replacement =
+                    entries.findByReplacesEntryId(version.id()).map(JournalEntryEntity::toJournalEntry);
+            if (replacement.isEmpty()) {
+                break;
+            }
+            history.add(replacement.get());
+            version = replacement.get();
+        }
+        return List.copyOf(history);
+    }
+
+    private JournalEntry record(NewJournalEntry entry, JournalEntryEntity entity) {
         PostingRules.checkAmounts(entry.postings());
         PostingRules.checkAccounts(entry, accountsOf(entry));
         balances.apply(entry.postings());
-        return entries.save(new JournalEntryEntity(entry)).toJournalEntry();
+        return entries.saveAndFlush(entity).toJournalEntry();
+    }
+
+    private JournalEntry reversible(UUID entryId) {
+        JournalEntry entry = existingEntry(entryId);
+        if (entry.isReversal()) {
+            throw LedgerException.entryIsAReversal(entryId);
+        }
+        if (entries.findByReversesEntryId(entryId).isPresent()) {
+            throw LedgerException.entryAlreadyReversed(entryId);
+        }
+        return entry;
+    }
+
+    /**
+     * The check in {@link #reversible} cannot see a reversal that another transaction has not
+     * committed yet. That transaction holds the locks on the accounts' balances, so this one waits for
+     * it in {@code balances.apply} and then meets its reversal in the unique index, which answers the
+     * same as the check. The failed statement aborts the transaction, which the exception rolls back.
+     */
+    private JournalEntry postReversal(JournalEntry entry, UUID reversedBy) {
+        NewJournalEntry reversal = new NewJournalEntry(
+                entry.ledgerId(),
+                entry.occurredOn(),
+                entry.description(),
+                reversedBy,
+                entry.postings().stream()
+                        .map(posting -> new Posting(
+                                posting.accountId(), posting.amount().negate()))
+                        .toList());
+        try {
+            return record(reversal, JournalEntryEntity.reversal(reversal, entry.id()));
+        } catch (DataIntegrityViolationException e) {
+            if (violates(e, REVERSED_ONCE_CONSTRAINT)) {
+                throw LedgerException.entryAlreadyReversed(entry.id());
+            }
+            throw e;
+        }
+    }
+
+    private JournalEntry existingEntry(UUID entryId) {
+        return entries.findById(entryId)
+                .map(JournalEntryEntity::toJournalEntry)
+                .orElseThrow(() -> LedgerException.entryNotFound(entryId));
     }
 
     @Override
