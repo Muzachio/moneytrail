@@ -269,6 +269,32 @@ describe('TransactionsPage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('says the list is loading until it arrives', async () => {
+    const { get } = render()
+    const answer = get.getMockImplementation()!
+    let release = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    get.mockImplementation((async (path: string, init: never) => {
+      if (path === '/v1/transactions') {
+        await held
+      }
+      return (answer as (...args: unknown[]) => unknown)(path, init)
+    }) as never)
+
+    expect(
+      await screen.findByText('Loading your transactions…'),
+    ).toHaveAttribute('role', 'status')
+    release()
+    expect(
+      await screen.findByText('9 transactions in October'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Loading your transactions…'),
+    ).not.toBeInTheDocument()
+  })
+
   it('says when the list could not be loaded, and tries again', async () => {
     const { get } = render()
     const answer = get.getMockImplementation()!
