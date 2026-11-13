@@ -1,5 +1,8 @@
 import { vi } from 'vitest'
+import type { Account, AccountUpdate, NewAccount } from '@/api/accounts'
+import type { Category, CategoryKind, CategoryUpdate } from '@/api/categories'
 import { api } from '@/api/client'
+import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 
 /** An invented user for tests. */
@@ -9,28 +12,197 @@ export const testUser: CurrentUser = {
   name: 'Ana Teste',
 }
 
+export function euros(amountMinor: number) {
+  return { amountMinor, currency: 'EUR' }
+}
+
+let lastId = 0
+
+/** A UUID-shaped id, different for every call. */
+export function testId() {
+  lastId += 1
+  return `00000000-0000-4000-8000-${String(lastId).padStart(12, '0')}`
+}
+
+/** An invented account: an empty checking account unless `overrides` say otherwise. */
+export function testAccount(
+  overrides: Partial<Account> & Pick<Account, 'name'>,
+): Account {
+  return {
+    id: testId(),
+    type: 'CHECKING',
+    currency: 'EUR',
+    balance: euros(0),
+    changeThisMonth: euros(0),
+    archived: false,
+    ...overrides,
+  }
+}
+
+/** The default categories every user starts with, in the API's order, none renamed. */
+export function defaultCategories(): Category[] {
+  const expense = [
+    'housing',
+    'food',
+    'transport',
+    'bills',
+    'shopping',
+    'leisure',
+    'health',
+    'other',
+  ]
+  const income = ['salary', 'refunds', 'gifts', 'other-income']
+  return [
+    ...expense.map((key) => testCategory('EXPENSE', { key })),
+    ...income.map((key) => testCategory('INCOME', { key })),
+  ]
+}
+
+export function testCategory(
+  kind: CategoryKind,
+  overrides: Partial<Category>,
+): Category {
+  return { id: testId(), kind, archived: false, ...overrides }
+}
+
+type Answer = { data?: unknown; error?: unknown; response: Response }
+
+function ok(data: unknown, status = 200): Answer {
+  return { data, response: new Response(null, { status }) }
+}
+
+function problem(status: number, code: string): Answer {
+  const error: Problem = { title: 'Error', status, code }
+  return { error, response: new Response(null, { status }) }
+}
+
+type RequestInit = {
+  params?: {
+    path?: { id: string }
+    header?: Record<string, string>
+  }
+  body?: unknown
+}
+
 /**
- * Answers the API calls the shell makes: the health check, and /v1/me with `user`, or 401 when
- * `user` is null (no session).
+ * Stands in for the API: the health check, `/v1/me` with `user` (401 when it is null), and the
+ * accounts and categories of that user, kept in memory so that what a test adds, renames or
+ * archives shows up in the next list, as with the real API.
+ *
+ * Returns the spies, to check what was sent or to make one call fail with `mockImplementationOnce`,
+ * and the fake's state.
  */
 export function mockApi({
   user = testUser,
-}: { user?: CurrentUser | null } = {}) {
-  return vi.spyOn(api, 'GET').mockImplementation((async (path: string) => {
-    if (path === '/v1/health') {
-      return {
-        data: { status: 'UP' },
-        response: new Response(null, { status: 200 }),
-      }
-    }
-    if (path === '/v1/me') {
-      return user === null
-        ? {
-            error: { code: 'unauthenticated' },
-            response: new Response(null, { status: 401 }),
-          }
-        : { data: user, response: new Response(null, { status: 200 }) }
+  accounts = [],
+  categories = defaultCategories(),
+}: {
+  user?: CurrentUser | null
+  accounts?: Account[]
+  categories?: Category[]
+} = {}) {
+  const state = {
+    accounts: accounts.map((account) => ({ ...account })),
+    categories: categories.map((category) => ({ ...category })),
+  }
+
+  const get = vi.spyOn(api, 'GET').mockImplementation((async (path: string) => {
+    switch (path) {
+      case '/v1/health':
+        return ok({ status: 'UP' })
+      case '/v1/me':
+        return user === null ? problem(401, 'unauthenticated') : ok(user)
+      case '/v1/accounts':
+        return ok({ items: state.accounts })
+      case '/v1/categories':
+        return ok({ items: state.categories })
     }
     throw new Error(`Unexpected GET ${path}`)
   }) as never)
+
+  const post = vi.spyOn(api, 'POST').mockImplementation((async (
+    path: string,
+    init: RequestInit,
+  ) => {
+    if (path === '/v1/accounts') {
+      if (!init.params?.header?.['Idempotency-Key']) {
+        return problem(400, 'bad_request')
+      }
+      const { name, type, openingBalance } = init.body as NewAccount
+      const account = testAccount({
+        name: name.trim(),
+        type,
+        balance: openingBalance ?? euros(0),
+      })
+      state.accounts.push(account)
+      return ok(account, 201)
+    }
+    if (path === '/v1/categories') {
+      const { kind, name } = init.body as { kind: CategoryKind; name: string }
+      if (nameTaken(state.categories, kind, name)) {
+        return problem(409, 'category_name_taken')
+      }
+      const category = testCategory(kind, { name: name.trim() })
+      state.categories.push(category)
+      return ok(category, 201)
+    }
+    throw new Error(`Unexpected POST ${path}`)
+  }) as never)
+
+  const patch = vi.spyOn(api, 'PATCH').mockImplementation((async (
+    path: string,
+    init: RequestInit,
+  ) => {
+    const id = init.params?.path?.id
+    if (path === '/v1/accounts/{id}') {
+      const account = state.accounts.find((account) => account.id === id)
+      if (account === undefined) {
+        return problem(404, 'account_not_found')
+      }
+      Object.assign(account, changed(init.body as AccountUpdate))
+      return ok({ ...account })
+    }
+    if (path === '/v1/categories/{id}') {
+      const category = state.categories.find((category) => category.id === id)
+      if (category === undefined) {
+        return problem(404, 'category_not_found')
+      }
+      const change = changed(init.body as CategoryUpdate)
+      const after = { ...category, ...change }
+      const others = state.categories.filter((other) => other.id !== id)
+      if (
+        !after.archived &&
+        nameTaken(others, after.kind, after.name ?? after.key ?? '')
+      ) {
+        return problem(409, 'category_name_taken')
+      }
+      Object.assign(category, change)
+      return ok({ ...category })
+    }
+    throw new Error(`Unexpected PATCH ${path}`)
+  }) as never)
+
+  return { get, post, patch, state }
+}
+
+/** What a PATCH body changes, as the API applies it. */
+function changed({ name, archived }: { name?: string; archived?: boolean }) {
+  return {
+    ...(name !== undefined && { name: name.trim() }),
+    ...(archived !== undefined && {
+      archived,
+      archivedAt: archived ? '2026-06-03T12:00:00Z' : undefined,
+    }),
+  }
+}
+
+/** As the API's unique index: the name of another active category of the kind, ignoring case. */
+function nameTaken(categories: Category[], kind: CategoryKind, name: string) {
+  return categories.some(
+    (category) =>
+      category.kind === kind &&
+      !category.archived &&
+      (category.name ?? category.key ?? '').toLowerCase() ===
+        name.trim().toLowerCase(),
+  )
 }

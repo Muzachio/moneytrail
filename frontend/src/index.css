@@ -20,6 +20,9 @@
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
+  --color-spending: var(--spending);
+  --color-income: var(--income);
+  --color-income-text: var(--income-text);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -81,6 +84,13 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Palette A of the design canvas: the interface stays neutral and only data gets colour, blue
+     for money spent and teal for money in. The teal (#1baf7a) is for marks such as chart bars;
+     on white it has a contrast of 2.8:1, too little for text, so amounts of money coming in use
+     a darker teal (#047857, 5.5:1, above WCAG AA's 4.5:1). */
+  --spending: oklch(0.575 0.163 255.53);
+  --income: oklch(0.669 0.141 162.11);
+  --income-text: oklch(0.508 0.105 165.61);
 }
 
 .dark {
@@ -115,6 +125,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Lighter on a dark background: the light theme's blue and dark teal fall below 4.5:1 there. */
+  --spending: oklch(0.687 0.142 255.58);
+  --income: oklch(0.669 0.141 162.11);
+  --income-text: oklch(0.669 0.141 162.11);
 }
 
 @layer base {
