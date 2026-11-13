@@ -14,6 +14,13 @@ export type MoneyMutationOptions<TData, TError, TInput, TOnMutateResult> = Omit<
    * `api.POST('/v1/transactions', { params: { header: { 'Idempotency-Key': idempotencyKey } }, body })`.
    */
   mutationFn: (input: TInput, idempotencyKey: string) => Promise<TData>
+  /**
+   * One key for every request, chosen by the caller instead of one per input (below): the
+   * transaction dialog keeps one for as long as it is open. Whatever the person changes after a
+   * failed attempt, the API then records the movement at most once: an attempt whose answer was
+   * lost is replayed, or refused with `idempotency_key_reused` if the input changed since.
+   */
+  idempotencyKey?: string
 }
 
 /**
@@ -33,6 +40,7 @@ export function useMoneyMutation<
   TOnMutateResult = unknown,
 >({
   mutationFn,
+  idempotencyKey,
   ...options
 }: MoneyMutationOptions<TData, TError, TInput, TOnMutateResult>) {
   // Lives as long as the component: closing the form ends the action, unfinished or not.
@@ -41,6 +49,9 @@ export function useMoneyMutation<
   return useMutation<TData, TError, TInput, TOnMutateResult>({
     ...options,
     mutationFn: async (input) => {
+      if (idempotencyKey !== undefined) {
+        return mutationFn(input, idempotencyKey)
+      }
       // Compared as JSON, the form the API hashes to tell a retry from a different request.
       const json = JSON.stringify(input) ?? ''
       if (unfinished.current?.input !== json) {

@@ -331,6 +331,13 @@ The frontend creates the key with `crypto.randomUUID()` once per user action and
 key when that action is retried: TanStack Query's retries, a second tap, or Save pressed again
 after a network error with the same input (`useMoneyMutation`).
 
+The transaction dialog (new or edit) and the reverse confirmation go further: they keep one key for
+as long as they are open, whatever the person changes between attempts. If an attempt was recorded
+but its answer was lost, the next one cannot record the movement a second time: with the same input
+it gets the stored answer, and with a changed one `idempotency_key_reused`, which the dialog shows
+as "already saved" before it refreshes the list. An attempt that failed stored nothing, so the
+same key still works for the corrected input.
+
 ### Async work and the outbox
 
 Domain events (`ExpenseRecorded`, `GroupExpenseAdded`, `ImportUploaded`, ...) are

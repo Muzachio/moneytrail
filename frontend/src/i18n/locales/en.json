@@ -61,7 +61,11 @@
     "badRequest": "MoneyTrail could not accept these details. Check them and try again.",
     "stillSaving": "Your previous attempt is still being saved. Wait a moment and try again.",
     "notFound": "This no longer exists. Reload the page.",
-    "unexpected": "Something went wrong ({{status}}). Try again."
+    "unexpected": "Something went wrong ({{status}}). Try again.",
+    "alreadySaved": "An earlier attempt was already saved. Close this window and check the list.",
+    "accountArchived": "This account is archived. Pick another one.",
+    "categoryArchived": "This category is archived. Pick another one.",
+    "alreadyReversed": "This transaction was already reversed or edited. Close this window and open it again."
   },
   "rowMenu": {
     "label": "More actions for {{name}}",
@@ -181,7 +185,165 @@
   },
   "transactions": {
     "title": "Transactions",
-    "description": "Record your income, expenses and transfers through the month."
+    "description": "Expenses, income and transfers between your accounts.",
+    "new": "New transaction",
+    "loading": "Loading your transactions…",
+    "loadFailed": "Could not load your transactions.",
+    "listTitle": "{{month}} transactions",
+    "columns": {
+      "description": "Description",
+      "category": "Category",
+      "account": "Account",
+      "amount": "Amount"
+    },
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "dayNet": "Net for the day",
+    "edited": "Edited",
+    "transfer": "Transfer",
+    "fromTo": "{{from}} → {{to}}",
+    "showing_one": "Showing {{shown}} of {{count}} transaction",
+    "showing_other": "Showing {{shown}} of {{count}} transactions",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "loadMoreFailed": "Could not load more transactions.",
+    "summary": {
+      "count_one": "{{count}} transaction in {{month}}",
+      "count_other": "{{count}} transactions in {{month}}",
+      "income": "Income",
+      "spending": "Spending",
+      "net": "Net"
+    },
+    "noMatch": {
+      "title": "No transactions match",
+      "description": "Try another word or clear the filters.",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "No transactions in {{month}}",
+      "description": "Record an expense, an income or a transfer, and it shows up here."
+    },
+    "month": {
+      "previous": "Previous month",
+      "next": "Next month"
+    },
+    "filters": {
+      "type": "Type",
+      "types": {
+        "ALL": "All",
+        "EXPENSE": "Expenses",
+        "INCOME": "Income",
+        "TRANSFER": "Transfers"
+      },
+      "account": "Account",
+      "allAccounts": "All accounts",
+      "category": "Category",
+      "allCategories": "All categories",
+      "archived": "Archived",
+      "search": "Search transactions",
+      "searchPlaceholder": "Search descriptions"
+    },
+    "types": {
+      "EXPENSE": "Expense",
+      "INCOME": "Income",
+      "TRANSFER": "Transfer"
+    },
+    "form": {
+      "newTitle": "New transaction",
+      "editTitle": "Edit transaction",
+      "loading": "Loading your accounts and categories…",
+      "loadFailed": "Could not load your accounts and categories.",
+      "type": "Type",
+      "amount": "Amount",
+      "amountRequired": "Enter an amount.",
+      "amountZero": "Enter an amount above zero.",
+      "description": "Description",
+      "descriptionPlaceholder": {
+        "EXPENSE": "What did you pay for?",
+        "INCOME": "Where did it come from?",
+        "TRANSFER": "What is it for?"
+      },
+      "descriptionRequired": "Describe it in a few words.",
+      "descriptionTooLong": "Use at most {{max}} characters.",
+      "date": "Date",
+      "dateRequired": "Pick a date.",
+      "pickAccount": "Pick an account.",
+      "sameAccount": "Pick two different accounts.",
+      "pickCategory": "Pick a category.",
+      "category": "Category",
+      "newCategory": "New category",
+      "paidFrom": "Paid from",
+      "receivedIn": "Received in",
+      "from": "From",
+      "to": "To",
+      "accountOption": "{{name}} · {{balance}}",
+      "archivedOption": "{{name}} (archived)",
+      "transferNote": "Transfers move money between your own accounts, so they never count as spending or income.",
+      "editNote": "Saving reverses the original and records the corrected one. Both stay in the trail.",
+      "savedOnce": "Saved once, even if you tap twice",
+      "submit": {
+        "EXPENSE": "Add expense",
+        "INCOME": "Add income",
+        "TRANSFER": "Add transfer"
+      },
+      "saveChanges": "Save changes",
+      "noAccounts": {
+        "title": "Add an account first",
+        "description": "Every expense, income and transfer moves money from or to one of your accounts.",
+        "action": "Go to Accounts"
+      }
+    },
+    "detail": {
+      "kicker": "Transaction",
+      "loading": "Loading the transaction…",
+      "loadFailed": "Could not load this transaction.",
+      "edit": "Edit",
+      "reverse": "Reverse",
+      "correctedFrom": "Corrected from {{amount}}",
+      "correctedSameAmount": "Corrected after it was first recorded",
+      "confirm": {
+        "title": "Reverse this transaction?",
+        "description": "We add an entry that cancels it exactly, so the balance goes back to what it was. Both entries stay in your history.",
+        "keep": "Keep it",
+        "reverse": "Reverse transaction"
+      },
+      "oldVersion": "This is an earlier version. An edit replaced it, so it no longer counts.",
+      "seeCurrent": "See the current version",
+      "reversed": "Reversed. It no longer counts towards your balances or the month's totals.",
+      "from": "From",
+      "to": "To",
+      "category": "Category",
+      "account": "Account",
+      "date": "Date",
+      "recorded": "Recorded",
+      "details": "Details",
+      "ledgerAccount": {
+        "EXPENSE": "Expense:{{name}}",
+        "INCOME": "Income:{{name}}",
+        "ASSET": "Asset:{{name}}",
+        "LIABILITY": "Liability:{{name}}"
+      },
+      "ledger": "Ledger entry",
+      "balanced": "Balanced",
+      "ledgerHelp": "Every movement is recorded as postings that add up to zero.",
+      "postingAccount": "Account",
+      "postingAmount": "Amount ({{currency}})",
+      "total": "Total",
+      "entry": "Entry",
+      "copyEntry": "Copy entry ID",
+      "copied": "Entry ID copied"
+    },
+    "trail": {
+      "title": "Trail",
+      "recorded": "Recorded as {{amount}}",
+      "corrected": "Corrected to {{amount}}",
+      "originalReversed": "Original reversed",
+      "correctionReversed": "Correction reversed",
+      "current": "current",
+      "entry": "{{when}} · entry {{entry}}",
+      "entryCancels": "{{when}} · entry {{entry}} cancels {{cancelled}}",
+      "note": "Edits never overwrite history. MoneyTrail cancels the original with an exact opposite entry, then records the corrected one."
+    }
   },
   "notFound": {
     "title": "Page not found",

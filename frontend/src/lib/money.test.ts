@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, parseMoneyInput, sumMoney } from './money'
+import {
+  formatAmount,
+  formatMoney,
+  moneyInputText,
+  parseMoneyInput,
+  sumMoney,
+} from './money'
 
 // Intl separates Portuguese groups and the euro sign with a no-break space (U+00A0).
 const NBSP = ' '
@@ -225,6 +231,33 @@ describe('parseMoneyInput', () => {
     expect(parseMoneyInput('9'.repeat(40), 'EUR')).toEqual({
       ok: false,
       error: 'too-large',
+    })
+  })
+})
+
+function euros(amountMinor: number) {
+  return { amountMinor, currency: 'EUR' }
+}
+
+describe('formatAmount', () => {
+  it('writes the number without the currency, signed when asked to', () => {
+    expect(formatAmount(euros(2750), 'en', { signed: true })).toBe('+27.50')
+    expect(formatAmount(euros(-2750), 'en', { signed: true })).toBe('−27.50')
+    expect(formatAmount(euros(0), 'en', { signed: true })).toBe('0.00')
+    expect(formatAmount(euros(-123456), 'pt-PT')).toBe('−1234,56')
+    expect(formatAmount(euros(12345678), 'en')).toBe('123,456.78')
+  })
+})
+
+describe('moneyInputText', () => {
+  it('writes an amount as it would be typed, with the language’s decimal separator', () => {
+    expect(moneyInputText(euros(2750), 'en')).toBe('27.50')
+    expect(moneyInputText(euros(2750), 'pt-PT')).toBe('27,50')
+    // No thousands separators, which parseMoneyInput refuses.
+    expect(moneyInputText(euros(123456789), 'en')).toBe('1234567.89')
+    expect(parseMoneyInput(moneyInputText(euros(5), 'pt-PT'), 'EUR')).toEqual({
+      ok: true,
+      amountMinor: 5,
     })
   })
 })

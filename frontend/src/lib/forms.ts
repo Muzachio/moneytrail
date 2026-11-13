@@ -55,9 +55,19 @@ export function apiErrorMessage(error: unknown, t: TFunction): string {
       return t('errors.badRequest')
     case 'idempotency_key_in_use':
       return t('errors.stillSaving')
+    case 'idempotency_key_reused':
+      // Only an attempt that succeeded keeps its key: the answer was lost on the way back.
+      return t('errors.alreadySaved')
     case 'account_not_found':
     case 'category_not_found':
+    case 'transaction_not_found':
       return t('errors.notFound')
+    case 'account_archived':
+      return t('errors.accountArchived')
+    case 'category_archived':
+      return t('errors.categoryArchived')
+    case 'transaction_already_reversed':
+      return t('errors.alreadyReversed')
     default:
       return t('errors.unexpected', { status: error.status })
   }

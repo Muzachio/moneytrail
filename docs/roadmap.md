@@ -29,7 +29,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Idempotency-Key interceptor and storage
 - [x] Default categories created on sign-up (as EXPENSE/INCOME accounts)
 - [x] Accounts API + UI (create, rename, archive, balance)
-- [ ] Transactions API + UI: expense, income, transfer, reverse/edit. Cursor-paginated list with filters
+- [x] Transactions API + UI: expense, income, transfer, reverse/edit. Cursor-paginated list with filters
 - [ ] Reports: spend by category (month), 6-month trend, dashboard UI
 - [ ] PWA manifest and install prompt, PT/EN translations
 - [ ] Invite the first 3 friends 🎉

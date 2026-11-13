@@ -61,7 +61,11 @@
     "badRequest": "O MoneyTrail não aceitou estes dados. Revê-os e tenta novamente.",
     "stillSaving": "A tentativa anterior ainda está a ser guardada. Espera um momento e tenta novamente.",
     "notFound": "Isto já não existe. Recarrega a página.",
-    "unexpected": "Algo correu mal ({{status}}). Tenta novamente."
+    "unexpected": "Algo correu mal ({{status}}). Tenta novamente.",
+    "alreadySaved": "Uma tentativa anterior já foi guardada. Fecha esta janela e confirma na lista.",
+    "accountArchived": "Esta conta está arquivada. Escolhe outra.",
+    "categoryArchived": "Esta categoria está arquivada. Escolhe outra.",
+    "alreadyReversed": "Este movimento já foi estornado ou editado. Fecha esta janela e abre-o novamente."
   },
   "rowMenu": {
     "label": "Mais ações para {{name}}",
@@ -181,7 +185,165 @@
   },
   "transactions": {
     "title": "Movimentos",
-    "description": "Regista as tuas receitas, despesas e transferências ao longo do mês."
+    "description": "Despesas, receitas e transferências entre as tuas contas.",
+    "new": "Novo movimento",
+    "loading": "A carregar os teus movimentos…",
+    "loadFailed": "Não foi possível carregar os teus movimentos.",
+    "listTitle": "Movimentos de {{month}}",
+    "columns": {
+      "description": "Descrição",
+      "category": "Categoria",
+      "account": "Conta",
+      "amount": "Valor"
+    },
+    "today": "Hoje",
+    "yesterday": "Ontem",
+    "dayNet": "Saldo do dia",
+    "edited": "Editado",
+    "transfer": "Transferência",
+    "fromTo": "{{from}} → {{to}}",
+    "showing_one": "A mostrar {{shown}} de {{count}} movimento",
+    "showing_other": "A mostrar {{shown}} de {{count}} movimentos",
+    "loadMore": "Carregar mais",
+    "loadingMore": "A carregar…",
+    "loadMoreFailed": "Não foi possível carregar mais movimentos.",
+    "summary": {
+      "count_one": "{{count}} movimento em {{month}}",
+      "count_other": "{{count}} movimentos em {{month}}",
+      "income": "Receitas",
+      "spending": "Despesas",
+      "net": "Saldo"
+    },
+    "noMatch": {
+      "title": "Nenhum movimento corresponde",
+      "description": "Experimenta outra palavra ou limpa os filtros.",
+      "clear": "Limpar filtros"
+    },
+    "empty": {
+      "title": "Sem movimentos em {{month}}",
+      "description": "Regista uma despesa, uma receita ou uma transferência e ela aparece aqui."
+    },
+    "month": {
+      "previous": "Mês anterior",
+      "next": "Mês seguinte"
+    },
+    "filters": {
+      "type": "Tipo",
+      "types": {
+        "ALL": "Todos",
+        "EXPENSE": "Despesas",
+        "INCOME": "Receitas",
+        "TRANSFER": "Transferências"
+      },
+      "account": "Conta",
+      "allAccounts": "Todas as contas",
+      "category": "Categoria",
+      "allCategories": "Todas as categorias",
+      "archived": "Arquivadas",
+      "search": "Pesquisar movimentos",
+      "searchPlaceholder": "Pesquisar descrições"
+    },
+    "types": {
+      "EXPENSE": "Despesa",
+      "INCOME": "Receita",
+      "TRANSFER": "Transferência"
+    },
+    "form": {
+      "newTitle": "Novo movimento",
+      "editTitle": "Editar movimento",
+      "loading": "A carregar as tuas contas e categorias…",
+      "loadFailed": "Não foi possível carregar as tuas contas e categorias.",
+      "type": "Tipo",
+      "amount": "Valor",
+      "amountRequired": "Escreve um valor.",
+      "amountZero": "Escreve um valor acima de zero.",
+      "description": "Descrição",
+      "descriptionPlaceholder": {
+        "EXPENSE": "Em que gastaste?",
+        "INCOME": "De onde veio?",
+        "TRANSFER": "Para que é?"
+      },
+      "descriptionRequired": "Descreve-o em poucas palavras.",
+      "descriptionTooLong": "Usa no máximo {{max}} caracteres.",
+      "date": "Data",
+      "dateRequired": "Escolhe uma data.",
+      "pickAccount": "Escolhe uma conta.",
+      "sameAccount": "Escolhe duas contas diferentes.",
+      "pickCategory": "Escolhe uma categoria.",
+      "category": "Categoria",
+      "newCategory": "Nova categoria",
+      "paidFrom": "Pago com",
+      "receivedIn": "Recebido em",
+      "from": "De",
+      "to": "Para",
+      "accountOption": "{{name}} · {{balance}}",
+      "archivedOption": "{{name}} (arquivada)",
+      "transferNote": "As transferências movem dinheiro entre as tuas próprias contas, por isso nunca contam como despesa nem como receita.",
+      "editNote": "Ao guardar, o original é estornado e a versão corrigida é registada. Ambos ficam no histórico.",
+      "savedOnce": "Guardado uma só vez, mesmo que toques duas vezes",
+      "submit": {
+        "EXPENSE": "Adicionar despesa",
+        "INCOME": "Adicionar receita",
+        "TRANSFER": "Adicionar transferência"
+      },
+      "saveChanges": "Guardar alterações",
+      "noAccounts": {
+        "title": "Adiciona primeiro uma conta",
+        "description": "Cada despesa, receita ou transferência move dinheiro de ou para uma das tuas contas.",
+        "action": "Ir para Contas"
+      }
+    },
+    "detail": {
+      "kicker": "Movimento",
+      "loading": "A carregar o movimento…",
+      "loadFailed": "Não foi possível carregar este movimento.",
+      "edit": "Editar",
+      "reverse": "Estornar",
+      "correctedFrom": "Corrigido de {{amount}}",
+      "correctedSameAmount": "Corrigido depois de registado",
+      "confirm": {
+        "title": "Estornar este movimento?",
+        "description": "Adicionamos um lançamento que o anula exatamente, e o saldo volta ao que era. Os dois lançamentos ficam no teu histórico.",
+        "keep": "Manter",
+        "reverse": "Estornar movimento"
+      },
+      "oldVersion": "Esta é uma versão anterior. Foi substituída por uma edição e já não conta.",
+      "seeCurrent": "Ver a versão atual",
+      "reversed": "Estornado. Já não conta para os saldos nem para os totais do mês.",
+      "from": "De",
+      "to": "Para",
+      "category": "Categoria",
+      "account": "Conta",
+      "date": "Data",
+      "recorded": "Registado",
+      "details": "Detalhes",
+      "ledgerAccount": {
+        "EXPENSE": "Despesa:{{name}}",
+        "INCOME": "Receita:{{name}}",
+        "ASSET": "Ativo:{{name}}",
+        "LIABILITY": "Passivo:{{name}}"
+      },
+      "ledger": "Lançamento contabilístico",
+      "balanced": "Equilibrado",
+      "ledgerHelp": "Cada movimento é registado em linhas a débito e a crédito que somam zero.",
+      "postingAccount": "Conta",
+      "postingAmount": "Valor ({{currency}})",
+      "total": "Total",
+      "entry": "Lançamento",
+      "copyEntry": "Copiar o ID do lançamento",
+      "copied": "ID do lançamento copiado"
+    },
+    "trail": {
+      "title": "Histórico",
+      "recorded": "Registado com {{amount}}",
+      "corrected": "Corrigido para {{amount}}",
+      "originalReversed": "Original estornado",
+      "correctionReversed": "Correção estornada",
+      "current": "atual",
+      "entry": "{{when}} · lançamento {{entry}}",
+      "entryCancels": "{{when}} · lançamento {{entry}} anula {{cancelled}}",
+      "note": "Editar nunca reescreve o histórico. O MoneyTrail anula o original com um lançamento exatamente oposto e depois regista o corrigido."
+    }
   },
   "notFound": {
     "title": "Página não encontrada",
