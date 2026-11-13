@@ -85,6 +85,10 @@ openApiGenerate {
     generateApiDocumentation = false
     generateModelDocumentation = false
     configOptions = mapOf(
+        // The generator also writes converters from each enum's value in the spec, such as
+        // groupBy=category, to its constant (CATEGORY). Under the application's package Spring finds
+        // them; its own converter only knows the constants' names.
+        "configPackage" to "io.github.muzachio.moneytrail.shared.api.configuration",
         "interfaceOnly" to "true",
         "useSpringBoot4" to "true",
         "useTags" to "true",
@@ -98,6 +102,9 @@ openApiGenerate {
         // Explicit defaults: JSON inclusion and null handling stay with the global ObjectMapper.
         "generateJsonIncludeAnnotations" to "false",
         "generateJsonSetterNullsAnnotations" to "false",
+        // An optional list starts as null instead of empty, so one that is not set is left out of
+        // the JSON like any other optional property, not sent as [].
+        "containerDefaultToNull" to "true",
     )
 }
 

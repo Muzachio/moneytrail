@@ -91,7 +91,9 @@ io.github.muzachio.moneytrail
 Rules:
 - A module exposes a public API in its root package. Everything in `internal`
   subpackages is private. `ModularityTests` fails the build on violations.
-- **Only `ledger` writes to `journal_entries`, `postings` and `account_balances`.**
+- **Only `ledger` writes to `journal_entries`, `postings` and `account_balances`.** `reports`,
+  the ledger's read side, reads them with SQL and never writes them
+  ([ADR-0011](adr/0011-reports-read-the-ledger-tables.md)).
 - Modules communicate through **calls to the public API** (synchronous, same transaction)
   or **domain events**. A module that must react to another's event without that module
   depending on it picks one of two kinds of listener ([ADR-0010](adr/0010-synchronous-listeners.md)):
@@ -205,6 +207,17 @@ and nothing listed posts to `EQUITY`). Pages are newest first by `(occurred_on, 
 UUIDv7, so within a day the last recorded comes first. The month's summary counts every matching
 transaction but sums only the categories' postings, so transfers add nothing to income, spending or
 net.
+
+### Reports
+
+The dashboard's reports (`GET /v1/reports/spending`) are one query in `reports`: the sum of the
+postings to each category of the user's ledger in each calendar month of the period. Spending is
+what the `EXPENSE` categories were debited, income what the `INCOME` ones were credited. The plain
+sum follows the rules above with no special case: a transfer or an opening balance posts to no
+category, and a reversal cancels its entry within the same day, so a reversed transaction adds
+nothing and an edited one adds only its correction. By category, the months are added up and the
+categories with spending come largest first; by month, every month of the period is there, with
+zeros when nothing moved. A period covers at most 24 calendar months.
 
 ### Guarantees and how they are enforced
 
