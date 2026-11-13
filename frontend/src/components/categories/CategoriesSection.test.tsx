@@ -249,7 +249,7 @@ describe('CategoriesSection', () => {
     get.mockImplementation(((path: string) =>
       path === '/v1/categories'
         ? Promise.reject(new TypeError('Failed to fetch'))
-        : answer(path as never)) as never)
+        : (answer as unknown as (path: string) => unknown)(path)) as never)
 
     renderApp('/accounts')
 
