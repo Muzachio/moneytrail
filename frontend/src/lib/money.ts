@@ -70,6 +70,37 @@ export function formatMoney(
     .join('')
 }
 
+const numberFormatters = new Map<string, Intl.NumberFormat>()
+
+/**
+ * The number of `money` without its currency, for a column whose heading names it, as the ledger
+ * postings of a transaction: `+27.50`, `−27.50`, and `0.00` for their total.
+ */
+export function formatAmount(
+  { amountMinor, currency }: Money,
+  language: string,
+  { signed = false } = {},
+) {
+  if (!Number.isSafeInteger(amountMinor)) {
+    throw new RangeError(`Not a whole number of minor units: ${amountMinor}`)
+  }
+  const digits = currencyDigits(currency)
+  const key = `${language} ${digits} ${signed}`
+  let formatter = numberFormatters.get(key)
+  if (formatter === undefined) {
+    formatter = new Intl.NumberFormat(language, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+      signDisplay: signed ? 'exceptZero' : 'auto',
+    })
+    numberFormatters.set(key, formatter)
+  }
+  return formatter
+    .formatToParts(decimalText(amountMinor, digits))
+    .map((part) => (part.type === 'minusSign' ? MINUS_SIGN : part.value))
+    .join('')
+}
+
 /**
  * The total of `amounts`, all in `currency`: net worth, or the balance of a group of accounts.
  *
@@ -115,6 +146,25 @@ export function currencyLayout(currency: string, language: string) {
       .map(({ value }) => value)
       .join(''),
   }
+}
+
+/**
+ * `money` as a person would type it into a money input in `language`, for a form that starts
+ * filled in: 2750 EUR is `27,50` in Portuguese and `27.50` in English, with no thousands
+ * separators, which `parseMoneyInput` would refuse.
+ */
+export function moneyInputText(
+  { amountMinor, currency }: Money,
+  language: string,
+) {
+  const separator =
+    currencyFormatter(language, currency)
+      .formatToParts(1.5)
+      .find((part) => part.type === 'decimal')?.value ?? '.'
+  return decimalText(amountMinor, currencyDigits(currency)).replace(
+    '.',
+    separator,
+  )
 }
 
 /** Why what was typed is not an amount; each form says it in its own words. */

@@ -1,9 +1,13 @@
-import { WalletMinimal } from 'lucide-react'
+import { Plus, WalletMinimal } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
 import { useCurrentUser } from '@/api/session'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ApiStatus } from '@/components/ApiStatus'
+import type { AppOutletContext } from '@/components/newTransaction'
+import { TransactionDialog } from '@/components/transactions/TransactionDialog'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { SignInPage } from '@/pages/SignInPage'
 
@@ -16,6 +20,15 @@ const navItems = [
 export function AppLayout() {
   const { t } = useTranslation()
   const currentUser = useCurrentUser()
+  const [adding, setAdding] = useState(false)
+  // The header's button, or another one a page offers, such as the empty list's.
+  const [addOpener, setAddOpener] = useState<HTMLElement | null>(null)
+  const outletContext: AppOutletContext = {
+    newTransaction: (opener) => {
+      setAddOpener(opener)
+      setAdding(true)
+    },
+  }
 
   if (currentUser.data === null) {
     return <SignInPage />
@@ -56,6 +69,19 @@ export function AppLayout() {
             </nav>
           )}
           <div className="ml-auto flex items-center gap-4">
+            {user && (
+              <Button
+                size="lg"
+                className="px-3.5"
+                onClick={(event) =>
+                  outletContext.newTransaction(event.currentTarget)
+                }
+              >
+                <Plus aria-hidden />
+                {/* Only the icon on phones, as in the design canvas; screen readers keep the name. */}
+                <span className="max-sm:sr-only">{t('transactions.new')}</span>
+              </Button>
+            )}
             <ApiStatus />
             {user && <AccountMenu user={user} />}
           </div>
@@ -63,7 +89,7 @@ export function AppLayout() {
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {user ? (
-          <Outlet />
+          <Outlet context={outletContext} />
         ) : currentUser.isError ? (
           <p role="alert" className="text-muted-foreground">
             {t('app.loadFailed')}
@@ -72,6 +98,13 @@ export function AppLayout() {
           <p className="text-muted-foreground">{t('app.loading')}</p>
         )}
       </main>
+      {user && (
+        <TransactionDialog
+          open={adding}
+          onOpenChange={setAdding}
+          returnFocusTo={addOpener}
+        />
+      )}
     </div>
   )
 }

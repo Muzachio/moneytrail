@@ -120,3 +120,33 @@ describe('useMoneyMutation', () => {
     expect(corrected).not.toBe(first)
   })
 })
+
+describe('useMoneyMutation with a key of its own', () => {
+  it('sends every attempt with the caller’s key, changed input or not', async () => {
+    const queryClient = new QueryClient()
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(networkError)
+      .mockResolvedValue('saved')
+    const { result } = renderHook(
+      () =>
+        useMoneyMutation({
+          mutationFn: send,
+          idempotencyKey: 'one-key-per-dialog',
+        }),
+      { wrapper },
+    )
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(coffee)).rejects.toBe(
+        networkError,
+      )
+    })
+    await act(() => result.current.mutateAsync({ ...coffee, amountMinor: 150 }))
+
+    expect(sentKeys(send)).toEqual(['one-key-per-dialog', 'one-key-per-dialog'])
+  })
+})
