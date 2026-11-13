@@ -29,6 +29,8 @@ tags:
     description: The signed-in user's expense and income categories.
   - name: transactions
     description: The signed-in user's expenses, income and transfers between their accounts.
+  - name: reports
+    description: Sums of the signed-in user's income and spending, for the dashboard.
 security:
   - sessionCookie: []
 paths:
@@ -421,6 +423,55 @@ paths:
           $ref: '#/components/responses/ReversalConflict'
         '422':
           $ref: '#/components/responses/TransactionRefused'
+  /v1/reports/spending:
+    get:
+      operationId: getSpendingReport
+      tags: [reports]
+      summary: Sum a period's spending by category or by month
+      description: |
+        The user's income and spending from `from` to `to`, both days included, by expense category
+        (this month's spending by category) or by calendar month (the six-month trend).
+
+        Only expenses and income count: a transfer moves money between the user's own accounts, and
+        an account's opening balance is money the user already had. Each transaction counts as it is
+        now: a reversed one not at all, and an edited one with its corrected amount, category and day.
+        The ledger never changes an entry, so this is how the sums come out by themselves: a reversal
+        is the exact opposite of the entry it cancels, dated the same day, so the two add up to zero
+        in any period that has one of them.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: The first day of the period.
+          schema:
+            type: string
+            format: date
+            example: '2026-06-01'
+        - name: to
+          in: query
+          required: true
+          description: The last day of the period, not before `from`.
+          schema:
+            type: string
+            format: date
+            example: '2026-11-30'
+        - name: groupBy
+          in: query
+          required: true
+          description: '`category` fills `categories`, `month` fills `months`.'
+          schema:
+            $ref: '#/components/schemas/ReportGrouping'
+      responses:
+        '200':
+          description: The period's totals, and their breakdown by category or by month.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendingReport'
+        '400':
+          $ref: '#/components/responses/BadReportQuery'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
 components:
   securitySchemes:
     sessionCookie:
@@ -607,6 +658,20 @@ components:
             status: 422
             detail: There is no account 0193f6a2-6b1e-7c4d-9a2f-3e5d7c9b1a20.
             code: account_not_found
+    BadReportQuery:
+      description: |
+        `bad_request`: a parameter is missing or breaks its schema, such as a day that is not
+        `YYYY-MM-DD` or an unknown `groupBy`. `invalid_period`: `to` is before `from`, or the period
+        covers more than 24 calendar months.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Bad Request
+            status: 400
+            detail: The period ends on 2026-05-31, before it starts on 2026-06-01.
+            code: invalid_period
   schemas:
     Health:
       type: object
@@ -1028,6 +1093,76 @@ components:
         net:
           $ref: '#/components/schemas/Money'
           description: '`income` minus `spending`: negative when more was spent than received.'
+    ReportGrouping:
+      type: string
+      enum: [category, month]
+      description: How a report breaks its totals down.
+    SpendingReport:
+      type: object
+      required: [income, spending]
+      description: |
+        The period's totals, whatever the grouping, and one breakdown: `categories` with
+        `groupBy=category`, `months` with `groupBy=month`. The other one is absent.
+      properties:
+        income:
+          $ref: '#/components/schemas/Money'
+          description: What the income categories received in the period, zero or more.
+        spending:
+          $ref: '#/components/schemas/Money'
+          description: |
+            What was spent in the expense categories in the period, zero or more: the sum of
+            `categories`, or of the months' `spending`.
+        categories:
+          type: array
+          description: |
+            Each expense category with spending in the period, archived ones included, largest
+            first; on a tie, the one created first comes first. A category with nothing spent in the
+            period is left out.
+          items:
+            $ref: '#/components/schemas/CategorySpending'
+        months:
+          type: array
+          description: |
+            Every calendar month the period touches, oldest first, a month without movements
+            included with zeros. The first and the last month only count the days in the period, so
+            a trend that ends today ends with this month so far.
+          items:
+            $ref: '#/components/schemas/MonthTotals'
+    CategorySpending:
+      type: object
+      required: [categoryId, spending]
+      description: |
+        How much one expense category got in the period. Show `name` when it is present, otherwise
+        the app's translation of `key`, as for a `Category`.
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: Only on the default categories, as `Category.key`.
+          example: food
+        name:
+          type: string
+          description: Only once the user has named the category, as `Category.name`.
+          example: Groceries
+        spending:
+          $ref: '#/components/schemas/Money'
+          description: Above zero.
+    MonthTotals:
+      type: object
+      required: [month, income, spending]
+      properties:
+        month:
+          type: string
+          description: The calendar month, `YYYY-MM`.
+          example: '2026-10'
+        income:
+          $ref: '#/components/schemas/Money'
+          description: What the income categories received in the month's days of the period.
+        spending:
+          $ref: '#/components/schemas/Money'
+          description: What was spent in the expense categories in the month's days of the period.
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.
