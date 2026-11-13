@@ -1,6 +1,7 @@
 package io.github.muzachio.moneytrail.shared.web;
 
 import io.github.muzachio.moneytrail.shared.DomainException;
+import jakarta.validation.ConstraintViolationException;
 import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -26,6 +27,19 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     ProblemDetail handleDomainException(DomainException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(exception.status(), exception.getMessage());
         problem.setProperty("code", exception.code());
+        return problem;
+    }
+
+    /**
+     * The generated API interfaces are {@code @Validated}, so a query parameter that breaks its schema
+     * (a month that is not {@code YYYY-MM}, a limit above 100) is refused by method validation before
+     * the controller runs, with this exception instead of one that Spring MVC maps to 400 itself. No
+     * service or entity of ours is validated that way, so here it always means a bad request.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    ProblemDetail handleConstraintViolation(ConstraintViolationException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+        problem.setProperty("code", codeFor(HttpStatus.BAD_REQUEST));
         return problem;
     }
 

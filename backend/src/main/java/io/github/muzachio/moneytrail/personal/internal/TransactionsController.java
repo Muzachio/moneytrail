@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.personal.internal;
 import io.github.muzachio.moneytrail.identity.SignedIn;
 import io.github.muzachio.moneytrail.shared.Money;
 import io.github.muzachio.moneytrail.shared.api.TransactionsApi;
+import io.github.muzachio.moneytrail.shared.api.model.MonthSummary;
 import io.github.muzachio.moneytrail.shared.api.model.NewTransaction;
 import io.github.muzachio.moneytrail.shared.api.model.PositiveMoney;
 import io.github.muzachio.moneytrail.shared.api.model.TrailAction;
@@ -11,6 +12,7 @@ import io.github.muzachio.moneytrail.shared.api.model.Transaction;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionDetail;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionReversal;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionType;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.Currency;
 import java.util.UUID;
@@ -36,6 +38,29 @@ class TransactionsController implements TransactionsApi {
     public ResponseEntity<Transaction> createTransaction(String idempotencyKey, NewTransaction newTransaction) {
         UserTransaction recorded = transactions.record(SignedIn.userId(), toMovement(newTransaction));
         return ResponseEntity.status(HttpStatus.CREATED).body(toApi(recorded));
+    }
+
+    /**
+     * The schema has already checked the month's format, the cursor's length and the limit's range.
+     * A month left out is the current one where the app's users live (Europe/Lisbon), not the
+     * server's, which runs in UTC.
+     */
+    @Override
+    public ResponseEntity<io.github.muzachio.moneytrail.shared.api.model.TransactionPage> listTransactions(
+            @Nullable String month,
+            @Nullable TransactionType type,
+            @Nullable UUID accountId,
+            @Nullable UUID categoryId,
+            @Nullable String q,
+            @Nullable String cursor,
+            Integer limit) {
+        TransactionFilter filter = new TransactionFilter(
+                month == null ? YearMonth.now(PersonalLedgers.TIME_ZONE) : YearMonth.parse(month),
+                type == null ? null : toType(type),
+                accountId,
+                categoryId,
+                q == null || q.isBlank() ? null : q.strip());
+        return ResponseEntity.ok(toApi(transactions.list(SignedIn.userId(), filter, cursor, limit)));
     }
 
     @Override
@@ -103,6 +128,20 @@ class TransactionsController implements TransactionsApi {
         }
     }
 
+    private static io.github.muzachio.moneytrail.shared.api.model.TransactionPage toApi(TransactionPage page) {
+        TransactionPage.Summary summary = page.summary();
+        var body = new io.github.muzachio.moneytrail.shared.api.model.TransactionPage(
+                page.month().toString(),
+                new MonthSummary(
+                        summary.count(), toApi(summary.income()), toApi(summary.spending()), toApi(summary.net())),
+                page.items().stream().map(TransactionsController::toApi).toList());
+        String nextCursor = page.nextCursor();
+        if (nextCursor != null) {
+            body.nextCursor(nextCursor);
+        }
+        return body;
+    }
+
     private static TransactionDetail toApi(TransactionHistory history) {
         TransactionDetail body = new TransactionDetail(
                 toApi(history.transaction()),
@@ -163,6 +202,14 @@ class TransactionsController implements TransactionsApi {
             body.toAccountId(toAccountId);
         }
         return body;
+    }
+
+    private static UserTransaction.Type toType(TransactionType type) {
+        return switch (type) {
+            case EXPENSE -> UserTransaction.Type.EXPENSE;
+            case INCOME -> UserTransaction.Type.INCOME;
+            case TRANSFER -> UserTransaction.Type.TRANSFER;
+        };
     }
 
     private static TransactionType toApi(UserTransaction.Type type) {

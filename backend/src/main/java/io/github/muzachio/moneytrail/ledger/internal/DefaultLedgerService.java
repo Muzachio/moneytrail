@@ -4,6 +4,10 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 import io.github.muzachio.moneytrail.ledger.Account;
+import io.github.muzachio.moneytrail.ledger.EntryFilter;
+import io.github.muzachio.moneytrail.ledger.EntryPage;
+import io.github.muzachio.moneytrail.ledger.EntryPosition;
+import io.github.muzachio.moneytrail.ledger.EntryTotals;
 import io.github.muzachio.moneytrail.ledger.JournalEntry;
 import io.github.muzachio.moneytrail.ledger.Ledger;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
@@ -23,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import org.hibernate.exception.ConstraintViolationException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +48,7 @@ class DefaultLedgerService implements LedgerService {
     private final JournalEntries entries;
     private final AccountBalances balances;
     private final AccountChanges changes;
+    private final EntryQueries entryQueries;
 
     DefaultLedgerService(
             Ledgers ledgers,
@@ -50,13 +56,15 @@ class DefaultLedgerService implements LedgerService {
             Accounts accounts,
             JournalEntries entries,
             AccountBalances balances,
-            AccountChanges changes) {
+            AccountChanges changes,
+            EntryQueries entryQueries) {
         this.ledgers = ledgers;
         this.ledgerInserts = ledgerInserts;
         this.accounts = accounts;
         this.entries = entries;
         this.balances = balances;
         this.changes = changes;
+        this.entryQueries = entryQueries;
     }
 
     @Override
@@ -175,6 +183,21 @@ class DefaultLedgerService implements LedgerService {
             version = replacement.get();
         }
         return List.copyOf(history);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EntryPage entries(EntryFilter filter, @Nullable EntryPosition after, int limit) {
+        if (limit < 1) {
+            throw new IllegalArgumentException("A page holds at least 1 entry, not " + limit);
+        }
+        return entryQueries.page(filter, after, limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EntryTotals totals(EntryFilter filter) {
+        return entryQueries.totals(filter);
     }
 
     private JournalEntry record(NewJournalEntry entry, JournalEntryEntity entity) {
