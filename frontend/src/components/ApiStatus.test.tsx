@@ -10,7 +10,7 @@ describe('ApiStatus', () => {
   })
 
   it('shows the API as online when the health check answers UP', async () => {
-    const get = mockApi()
+    const { get } = mockApi()
 
     renderApp()
 

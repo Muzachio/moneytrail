@@ -1,20 +1,26 @@
+import type { components } from '@/api/schema'
+
 /**
  * An amount as the API sends it (architecture.md, "API"): integer minor units of an ISO 4217
  * currency, so `{ amountMinor: 1250, currency: 'EUR' }` is €12.50. Amounts stay integers from the
  * API to the screen and back; only text ever has a decimal point.
  */
-export type Money = { amountMinor: number; currency: string }
+export type Money = components['schemas']['Money']
 
 // U+2212, as in the design canvas: as wide as "+" and the digits, so columns of amounts line up.
 const MINUS_SIGN = '−'
 
 const formatters = new Map<string, Intl.NumberFormat>()
 
-function currencyFormatter(language: string, currency: string) {
-  const key = `${language} ${currency}`
+function currencyFormatter(language: string, currency: string, signed = false) {
+  const key = `${language} ${currency} ${signed}`
   let formatter = formatters.get(key)
   if (formatter === undefined) {
-    formatter = new Intl.NumberFormat(language, { style: 'currency', currency })
+    formatter = new Intl.NumberFormat(language, {
+      style: 'currency',
+      currency,
+      signDisplay: signed ? 'exceptZero' : 'auto',
+    })
     formatters.set(key, formatter)
   }
   return formatter
@@ -46,18 +52,48 @@ function decimalText(amountMinor: number, digits: number): `${number}` {
  *
  * Intl.NumberFormat reads a decimal string exactly (ES2023), so the amount never becomes a binary
  * float on the way: `amountMinor / 100` would turn 9007199254740987 cents into €90,071,992,547,409.88.
+ *
+ * `signed` writes a plus sign before amounts above zero, for changes: `+€410.29`, `−€22.70`, but
+ * `€0.00`.
  */
 export function formatMoney(
   { amountMinor, currency }: Money,
   language: string,
+  { signed = false } = {},
 ) {
   if (!Number.isSafeInteger(amountMinor)) {
     throw new RangeError(`Not a whole number of minor units: ${amountMinor}`)
   }
-  return currencyFormatter(language, currency)
+  return currencyFormatter(language, currency, signed)
     .formatToParts(decimalText(amountMinor, currencyDigits(currency)))
     .map((part) => (part.type === 'minusSign' ? MINUS_SIGN : part.value))
     .join('')
+}
+
+/**
+ * The total of `amounts`, all in `currency`: net worth, or the balance of a group of accounts.
+ *
+ * Added as BigInt, so a total past Number.MAX_SAFE_INTEGER is refused rather than rounded to the
+ * nearest float. Amounts of another currency are refused too: adding euros to dollars needs an
+ * exchange rate, which M1 does not have.
+ */
+export function sumMoney(currency: string, amounts: readonly Money[]): Money {
+  let total = 0n
+  for (const money of amounts) {
+    if (money.currency !== currency) {
+      throw new RangeError(
+        `Cannot add ${money.currency} to a total in ${currency}`,
+      )
+    }
+    total += BigInt(money.amountMinor)
+  }
+  if (
+    total > BigInt(Number.MAX_SAFE_INTEGER) ||
+    total < -BigInt(Number.MAX_SAFE_INTEGER)
+  ) {
+    throw new RangeError(`The total of ${currency} amounts is too large`)
+  }
+  return { amountMinor: Number(total), currency }
 }
 
 /**

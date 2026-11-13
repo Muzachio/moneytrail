@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, parseMoneyInput } from './money'
+import { formatMoney, parseMoneyInput, sumMoney } from './money'
 
 // Intl separates Portuguese groups and the euro sign with a no-break space (U+00A0).
 const NBSP = ' '
@@ -67,6 +67,64 @@ describe('formatMoney', () => {
         { amountMinor: Number.MAX_SAFE_INTEGER + 2, currency: 'EUR' },
         'en',
       ),
+    ).toThrow(RangeError)
+  })
+
+  it('writes a plus sign before changes above zero when asked to', () => {
+    const signed = { signed: true }
+
+    expect(
+      formatMoney({ amountMinor: 41029, currency: 'EUR' }, 'en', signed),
+    ).toBe('+€410.29')
+    expect(
+      formatMoney({ amountMinor: 41029, currency: 'EUR' }, 'pt-PT', signed),
+    ).toBe(`+410,29${NBSP}€`)
+    expect(
+      formatMoney({ amountMinor: -2270, currency: 'EUR' }, 'en', signed),
+    ).toBe('−€22.70')
+    expect(formatMoney({ amountMinor: 0, currency: 'EUR' }, 'en', signed)).toBe(
+      '€0.00',
+    )
+    // The unsigned formatter is a different one, and stays without a plus.
+    expect(formatMoney({ amountMinor: 41029, currency: 'EUR' }, 'en')).toBe(
+      '€410.29',
+    )
+  })
+})
+
+describe('sumMoney', () => {
+  it('adds amounts of one currency', () => {
+    expect(
+      sumMoney('EUR', [
+        { amountMinor: 218437, currency: 'EUR' },
+        { amountMinor: -31240, currency: 'EUR' },
+      ]),
+    ).toEqual({ amountMinor: 187197, currency: 'EUR' })
+    expect(sumMoney('EUR', [])).toEqual({ amountMinor: 0, currency: 'EUR' })
+  })
+
+  it('stays exact up to the largest safe integer, and refuses totals past it', () => {
+    const almost = { amountMinor: Number.MAX_SAFE_INTEGER - 1, currency: 'EUR' }
+    const cent = { amountMinor: 1, currency: 'EUR' }
+
+    expect(sumMoney('EUR', [almost, cent]).amountMinor).toBe(
+      Number.MAX_SAFE_INTEGER,
+    )
+    // As floats, MAX_SAFE_INTEGER + 2 would come out as MAX_SAFE_INTEGER + 1.
+    expect(() => sumMoney('EUR', [almost, cent, cent, cent])).toThrow(
+      RangeError,
+    )
+    expect(() =>
+      sumMoney('EUR', [
+        { amountMinor: -Number.MAX_SAFE_INTEGER, currency: 'EUR' },
+        { amountMinor: -1, currency: 'EUR' },
+      ]),
+    ).toThrow(RangeError)
+  })
+
+  it('refuses to add another currency without an exchange rate', () => {
+    expect(() =>
+      sumMoney('EUR', [{ amountMinor: 100, currency: 'USD' }]),
     ).toThrow(RangeError)
   })
 })
