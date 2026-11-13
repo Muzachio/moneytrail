@@ -51,7 +51,7 @@ class Transactions {
         return UserTransaction.of(entry, accounts, false).orElseThrow(() -> notATransaction(entry));
     }
 
-    @Transactional(readOnly = true)
+    // Not read-only: ledgerOf opens the ledger of a user who has none yet, as the other endpoints do.
     TransactionHistory find(UUID userId, UUID transactionId) {
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Map<UUID, Account> accounts = accountsOf(ledgerId);

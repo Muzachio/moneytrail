@@ -529,6 +529,21 @@ class TransactionsApiTests extends PostgresIntegrationTest {
         assertThat(ledger.balance(checking)).isEqualTo(eur(100000));
     }
 
+    /**
+     * A session from before the ledgers existed (#42): reading opens the user's ledger first, which a
+     * read-only transaction would refuse with a 500. The 404 then rolls the new ledger back with the
+     * rest of the request; the next request or sign-in opens it again.
+     */
+    @Test
+    void aUserWithoutALedgerYetGetsA404InsteadOfAnError() {
+        UUID early = jdbc.sql("INSERT INTO users (email, name) VALUES (:email, 'Early Test') RETURNING id")
+                .param("email", "early-" + UUID.randomUUID() + "@example.com")
+                .query(UUID.class)
+                .single();
+
+        assertNotFound(get(early, UUID.randomUUID()));
+    }
+
     @Test
     void withoutASessionEveryEndpointAnswers401() {
         UUID dinner = record(ana, expense(food, card, 2570, "Dinner out"));
