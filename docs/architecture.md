@@ -198,6 +198,14 @@ keep an archived account or category that the version it replaces already used, 
 another one. Reversals and opening balances are entries, not transactions: they appear only in a
 transaction's trail and in the accounts' balances.
 
+The transactions list asks the ledger for the entries *in effect* (neither a reversal nor reversed)
+of a month, in its own terms: entries that post to given accounts, to an account of a kind (an
+expense posts to an `EXPENSE` account) or to none of some kinds (a transfer posts to no category,
+and nothing listed posts to `EQUITY`). Pages are newest first by `(occurred_on, id)`; ids are
+UUIDv7, so within a day the last recorded comes first. The month's summary counts every matching
+transaction but sums only the categories' postings, so transfers add nothing to income, spending or
+net.
+
 ### Guarantees and how they are enforced
 
 | Guarantee | Enforcement |
@@ -254,7 +262,10 @@ UUIDs are **v7** (time-ordered, index-friendly), generated in the application.
   a fraction such as `12.5` in an integer property is refused with `400`, never rounded.
 - Days such as *today* and *this month* follow Europe/Lisbon until users can choose a time zone.
 - Errors are **RFC 9457** `ProblemDetail` with a stable `code` property.
-- Lists use **cursor pagination** (keyset on `(occurred_on, id)`), never `OFFSET`.
+- Lists use **cursor pagination** (keyset on `(occurred_on, id)`), never `OFFSET`: the next page
+  starts after the last row of the previous one, which an index reads directly however deep the page
+  is, and a row added while paging neither repeats nor hides another. The cursor is opaque to
+  clients.
 - Every money-moving `POST` **requires an `Idempotency-Key` header**.
 
 Main resources:

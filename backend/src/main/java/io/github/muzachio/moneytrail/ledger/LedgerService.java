@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The ledger module's public API, and the only way to write journal entries and postings. A broken
@@ -120,6 +121,22 @@ public interface LedgerService {
      * own history; an unknown one has none.
      */
     List<JournalEntry> history(UUID entryId);
+
+    /**
+     * A page of the entries that match the filter, newest first: by the day they occurred on, then by
+     * id, which is time-ordered, so by when they were recorded. The page after another starts right
+     * after its {@link EntryPage#next}, given as {@code after}; null asks for the first page.
+     *
+     * @param limit how many entries a page holds at most, at least 1
+     */
+    EntryPage entries(EntryFilter filter, @Nullable EntryPosition after, int limit);
+
+    /**
+     * How many entries match the filter, and the sums of their postings by kind of account: all the
+     * matching entries, not one page. A ledger whose entries of one kind are in two currencies is not
+     * supported yet (M4), and throws {@code IllegalStateException}.
+     */
+    EntryTotals totals(EntryFilter filter);
 
     /**
      * The account's balance: the sum of all its postings, in its currency, read from one row kept up

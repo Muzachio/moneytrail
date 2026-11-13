@@ -233,6 +233,86 @@ paths:
         '409':
           $ref: '#/components/responses/CategoryNameTaken'
   /v1/transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List a month's transactions, newest first, with the month's totals
+      description: |
+        The current version of each of the user's transactions in a month, newest first: by
+        `occurredOn`, then by when they were recorded. Reversed transactions and old versions of
+        edited ones are left out, and so are reversals and opening balances; an edited transaction
+        shows its current version with `edited: true`.
+
+        The filters combine: every one sent must match. A page holds at most `limit` transactions;
+        when there are more, `nextCursor` is set, and sending it back as `cursor` with the same
+        filters gives the next page. The cursor marks the last transaction of the page (keyset
+        pagination on `occurredOn` and the id, never an offset), so a transaction recorded while
+        paging is neither repeated nor skipped because of it.
+
+        `summary` covers the whole month for the same filters, not only the page.
+      parameters:
+        - name: month
+          in: query
+          description: The calendar month, `YYYY-MM`. The current month in Europe/Lisbon when absent.
+          schema:
+            type: string
+            pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$'
+            example: '2026-10'
+        - name: type
+          in: query
+          description: Only expenses, only income or only transfers.
+          schema:
+            $ref: '#/components/schemas/TransactionType'
+        - name: accountId
+          in: query
+          description: |
+            Only the transactions of this account: expenses paid from it, income received in it and
+            transfers from or to it.
+          schema:
+            type: string
+            format: uuid
+        - name: categoryId
+          in: query
+          description: Only the transactions of this category.
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          description: |
+            Only the transactions whose description contains this text, ignoring case. Spaces around
+            it are removed; only spaces is the same as no `q`.
+          schema:
+            type: string
+            maxLength: 100
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 100
+        - name: limit
+          in: query
+          description: How many transactions a page holds at most.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: A page of the month's transactions and the month's totals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '422':
+          $ref: '#/components/responses/UnknownFilter'
     post:
       operationId: createTransaction
       tags: [transactions]
@@ -512,6 +592,21 @@ components:
             status: 422
             detail: Category 0193f6a2-6b1e-7c4d-9a2f-3e5d7c9b1a20 is archived.
             code: category_archived
+    UnknownFilter:
+      description: |
+        A filter names an account or a category the user does not have. `account_not_found`: no
+        account with this id, and so for another user's account, a category or the opening balances
+        account. `category_not_found`: no category with this id, and so for another user's category
+        or an account.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: There is no account 0193f6a2-6b1e-7c4d-9a2f-3e5d7c9b1a20.
+            code: account_not_found
   schemas:
     Health:
       type: object
@@ -893,6 +988,46 @@ components:
           description: |
             The version in effect, which may be this one. Absent when the last version was reversed
             without a correction.
+    TransactionPage:
+      type: object
+      required: [month, summary, items]
+      properties:
+        month:
+          type: string
+          description: The month listed, `YYYY-MM`, also when the request left it out.
+          example: '2026-10'
+        summary:
+          $ref: '#/components/schemas/MonthSummary'
+        items:
+          type: array
+          description: The current version of each transaction, newest first.
+          items:
+            $ref: '#/components/schemas/Transaction'
+        nextCursor:
+          type: string
+          description: Send it as `cursor` for the next page. Absent on the last page.
+    MonthSummary:
+      type: object
+      required: [count, income, spending, net]
+      description: |
+        The whole month's transactions that match the filters, not only the page's. Transfers count
+        as transactions but add nothing to income, spending or net: they only move money between
+        the user's own accounts.
+      properties:
+        count:
+          type: integer
+          format: int64
+          description: How many transactions match, transfers included.
+          example: 41
+        income:
+          $ref: '#/components/schemas/Money'
+          description: The sum of the income, zero or more.
+        spending:
+          $ref: '#/components/schemas/Money'
+          description: The sum of the expenses, zero or more.
+        net:
+          $ref: '#/components/schemas/Money'
+          description: '`income` minus `spending`: negative when more was spent than received.'
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.

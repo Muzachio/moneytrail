@@ -5,12 +5,20 @@ import static java.util.stream.Collectors.toSet;
 
 import io.github.muzachio.moneytrail.ledger.Account;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
+import io.github.muzachio.moneytrail.ledger.EntryFilter;
+import io.github.muzachio.moneytrail.ledger.EntryPage;
+import io.github.muzachio.moneytrail.ledger.EntryPosition;
+import io.github.muzachio.moneytrail.ledger.EntryTotals;
 import io.github.muzachio.moneytrail.ledger.JournalEntry;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.DomainException;
+import io.github.muzachio.moneytrail.shared.Money;
+import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,6 +64,74 @@ class Transactions {
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Map<UUID, Account> accounts = accountsOf(ledgerId);
         return historyOf(ledgerId, transactionId, accounts);
+    }
+
+    /**
+     * The current version of each transaction in the month, newest first, and the month's totals for
+     * the same filters. The account and the category of a filter must be the user's.
+     */
+    TransactionPage list(UUID userId, TransactionFilter filter, @Nullable String cursor, int limit) {
+        UUID ledgerId = personalLedgers.ledgerOf(userId);
+        Map<UUID, Account> accounts = accountsOf(ledgerId);
+        EntryFilter entries = entryFilter(ledgerId, filter, accounts);
+        EntryPage page = ledger.entries(entries, cursor == null ? null : Cursors.decode(cursor), limit);
+        List<UserTransaction> items = page.entries().stream()
+                .map(entry -> UserTransaction.of(entry, accounts, false).orElseThrow(() -> notATransaction(entry)))
+                .toList();
+        EntryPosition next = page.next();
+        return new TransactionPage(
+                filter.month(), summaryOf(ledger.totals(entries)), items, next == null ? null : Cursors.encode(next));
+    }
+
+    /**
+     * Opening balances post to {@code EQUITY} and are never transactions. A transfer only moves money
+     * between the user's own accounts, so it is an entry that posts to no category.
+     */
+    private static EntryFilter entryFilter(UUID ledgerId, TransactionFilter filter, Map<UUID, Account> accounts) {
+        Set<UUID> postingTo = new HashSet<>();
+        UUID accountId = filter.accountId();
+        if (accountId != null) {
+            Account account = accounts.get(accountId);
+            if (account == null || UserAccount.Type.of(account).isEmpty()) {
+                throw TransactionException.accountNotFound(accountId);
+            }
+            postingTo.add(accountId);
+        }
+        UUID categoryId = filter.categoryId();
+        if (categoryId != null) {
+            Account category = accounts.get(categoryId);
+            if (category == null || !isCategory(category)) {
+                throw TransactionException.categoryNotFound(categoryId);
+            }
+            postingTo.add(categoryId);
+        }
+        AccountKind postingToKind = null;
+        Set<AccountKind> notPostingToKinds = EnumSet.of(AccountKind.EQUITY);
+        UserTransaction.Type type = filter.type();
+        if (type != null) {
+            switch (type) {
+                case EXPENSE -> postingToKind = AccountKind.EXPENSE;
+                case INCOME -> postingToKind = AccountKind.INCOME;
+                case TRANSFER -> notPostingToKinds.addAll(EnumSet.of(AccountKind.EXPENSE, AccountKind.INCOME));
+            }
+        }
+        YearMonth month = filter.month();
+        return new EntryFilter(
+                ledgerId,
+                month.atDay(1),
+                month.atEndOfMonth(),
+                postingTo,
+                postingToKind,
+                notPostingToKinds,
+                filter.text());
+    }
+
+    /** Spending is what the expense categories were debited, income what the income ones were credited. */
+    private static TransactionPage.Summary summaryOf(EntryTotals totals) {
+        Money zero = Money.zero(PersonalLedgers.CURRENCY);
+        Money spending = totals.sums().getOrDefault(AccountKind.EXPENSE, zero);
+        Money income = totals.sums().getOrDefault(AccountKind.INCOME, zero).negate();
+        return new TransactionPage.Summary(totals.count(), income, spending, income.minus(spending));
     }
 
     /**
@@ -187,7 +263,7 @@ class Transactions {
             Map<UUID, Account> accounts,
             Set<UUID> mayBeArchived) {
         Account category = accounts.get(categoryId);
-        if (category == null || (category.kind() != AccountKind.EXPENSE && category.kind() != AccountKind.INCOME)) {
+        if (category == null || !isCategory(category)) {
             throw TransactionException.categoryNotFound(categoryId);
         }
         if (category.kind() != kind) {
@@ -217,6 +293,10 @@ class Transactions {
             throw TransactionException.currencyMismatch(
                     movement.amount().currency().getCurrencyCode());
         }
+    }
+
+    private static boolean isCategory(Account account) {
+        return account.kind() == AccountKind.EXPENSE || account.kind() == AccountKind.INCOME;
     }
 
     private Map<UUID, Account> accountsOf(UUID ledgerId) {
