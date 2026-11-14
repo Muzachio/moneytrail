@@ -17,7 +17,7 @@ services:
   # Grafana with Tempo (traces), Prometheus (metrics), Loki (logs) and an OpenTelemetry
   # collector in one container. Only started with ./gradlew bootRun -Pobservability.
   grafana-lgtm:
-    image: grafana/otel-lgtm:0.39.0
+    image: grafana/otel-lgtm:0.40.0
     profiles: [observability]
     ports:
       # Fixed port so the Grafana link is always http://127.0.0.1:3000

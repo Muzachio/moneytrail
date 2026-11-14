@@ -69,9 +69,9 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
-      - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
         with:
-          version: 0.5.5
+          version: 0.5.7
 
       # Every flyctl deploy first runs fly.toml's release_command: the new image applies the
       # database migrations with the app's own Flyway (ADR-0009). If that fails, no machine is
@@ -142,7 +142,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: 4.158.0
+          wranglerVersion: 4.160.0
           command: pages deploy frontend/dist --project-name=moneytrail --branch=main --commit-hash=${{ env.SHA }}
 
       - name: Smoke test the app
