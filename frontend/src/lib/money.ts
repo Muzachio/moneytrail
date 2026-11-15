@@ -127,6 +127,72 @@ export function sumMoney(currency: string, amounts: readonly Money[]): Money {
   return { amountMinor: Number(total), currency }
 }
 
+const compactFormatters = new Map<string, Intl.NumberFormat>()
+
+/**
+ * `money` rounded to a few digits, for the ticks of a chart's axis: `€3K`, `3 mil €`. Read from
+ * the decimal text, as in `formatMoney`, so the amount never becomes a float on the way.
+ */
+export function formatCompactMoney(
+  { amountMinor, currency }: Money,
+  language: string,
+) {
+  if (!Number.isSafeInteger(amountMinor)) {
+    throw new RangeError(`Not a whole number of minor units: ${amountMinor}`)
+  }
+  const key = `${language} ${currency}`
+  let formatter = compactFormatters.get(key)
+  if (formatter === undefined) {
+    formatter = new Intl.NumberFormat(language, {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+    })
+    compactFormatters.set(key, formatter)
+  }
+  return formatter
+    .formatToParts(decimalText(amountMinor, currencyDigits(currency)))
+    .map((part) => (part.type === 'minusSign' ? MINUS_SIGN : part.value))
+    .join('')
+}
+
+/**
+ * `part` as a whole percentage of `whole`, rounded half up: €1,599.80 of €1,874.99 is 85. Worked
+ * out with BigInt, as the backend would with `BigDecimal` and an explicit rounding mode, never
+ * with floats. Undefined when there is no `whole` to compare with (no income) or `part` is
+ * negative.
+ */
+export function percentOf(part: Money, whole: Money): number | undefined {
+  if (part.currency !== whole.currency) {
+    throw new RangeError(
+      `Cannot compare ${part.currency} with ${whole.currency}`,
+    )
+  }
+  if (whole.amountMinor <= 0 || part.amountMinor < 0) {
+    return undefined
+  }
+  const share = BigInt(part.amountMinor)
+  const total = BigInt(whole.amountMinor)
+  // share × 100 / total + ½, in whole numbers: (200 × share + total) / (2 × total).
+  return Number((share * 200n + total) / (total * 2n))
+}
+
+const percentFormatters = new Map<string, Intl.NumberFormat>()
+
+/** A whole percentage written for `language`: 85 is "85%". */
+export function formatPercent(percent: number, language: string) {
+  let formatter = percentFormatters.get(language)
+  if (formatter === undefined) {
+    // The unit "percent" takes 85 as it is; the style "percent" would need the fraction 0.85.
+    formatter = new Intl.NumberFormat(language, {
+      style: 'unit',
+      unit: 'percent',
+    })
+    percentFormatters.set(language, formatter)
+  }
+  return formatter.format(percent)
+}
+
 /**
  * What a money input shows around the number in `language`: the currency symbol and its side (`€`
  * before the number in English, after it in Portuguese), and zero as a placeholder (`0.00`,

@@ -41,8 +41,11 @@ function isDefaultCategoryKey(key: unknown): key is DefaultCategoryKey {
   return typeof key === 'string' && Object.hasOwn(defaultCategoryIcons, key)
 }
 
+/** What names a category: a `Category`, or one in a report (`CategorySpending`). */
+type Named = Pick<Category, 'key' | 'name'>
+
 /** Its key's icon for a default category; a plain tag for the person's own ones. */
-export function categoryIcon(category: Category): LucideIcon {
+export function categoryIcon(category: Named): LucideIcon {
   return isDefaultCategoryKey(category.key)
     ? defaultCategoryIcons[category.key]
     : Tag
@@ -54,7 +57,7 @@ export function categoryIcon(category: Category): LucideIcon {
  * A key this version of the app does not know yet (a default added to the API later) shows as the
  * key itself, which is still readable, rather than as an empty row.
  */
-export function categoryName(category: Category, t: TFunction): string {
+export function categoryName(category: Named, t: TFunction): string {
   if (category.name !== undefined) {
     return category.name
   }

@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react'
+import { LogOut, UserRound } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { type CurrentUser, useSignOut } from '@/api/session'
@@ -11,23 +11,44 @@ import {
 } from '@/components/ui/popover'
 
 /**
- * The signed-in person in the header: their photo (or initials) opens a panel with their name, the
- * language toggle and sign-out, as the "Your account" button in the design canvas.
+ * The signed-in person: a panel with their name, the language toggle and sign-out. In the header
+ * their photo (or initials) opens it, as the "Your account" button in the design canvas; on a
+ * phone the "You" tab does, at the end of the bottom tabs (`tab`).
  */
-export function AccountMenu({ user }: { user: CurrentUser }) {
+export function AccountMenu({
+  user,
+  tab = false,
+  className,
+}: {
+  user: CurrentUser
+  tab?: boolean
+  className?: string
+}) {
   const { t } = useTranslation()
   const signOut = useSignOut()
   const languageLabel = useId()
 
   return (
     <Popover>
-      <PopoverTrigger
-        aria-label={t('accountMenu.label')}
-        className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      {tab ? (
+        // Named by its visible label, "You", as the other tabs are.
+        <PopoverTrigger className={className}>
+          <UserRound aria-hidden className="size-5.5" />
+          {t('accountMenu.tab')}
+        </PopoverTrigger>
+      ) : (
+        <PopoverTrigger
+          aria-label={t('accountMenu.label')}
+          className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Avatar user={user} />
+        </PopoverTrigger>
+      )}
+      <PopoverContent
+        align="end"
+        side={tab ? 'top' : 'bottom'}
+        className="w-72 gap-3 p-3"
       >
-        <Avatar user={user} />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 gap-3 p-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="truncate font-medium">{user.name}</p>
           <p className="truncate text-muted-foreground">{user.email}</p>

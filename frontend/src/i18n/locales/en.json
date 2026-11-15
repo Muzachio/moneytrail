@@ -16,6 +16,7 @@
   },
   "accountMenu": {
     "label": "Your account",
+    "tab": "You",
     "signOut": "Sign out"
   },
   "language": {
@@ -32,14 +33,80 @@
     "license": "Open source under the MIT licence",
     "github": "View on GitHub"
   },
-  "placeholder": {
-    "comingSoon": "Coming soon",
-    "plannedFor": "Planned for {{milestone}}",
-    "m1": "M1 — personal finance"
-  },
   "summary": {
     "title": "Summary",
-    "description": "Spending by category this month, the six-month trend and the balance of each account."
+    "lead": "Where your money went this month.",
+    "leadPast": "Where your money went in {{month}}.",
+    "loading": "Loading your summary…",
+    "loadFailed": "Could not load your summary.",
+    "seeAll": "See all",
+    "income": {
+      "title": "Income"
+    },
+    "spending": {
+      "title": "Spending",
+      "ofIncome": "{{percent}} of income",
+      "noIncome": "No income to compare with",
+      "count_one": "{{count}} transaction",
+      "count_other": "{{count}} transactions"
+    },
+    "net": {
+      "title": "Net this month",
+      "titlePast": "Net in {{month}}",
+      "kept": "You kept {{percent}} of your income",
+      "over": "You spent {{amount}} more than came in",
+      "nothing": "Nothing came in or went out"
+    },
+    "spent": {
+      "title": "Spent in {{month}}",
+      "ofIncome": "{{percent}} of {{income}} income",
+      "noIncome": "No income in {{month}}",
+      "kept": "{{amount}} kept",
+      "over": "{{amount}} over income"
+    },
+    "categories": {
+      "title": "Spending by category",
+      "period": "{{period}} · {{total}} in total",
+      "seeTransactions": "See transactions",
+      "top": "Top categories",
+      "seeFewer": "See fewer",
+      "ofSpending": "of spending",
+      "empty": "Nothing spent in {{month}}."
+    },
+    "trend": {
+      "title": "Last {{count}} months",
+      "description": "Income and spending per month",
+      "caption": "Income and spending in the last {{count}} months",
+      "view": "View",
+      "views": {
+        "chart": "Chart",
+        "table": "Table"
+      },
+      "month": "Month",
+      "income": "Income",
+      "spending": "Spending",
+      "net": "Net",
+      "toDate": "{{month}} · to date",
+      "monthToDate": "{{month}} (to date)"
+    },
+    "recent": {
+      "title": "Recent transactions",
+      "titleShort": "Recent",
+      "viewAll": "View all",
+      "empty": "No transactions in {{month}}."
+    },
+    "accounts": {
+      "title": "Accounts",
+      "manage": "Manage",
+      "netWorth": "Net worth",
+      "empty": "No accounts yet."
+    },
+    "empty": {
+      "title": "Nothing to sum up yet",
+      "description": "Record what you spend and receive, and this page shows where your money goes: by category, month by month, and in each account.",
+      "descriptionNoAccounts": "Start with the accounts your money is in. Then record what you spend and receive, and this page shows where it goes.",
+      "addAccount": "Add an account"
+    }
   },
   "common": {
     "cancel": "Cancel",

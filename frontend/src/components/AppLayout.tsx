@@ -5,9 +5,11 @@ import { NavLink, Outlet } from 'react-router'
 import { useCurrentUser } from '@/api/session'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ApiStatus } from '@/components/ApiStatus'
+import { BottomTabs } from '@/components/BottomTabs'
 import type { AppOutletContext } from '@/components/newTransaction'
 import { TransactionDialog } from '@/components/transactions/TransactionDialog'
 import { Button } from '@/components/ui/button'
+import { useWideScreen } from '@/lib/useWideScreen'
 import { cn } from '@/lib/utils'
 import { SignInPage } from '@/pages/SignInPage'
 
@@ -20,8 +22,12 @@ const navItems = [
 export function AppLayout() {
   const { t } = useTranslation()
   const currentUser = useCurrentUser()
+  // On a phone the navigation, the new-transaction button and the account menu move to the
+  // bottom tabs, as in the design canvas; the header keeps the name and the API's status.
+  const wide = useWideScreen()
   const [adding, setAdding] = useState(false)
-  // The header's button, or another one a page offers, such as the empty list's.
+  // The header's button, the bottom tabs' one, or another one a page offers, such as the empty
+  // list's.
   const [addOpener, setAddOpener] = useState<HTMLElement | null>(null)
   const outletContext: AppOutletContext = {
     newTransaction: (opener) => {
@@ -46,11 +52,8 @@ export function AppLayout() {
             <WalletMinimal aria-hidden className="size-5" />
             MoneyTrail
           </NavLink>
-          {user && (
-            <nav
-              aria-label={t('nav.label')}
-              className="order-last flex w-full gap-1 sm:order-none sm:w-auto"
-            >
+          {user && wide && (
+            <nav aria-label={t('nav.label')} className="flex gap-1">
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
@@ -69,7 +72,7 @@ export function AppLayout() {
             </nav>
           )}
           <div className="ml-auto flex items-center gap-4">
-            {user && (
+            {user && wide && (
               <Button
                 size="lg"
                 className="px-3.5"
@@ -78,16 +81,21 @@ export function AppLayout() {
                 }
               >
                 <Plus aria-hidden />
-                {/* Only the icon on phones, as in the design canvas; screen readers keep the name. */}
-                <span className="max-sm:sr-only">{t('transactions.new')}</span>
+                {t('transactions.new')}
               </Button>
             )}
             <ApiStatus />
-            {user && <AccountMenu user={user} />}
+            {user && wide && <AccountMenu user={user} />}
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main
+        className={cn(
+          'mx-auto max-w-6xl px-4 py-8 sm:px-6',
+          // Room for the bottom tabs and their raised button, so the end of a page can be read.
+          user && !wide && 'pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))]',
+        )}
+      >
         {user ? (
           <Outlet context={outletContext} />
         ) : currentUser.isError ? (
@@ -98,6 +106,12 @@ export function AppLayout() {
           <p className="text-muted-foreground">{t('app.loading')}</p>
         )}
       </main>
+      {user && !wide && (
+        <BottomTabs
+          user={user}
+          onNewTransaction={outletContext.newTransaction}
+        />
+      )}
       {user && (
         <TransactionDialog
           open={adding}

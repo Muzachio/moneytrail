@@ -12,7 +12,12 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select'
 import { categoryName } from '@/lib/categories'
-import { addMonths, formatMonth, type Month } from '@/lib/dates'
+import {
+  addMonths,
+  formatMonth,
+  formatMonthName,
+  type Month,
+} from '@/lib/dates'
 import { transactionTypes } from '@/lib/transactions'
 import { cn } from '@/lib/utils'
 
@@ -21,13 +26,21 @@ export function MonthSwitcher({
   month,
   latest,
   onChange,
+  short = false,
 }: {
   month: Month
   /** The current month: there is nothing to see after it. */
   latest: Month
   onChange: (month: Month) => void
+  /**
+   * The month's name alone in the current year, as on the phone's summary in the design canvas,
+   * so that the switcher fits beside the page's title.
+   */
+  short?: boolean
 }) {
   const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage ?? 'en'
+  const thisYear = month.slice(0, 4) === latest.slice(0, 4)
   return (
     <div className="flex items-center gap-0.5 rounded-[10px] border bg-card p-0.5">
       <Button
@@ -40,9 +53,14 @@ export function MonthSwitcher({
       </Button>
       <span
         aria-live="polite"
-        className="min-w-31 text-center font-medium first-letter:uppercase"
+        className={cn(
+          'text-center font-medium first-letter:uppercase',
+          short ? 'min-w-22' : 'min-w-31',
+        )}
       >
-        {formatMonth(month, i18n.resolvedLanguage ?? 'en')}
+        {short && thisYear
+          ? formatMonthName(month, language)
+          : formatMonth(month, language)}
       </span>
       <Button
         variant="ghost"
