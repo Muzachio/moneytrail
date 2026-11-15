@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatAmount,
+  formatCompactMoney,
   formatMoney,
+  formatPercent,
   moneyInputText,
   parseMoneyInput,
+  percentOf,
   sumMoney,
 } from './money'
 
@@ -259,5 +262,60 @@ describe('moneyInputText', () => {
       ok: true,
       amountMinor: 5,
     })
+  })
+})
+
+describe('percentOf', () => {
+  it('gives a whole percentage, rounded half up, without floats', () => {
+    expect(percentOf(euros(159980), euros(187499))).toBe(85)
+    expect(percentOf(euros(27519), euros(187499))).toBe(15)
+    // 12.5% and 87.5%: halves go up.
+    expect(percentOf(euros(1), euros(8))).toBe(13)
+    expect(percentOf(euros(7), euros(8))).toBe(88)
+    expect(percentOf(euros(0), euros(8))).toBe(0)
+    // More spent than came in.
+    expect(percentOf(euros(214942), euros(187499))).toBe(115)
+  })
+
+  it('stays exact for amounts a float cannot hold', () => {
+    // 2^53 − 1 cents: one cent short of the whole is still 100%, not more.
+    const whole = euros(Number.MAX_SAFE_INTEGER)
+    expect(percentOf(euros(Number.MAX_SAFE_INTEGER - 1), whole)).toBe(100)
+    expect(
+      percentOf(euros(Math.floor(Number.MAX_SAFE_INTEGER / 2)), whole),
+    ).toBe(50)
+  })
+
+  it('has no answer without a whole, or for a negative part', () => {
+    expect(percentOf(euros(500), euros(0))).toBeUndefined()
+    expect(percentOf(euros(-500), euros(1000))).toBeUndefined()
+  })
+
+  it('refuses to compare two currencies', () => {
+    expect(() =>
+      percentOf(euros(500), { amountMinor: 1000, currency: 'USD' }),
+    ).toThrow(RangeError)
+  })
+})
+
+describe('formatPercent', () => {
+  it('writes a whole percentage in each language', () => {
+    expect(formatPercent(85, 'en')).toBe('85%')
+    expect(formatPercent(85, 'pt-PT')).toBe('85%')
+  })
+})
+
+describe('formatCompactMoney', () => {
+  it('rounds an axis label to thousands, the way each language does', () => {
+    expect(formatCompactMoney(euros(300000), 'en')).toBe('€3K')
+    expect(formatCompactMoney(euros(150000), 'en')).toBe('€1.5K')
+    expect(formatCompactMoney(euros(0), 'en')).toBe('€0')
+    expect(formatCompactMoney(euros(300000), 'pt-PT')).toBe(
+      `3${NBSP}mil${NBSP}€`,
+    )
+  })
+
+  it('refuses amounts that are not whole minor units', () => {
+    expect(() => formatCompactMoney(euros(12.5), 'en')).toThrow(RangeError)
   })
 })

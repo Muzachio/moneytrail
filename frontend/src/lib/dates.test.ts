@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   addDays,
   addMonths,
+  firstDayOf,
   formatDate,
+  formatDayRange,
   formatDay,
   formatMonth,
+  formatShortMonth,
   formatWeekday,
   isDay,
   isMonth,
+  lastDayOf,
   today,
 } from './dates'
 
@@ -52,5 +56,30 @@ describe('calendar days', () => {
     expect(formatMonth('2026-10', 'pt-PT')).toBe('outubro de 2026')
     expect(formatWeekday('2026-10-23', 'pt-PT')).toBe('Sexta-feira')
     expect(formatWeekday('2026-10-23', 'en')).toBe('Friday')
+  })
+})
+
+describe('months and periods', () => {
+  it('knows the first and last day of a month, leap years included', () => {
+    expect(firstDayOf('2026-10')).toBe('2026-10-01')
+    expect(lastDayOf('2026-10')).toBe('2026-10-31')
+    expect(lastDayOf('2026-02')).toBe('2026-02-28')
+    expect(lastDayOf('2028-02')).toBe('2028-02-29')
+    expect(lastDayOf('2026-12')).toBe('2026-12-31')
+  })
+
+  it('writes a period with what its days share said once', () => {
+    expect(formatDayRange('2026-10-01', '2026-10-25', 'en')).toBe(
+      '1–25 October',
+    )
+    expect(formatDayRange('2026-10-01', '2026-10-25', 'pt-PT')).toBe(
+      '1–25 de outubro',
+    )
+    expect(formatDayRange('2026-10-01', '2026-10-01', 'en')).toBe('1 October')
+  })
+
+  it("writes a month's short name for a chart's axis", () => {
+    expect(formatShortMonth('2026-06', 'en')).toBe('Jun')
+    expect(formatShortMonth('2026-10', 'pt-PT')).toBe('out.')
   })
 })

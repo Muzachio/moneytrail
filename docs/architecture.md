@@ -64,11 +64,12 @@ process.
 | Build / language | Vite + React + TypeScript (strict) |
 | Data fetching | TanStack Query over an `openapi-fetch` client generated from the spec |
 | Routing | React Router |
-| UI | Tailwind CSS + shadcn/ui, Recharts for charts |
+| UI | Tailwind CSS + shadcn/ui, Recharts for charts (in a chunk of its own, loaded only where a chart shows). Every chart has a table with the same numbers |
+| Layout | Below Tailwind's `sm` (40rem) the phone layout: bottom tabs with the new-transaction button in the centre, and shorter pages where the design canvas has them |
 | Forms | React Hook Form + Zod |
 | Mobile | PWA (`vite-plugin-pwa`). QR scanning with the browser's `BarcodeDetector`, falling back to `@zxing/browser` |
 | i18n | Portuguese and English from day one (`i18next`). Follows the browser until the person picks a language, which is remembered |
-| Money display | `Intl.NumberFormat` from `amountMinor` + currency, never floating-point maths |
+| Money display | `Intl.NumberFormat` from `amountMinor` + currency, never floating-point maths. Shares of an amount ("85% of income") are whole percentages worked out with `BigInt`, rounded half up |
 | Money input | Typed text (`12,50` or `12.50`) read as integer minor units, never `parseFloat`. More decimals than the currency has are refused |
 
 ## Module boundaries

@@ -105,8 +105,9 @@ type RequestInit = {
 
 /**
  * Stands in for the API: the health check, `/v1/me` with `user` (401 when it is null), and the
- * accounts, categories and transactions of that user, kept in memory so that what a test adds,
- * renames, archives, records or reverses shows up in the next list, as with the real API. The
+ * accounts, categories and transactions of that user, with the spending reports on them, kept in
+ * memory so that what a test adds, renames, archives, records or reverses shows up in the next
+ * list and report, as with the real API. The
  * money-moving POSTs need an Idempotency-Key and replay their first answer for the same request.
  *
  * Returns the spies, to check what was sent or to make one call fail with `mockImplementationOnce`,
@@ -177,6 +178,8 @@ export function mockApi({
         })
       case '/v1/transactions':
         return ok(ledger.list(init?.params?.query ?? {}))
+      case '/v1/reports/spending':
+        return refusing(() => ok(ledger.report(init?.params?.query ?? {})))
       case '/v1/transactions/{id}':
         return refusing(() => ok(ledger.detail(init?.params?.path?.id ?? '')))
     }

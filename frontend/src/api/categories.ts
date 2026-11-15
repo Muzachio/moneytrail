@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 import { dataOrThrow } from './problem'
+import { reportsKey } from './reports'
 import type { components } from './schema'
 
 export type Category = components['schemas']['Category']
@@ -31,7 +32,7 @@ export function useCreateCategory() {
   })
 }
 
-/** Renames, archives or restores a category. */
+/** Renames, archives or restores a category. The reports carry its name: they are fetched again. */
 export function useUpdateCategory() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -42,11 +43,13 @@ export function useUpdateCategory() {
           body: change,
         }),
       ),
-    onSuccess: (updated) =>
+    onSuccess: (updated) => {
       queryClient.setQueryData<Category[]>(categoriesKey, (categories) =>
         categories?.map((category) =>
           category.id === updated.id ? updated : category,
         ),
-      ),
+      )
+      void queryClient.invalidateQueries({ queryKey: reportsKey })
+    },
   })
 }

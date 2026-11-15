@@ -127,3 +127,30 @@ export function formatWeekday(day: Day, language: string) {
   const weekday = formatDay(day, language, { weekday: 'long' })
   return weekday.charAt(0).toLocaleUpperCase(language) + weekday.slice(1)
 }
+
+/** The first day of `month`: `2026-10-01`. */
+export function firstDayOf(month: Month): Day {
+  return `${month}-01`
+}
+
+/** The last day of `month`: `2026-02-28`, `2028-02-29`. */
+export function lastDayOf(month: Month): Day {
+  return addDays(firstDayOf(addMonths(month, 1)), -1)
+}
+
+/** "Oct", "out.": the month on a chart's axis, where the year is shown elsewhere. */
+export function formatShortMonth(month: Month, language: string) {
+  return formatDay(firstDayOf(month), language, { month: 'short' })
+}
+
+/**
+ * The days from `from` to `to` written out for `language`, with what they share said once:
+ * "1–25 October", "1–25 de outubro", "30 September – 25 October".
+ */
+export function formatDayRange(from: Day, to: Day, language: string) {
+  return formatter(language, {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).formatRange(utcDate(from), utcDate(to))
+}

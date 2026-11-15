@@ -8,6 +8,7 @@ import { accountsKey } from './accounts'
 import { api } from './client'
 import { useMoneyMutation } from './moneyMutation'
 import { dataOrThrow } from './problem'
+import { reportsKey } from './reports'
 import type { components } from './schema'
 
 export type Transaction = components['schemas']['Transaction']
@@ -73,8 +74,9 @@ export function useTransaction(id: string) {
 }
 
 /**
- * After money moved: the transactions (lists, totals, trails) and the accounts (balances, this
- * month's change) are fetched again. Waited for, so the list is up to date when a dialog closes.
+ * After money moved: the transactions (lists, totals, trails), the accounts (balances, this
+ * month's change) and the reports (the summary) are fetched again. Waited for, so the list is up
+ * to date when a dialog closes.
  */
 function useRefetchAfterMoneyMoved() {
   const queryClient = useQueryClient()
@@ -82,6 +84,7 @@ function useRefetchAfterMoneyMoved() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: transactionsKey }),
       queryClient.invalidateQueries({ queryKey: accountsKey }),
+      queryClient.invalidateQueries({ queryKey: reportsKey }),
     ])
 }
 

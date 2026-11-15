@@ -1,6 +1,12 @@
 import type { Account } from '@/api/accounts'
 import type { Category } from '@/api/categories'
 import type {
+  CategorySpending,
+  MonthTotals,
+  ReportGrouping,
+  SpendingReport,
+} from '@/api/reports'
+import type {
   MonthSummary,
   NewTransaction,
   Posting,
@@ -9,6 +15,7 @@ import type {
   TransactionDetail,
   TransactionPage,
 } from '@/api/transactions'
+import { addMonths } from '@/lib/dates'
 
 /** Why the fake refuses a request, as the API's problem `code`. */
 export class Refused extends Error {
@@ -31,6 +38,8 @@ type Query = {
   cursor?: string
   limit?: number
 }
+
+type ReportQuery = { from?: string; to?: string; groupBy?: ReportGrouping }
 
 /**
  * The transactions of the in-memory API, with the rules of the real one that the pages rely on:
@@ -251,7 +260,72 @@ export function fakeTransactions(
     }
   }
 
-  return { versions, detail, record, reverse, list }
+  /**
+   * `GET /v1/reports/spending`: the expenses and incomes from `from` to `to`, as they are now. A
+   * reversed version counts for nothing and a correction counts on its own day, as the real
+   * report's sum of postings comes out; transfers count for nothing either.
+   */
+  function report({
+    from = '',
+    to = '',
+    groupBy,
+  }: ReportQuery): SpendingReport {
+    if (to < from) {
+      throw new Refused(400, 'invalid_period')
+    }
+    const counted = versions.filter(
+      (transaction) =>
+        !transaction.reversed &&
+        transaction.type !== 'TRANSFER' &&
+        transaction.occurredOn >= from &&
+        transaction.occurredOn <= to,
+    )
+    const totals = summary(counted)
+    const income = totals.income
+    const spending = totals.spending
+    if (groupBy === 'category') {
+      const spent = new Map<string, number>()
+      for (const transaction of counted) {
+        if (transaction.type === 'EXPENSE') {
+          const id = transaction.categoryId!
+          spent.set(id, (spent.get(id) ?? 0) + transaction.amount.amountMinor)
+        }
+      }
+      // Largest first; on a tie, the category created first, as the API orders them.
+      const order = (id: string) =>
+        categories.findIndex((category) => category.id === id)
+      const byCategory: CategorySpending[] = [...spent]
+        .sort(([a, x], [b, y]) => y - x || order(a) - order(b))
+        .map(([categoryId, amountMinor]) => {
+          const { key, name } = categories.find(
+            (category) => category.id === categoryId,
+          )!
+          return {
+            categoryId,
+            ...(key !== undefined && { key }),
+            ...(name !== undefined && { name }),
+            spending: { amountMinor, currency: 'EUR' },
+          }
+        })
+      return { income, spending, categories: byCategory }
+    }
+    const months: MonthTotals[] = []
+    for (
+      let month = from.slice(0, 7);
+      month <= to.slice(0, 7);
+      month = addMonths(month, 1)
+    ) {
+      const { income, spending } = summary(
+        counted.filter((transaction) =>
+          transaction.occurredOn.startsWith(month),
+        ),
+      )
+      months.push({ month, income, spending })
+    }
+    return { income, spending, months }
+  }
+
+  return { versions, detail, record, reverse, list, report }
 }
 
 function summary(transactions: Transaction[]): MonthSummary {

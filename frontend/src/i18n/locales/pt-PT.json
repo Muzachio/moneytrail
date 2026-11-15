@@ -16,6 +16,7 @@
   },
   "accountMenu": {
     "label": "A tua conta",
+    "tab": "Perfil",
     "signOut": "Terminar sessão"
   },
   "language": {
@@ -32,14 +33,80 @@
     "license": "Código aberto com licença MIT",
     "github": "Ver no GitHub"
   },
-  "placeholder": {
-    "comingSoon": "Em breve",
-    "plannedFor": "Previsto para {{milestone}}",
-    "m1": "M1 — finanças pessoais"
-  },
   "summary": {
     "title": "Resumo",
-    "description": "Gastos por categoria este mês, a tendência dos últimos seis meses e o saldo de cada conta."
+    "lead": "Para onde foi o teu dinheiro este mês.",
+    "leadPast": "Para onde foi o teu dinheiro em {{month}}.",
+    "loading": "A carregar o teu resumo…",
+    "loadFailed": "Não foi possível carregar o teu resumo.",
+    "seeAll": "Ver tudo",
+    "income": {
+      "title": "Receitas"
+    },
+    "spending": {
+      "title": "Despesas",
+      "ofIncome": "{{percent}} das receitas",
+      "noIncome": "Sem receitas para comparar",
+      "count_one": "{{count}} movimento",
+      "count_other": "{{count}} movimentos"
+    },
+    "net": {
+      "title": "Saldo deste mês",
+      "titlePast": "Saldo de {{month}}",
+      "kept": "Ficaste com {{percent}} das tuas receitas",
+      "over": "Gastaste mais {{amount}} do que recebeste",
+      "nothing": "Não entrou nem saiu dinheiro"
+    },
+    "spent": {
+      "title": "Gasto em {{month}}",
+      "ofIncome": "{{percent}} das receitas de {{income}}",
+      "noIncome": "Sem receitas em {{month}}",
+      "kept": "{{amount}} poupados",
+      "over": "{{amount}} acima das receitas"
+    },
+    "categories": {
+      "title": "Despesas por categoria",
+      "period": "{{period}} · {{total}} no total",
+      "seeTransactions": "Ver movimentos",
+      "top": "Principais categorias",
+      "seeFewer": "Ver menos",
+      "ofSpending": "das despesas",
+      "empty": "Sem despesas em {{month}}."
+    },
+    "trend": {
+      "title": "Últimos {{count}} meses",
+      "description": "Receitas e despesas por mês",
+      "caption": "Receitas e despesas nos últimos {{count}} meses",
+      "view": "Vista",
+      "views": {
+        "chart": "Gráfico",
+        "table": "Tabela"
+      },
+      "month": "Mês",
+      "income": "Receitas",
+      "spending": "Despesas",
+      "net": "Saldo",
+      "toDate": "{{month}} · até hoje",
+      "monthToDate": "{{month}} (até hoje)"
+    },
+    "recent": {
+      "title": "Movimentos recentes",
+      "titleShort": "Recentes",
+      "viewAll": "Ver todos",
+      "empty": "Sem movimentos em {{month}}."
+    },
+    "accounts": {
+      "title": "Contas",
+      "manage": "Gerir",
+      "netWorth": "Património líquido",
+      "empty": "Ainda não tens contas."
+    },
+    "empty": {
+      "title": "Ainda não há nada para resumir",
+      "description": "Regista o que gastas e recebes, e esta página mostra para onde vai o teu dinheiro: por categoria, mês a mês e em cada conta.",
+      "descriptionNoAccounts": "Começa pelas contas onde tens o teu dinheiro. Depois regista o que gastas e recebes, e esta página mostra para onde vai.",
+      "addAccount": "Adicionar conta"
+    }
   },
   "common": {
     "cancel": "Cancelar",
