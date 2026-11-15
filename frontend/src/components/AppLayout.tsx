@@ -1,4 +1,4 @@
-import { Plus, WalletMinimal } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
@@ -6,12 +6,14 @@ import { useCurrentUser } from '@/api/session'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ApiStatus } from '@/components/ApiStatus'
 import { BottomTabs } from '@/components/BottomTabs'
+import { Logo } from '@/components/Logo'
 import type { AppOutletContext } from '@/components/newTransaction'
 import { TransactionDialog } from '@/components/transactions/TransactionDialog'
 import { Button } from '@/components/ui/button'
 import { useWideScreen } from '@/lib/useWideScreen'
 import { cn } from '@/lib/utils'
 import { SignInPage } from '@/pages/SignInPage'
+import { InstallPrompt } from '@/pwa/InstallPrompt'
 
 const navItems = [
   { to: '/', label: 'nav.summary', end: true },
@@ -49,7 +51,7 @@ export function AppLayout() {
             to="/"
             className="flex items-center gap-2 font-heading text-lg font-semibold"
           >
-            <WalletMinimal aria-hidden className="size-5" />
+            <Logo className="size-6" />
             MoneyTrail
           </NavLink>
           {user && wide && (
@@ -97,7 +99,10 @@ export function AppLayout() {
         )}
       >
         {user ? (
-          <Outlet context={outletContext} />
+          <>
+            <InstallPrompt />
+            <Outlet context={outletContext} />
+          </>
         ) : currentUser.isError ? (
           <p role="alert" className="text-muted-foreground">
             {t('app.loadFailed')}

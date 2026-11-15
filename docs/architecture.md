@@ -67,7 +67,7 @@ process.
 | UI | Tailwind CSS + shadcn/ui, Recharts for charts (in a chunk of its own, loaded only where a chart shows). Every chart has a table with the same numbers |
 | Layout | Below Tailwind's `sm` (40rem) the phone layout: bottom tabs with the new-transaction button in the centre, and shorter pages where the design canvas has them |
 | Forms | React Hook Form + Zod |
-| Mobile | PWA (`vite-plugin-pwa`). QR scanning with the browser's `BarcodeDetector`, falling back to `@zxing/browser` |
+| Mobile | PWA (`vite-plugin-pwa`), installable from inside the app (the browser's install dialog, or the "Add to Home Screen" steps on an iPhone). The service worker precaches only the app shell the build produced and has no runtime caching, so API responses (financial data) always come from the network. A new deploy is offered with an Update bar, never forced with a reload, and starts by itself the next time the app opens. Icons are made from `public/favicon.svg` (`npm run generate:icons`) and committed. QR scanning with the browser's `BarcodeDetector`, falling back to `@zxing/browser` |
 | i18n | Portuguese and English from day one (`i18next`). Follows the browser until the person picks a language, which is remembered |
 | Money display | `Intl.NumberFormat` from `amountMinor` + currency, never floating-point maths. Shares of an amount ("85% of income") are whole percentages worked out with `BigInt`, rounded half up |
 | Money input | Typed text (`12,50` or `12.50`) read as integer minor units, never `parseFloat`. More decimals than the currency has are refused |
