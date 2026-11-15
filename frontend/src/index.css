@@ -139,6 +139,12 @@
      its toolbars the viewport grows past svh, and the wrapper left a white strip below it. */
   body {
     @apply bg-muted/40 text-foreground;
+    /* viewport-fit=cover (index.html) lets the page run under a phone's notch and status bar;
+       these insets are 0 everywhere else. The bottom one is left to what sits at the bottom:
+       the bottom tabs, the end of <main> and the sign-in page's footer. */
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-left: env(safe-area-inset-left);
   }
   html {
     @apply font-sans;

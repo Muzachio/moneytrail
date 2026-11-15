@@ -22,6 +22,21 @@
   "language": {
     "label": "Language"
   },
+  "install": {
+    "title": "Install MoneyTrail",
+    "description": "Open it like any other app, in a window of its own, without the browser around it.",
+    "install": "Install",
+    "notNow": "Not now",
+    "ios": {
+      "share": "Tap Share. In Safari on iOS 26, it is in the ⋯ menu.",
+      "addToHomeScreen": "Choose Add to Home Screen. You may need to scroll down to find it.",
+      "add": "Tap Add."
+    }
+  },
+  "update": {
+    "available": "A new version of MoneyTrail is ready.",
+    "reload": "Update"
+  },
   "signIn": {
     "title": "Sign in to MoneyTrail",
     "lead": "Follow the trail of every cent: your accounts, your spending and where it all went.",
@@ -30,6 +45,7 @@
     "scope": "We only receive your name, email address and profile photo.",
     "history": "Edits never erase history: every change is kept.",
     "noTrackers": "No ads and no third-party trackers.",
+    "install": "Install it on your phone like an app.",
     "license": "Open source under the MIT licence",
     "github": "View on GitHub"
   },

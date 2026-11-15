@@ -22,6 +22,21 @@
   "language": {
     "label": "Idioma"
   },
+  "install": {
+    "title": "Instala o MoneyTrail",
+    "description": "Abre-o como qualquer outra app, numa janela própria, sem o browser à volta.",
+    "install": "Instalar",
+    "notNow": "Agora não",
+    "ios": {
+      "share": "Toca em Partilhar. No Safari do iOS 26, está no menu ⋯.",
+      "addToHomeScreen": "Escolhe «Adicionar ao ecrã principal». Pode ser preciso deslizar para baixo até a encontrares.",
+      "add": "Toca em «Adicionar»."
+    }
+  },
+  "update": {
+    "available": "Há uma nova versão do MoneyTrail.",
+    "reload": "Atualizar"
+  },
   "signIn": {
     "title": "Entrar no MoneyTrail",
     "lead": "Segue o rasto de cada cêntimo: as tuas contas, os teus gastos e para onde foi o dinheiro.",
@@ -30,6 +45,7 @@
     "scope": "Só recebemos o teu nome, endereço de email e foto de perfil.",
     "history": "Editar nunca apaga o histórico: cada alteração fica registada.",
     "noTrackers": "Sem anúncios nem rastreadores de terceiros.",
+    "install": "Instala-o no telemóvel como uma app.",
     "license": "Código aberto com licença MIT",
     "github": "Ver no GitHub"
   },
@@ -48,6 +64,7 @@
       "ofIncome": "{{percent}} das receitas",
       "noIncome": "Sem receitas para comparar",
       "count_one": "{{count}} movimento",
+      "count_many": "{{count}} movimentos",
       "count_other": "{{count}} movimentos"
     },
     "net": {
@@ -270,12 +287,14 @@
     "transfer": "Transferência",
     "fromTo": "{{from}} → {{to}}",
     "showing_one": "A mostrar {{shown}} de {{count}} movimento",
+    "showing_many": "A mostrar {{shown}} de {{count}} movimentos",
     "showing_other": "A mostrar {{shown}} de {{count}} movimentos",
     "loadMore": "Carregar mais",
     "loadingMore": "A carregar…",
     "loadMoreFailed": "Não foi possível carregar mais movimentos.",
     "summary": {
       "count_one": "{{count}} movimento em {{month}}",
+      "count_many": "{{count}} movimentos em {{month}}",
       "count_other": "{{count}} movimentos em {{month}}",
       "income": "Receitas",
       "spending": "Despesas",

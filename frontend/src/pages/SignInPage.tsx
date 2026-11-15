@@ -1,11 +1,16 @@
-import { CircleCheck, WalletMinimal } from 'lucide-react'
+import { CircleCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { signInUrl } from '@/api/session'
 import { LanguageToggle } from '@/components/LanguageToggle'
+import { Logo } from '@/components/Logo'
 import { Button } from '@/components/ui/button'
 
-const points = ['signIn.history', 'signIn.noTrackers'] as const
+const points = [
+  'signIn.history',
+  'signIn.noTrackers',
+  'signIn.install',
+] as const
 
 /** Shown instead of the app while there is no session. */
 export function SignInPage() {
@@ -19,9 +24,7 @@ export function SignInPage() {
       <main className="flex flex-1 items-center justify-center px-4 pt-12 pb-6">
         <div className="flex w-full max-w-100 flex-col gap-6">
           <div className="flex flex-col items-center gap-2 text-center">
-            <span className="grid size-12 place-items-center rounded-xl bg-primary text-primary-foreground">
-              <WalletMinimal aria-hidden className="size-6" />
-            </span>
+            <Logo className="size-12" />
             <h1 className="mt-3 font-heading text-2xl font-semibold tracking-tight">
               {t('signIn.title')}
             </h1>
@@ -59,7 +62,8 @@ export function SignInPage() {
         </div>
       </main>
 
-      <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-6 pt-4 pb-6 text-center text-sm text-muted-foreground">
+      {/* The bottom padding keeps the footer above the home indicator of phones that have one. */}
+      <footer className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 px-6 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-center text-sm text-muted-foreground">
         <span>
           {t('signIn.license')} ·{' '}
           <a
