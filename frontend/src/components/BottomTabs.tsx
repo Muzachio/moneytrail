@@ -29,8 +29,9 @@ export function BottomTabs({
   return (
     <nav
       aria-label={t('nav.label')}
-      // The bottom padding keeps the tabs above the home indicator of phones that have one.
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center border-t bg-background px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))]"
+      // Clear of the home indicator of phones that have one, but not the whole inset below it: the
+      // full 34 pt plus the bar's own padding left a gap that looked empty in the installed app.
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center border-t bg-background px-2 pt-1.5 pb-[max(0.375rem,calc(env(safe-area-inset-bottom)-0.75rem))]"
     >
       <NavLink to="/" end className={tabClass}>
         <ChartColumn aria-hidden className="size-5.5" />
