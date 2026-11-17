@@ -1,6 +1,6 @@
 import { CircleCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { signInUrl } from '@/api/session'
 import { LanguageToggle } from '@/components/LanguageToggle'
 import { Logo } from '@/components/Logo'
@@ -16,8 +16,15 @@ const points = [
 export function SignInPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  // The API sends people back here with ?sign-in=failed, e.g. for an unverified Google email.
-  const failed = searchParams.get('sign-in') === 'failed'
+  // The API sends people back here with ?sign-in=not-invited when their email is not on the
+  // invite list, and ?sign-in=failed otherwise, e.g. for an unverified Google email.
+  const outcome = searchParams.get('sign-in')
+  const problem =
+    outcome === 'not-invited'
+      ? 'signIn.notInvited'
+      : outcome === 'failed'
+        ? 'signIn.failed'
+        : null
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -32,12 +39,12 @@ export function SignInPage() {
           </div>
 
           <div className="flex flex-col gap-3 rounded-xl border bg-card p-6">
-            {failed && (
+            {problem && (
               <p
                 role="alert"
                 className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
               >
-                {t('signIn.failed')}
+                {t(problem)}
               </p>
             )}
             <Button asChild variant="outline" size="lg" className="h-11">
@@ -71,7 +78,11 @@ export function SignInPage() {
             className="underline-offset-4 hover:underline"
           >
             {t('signIn.github')}
-          </a>
+          </a>{' '}
+          ·{' '}
+          <Link to="/privacy" className="underline-offset-4 hover:underline">
+            {t('signIn.privacy')}
+          </Link>
         </span>
         <LanguageToggle />
       </footer>

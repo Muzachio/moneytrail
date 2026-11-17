@@ -43,6 +43,37 @@ describe('SignInPage', () => {
     )
   })
 
+  it('tells someone who is not invited, in English and Portuguese', async () => {
+    renderApp('/?sign-in=not-invited')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'only open to invited people',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Português' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'só está aberto a quem foi convidado',
+    )
+  })
+
+  it('shows no message without a reason it knows', async () => {
+    renderApp('/?sign-in=something-else')
+
+    await screen.findByRole('link', { name: 'Continue with Google' })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('links to the privacy page', async () => {
+    renderApp('/')
+
+    fireEvent.click(await screen.findByRole('link', { name: 'Privacy' }))
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Privacy' }),
+    ).toBeInTheDocument()
+  })
+
   it('switches to Portuguese with the toggle and remembers it', async () => {
     renderApp('/')
 

@@ -14,10 +14,14 @@ final class TestUsers {
     private TestUsers() {}
 
     static OidcUser googleAccount(String name, boolean emailVerified) {
+        return googleAccount(name, inventedEmail(), emailVerified);
+    }
+
+    static OidcUser googleAccount(String name, String email, boolean emailVerified) {
         String suffix = UUID.randomUUID().toString();
         OidcIdToken idToken = OidcIdToken.withTokenValue("test-id-token")
                 .subject("google-subject-" + suffix)
-                .claim("email", "test-" + suffix + "@example.com")
+                .claim("email", email)
                 .claim("email_verified", emailVerified)
                 .claim("name", name)
                 .claim("picture", "https://example.com/avatar/" + suffix + ".png")
@@ -25,6 +29,11 @@ final class TestUsers {
                 .expiresAt(Instant.now().plusSeconds(300))
                 .build();
         return new DefaultOidcUser(AuthorityUtils.createAuthorityList("OIDC_USER"), idToken);
+    }
+
+    /** A fresh address on example.com, a domain reserved for documentation (RFC 2606). */
+    static String inventedEmail() {
+        return "test-" + UUID.randomUUID() + "@example.com";
     }
 
     static OAuth2AuthenticationToken signedIn(UUID userId, OidcUser account) {

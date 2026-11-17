@@ -26,7 +26,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 @Configuration(proxyBeanMethods = false)
 // The worker process (application-worker.yml) has no HTTP server, so nothing here applies to it.
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-@EnableConfigurationProperties(WebProperties.class)
+@EnableConfigurationProperties({WebProperties.class, SignInProperties.class})
 class SecurityConfiguration {
 
     /**
@@ -74,7 +74,7 @@ class SecurityConfiguration {
                         .userInfoEndpoint(userInfo -> userInfo.oidcUserService(signInUserService))
                         // Back to the app, not to the API's own "/" (empty app URL: same origin).
                         .defaultSuccessUrl(web.appUrl() + "/", true)
-                        .failureUrl(web.appUrl() + "/?sign-in=failed"))
+                        .failureHandler(new SignInFailureHandler(web.appUrl())))
                 .cors(cors -> cors.configurationSource(corsFor(web)))
                 // The request cache saves a refused request in a new session, to resume it after
                 // sign-in. Sign-in always lands on "/", so it would only add a session row for

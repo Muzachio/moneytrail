@@ -41,13 +41,46 @@
     "title": "Sign in to MoneyTrail",
     "lead": "Follow the trail of every cent: your accounts, your spending and where it all went.",
     "failed": "Signing in did not work. Use a Google account with a verified email address and try again.",
+    "notInvited": "For now, MoneyTrail is only open to invited people, and this Google account is not one of them. If you were invited, sign in with the Google account whose email address was invited.",
     "google": "Continue with Google",
     "scope": "We only receive your name, email address and profile photo.",
     "history": "Edits never erase history: every change is kept.",
     "noTrackers": "No ads and no third-party trackers.",
     "install": "Install it on your phone like an app.",
     "license": "Open source under the MIT licence",
-    "github": "View on GitHub"
+    "github": "View on GitHub",
+    "privacy": "Privacy"
+  },
+  "privacy": {
+    "title": "Privacy",
+    "lead": "MoneyTrail is a personal project used by a few invited friends. This page says what it keeps about you, where it keeps it and who can see it.",
+    "updated": "Last updated: November 2026",
+    "back": "Back to MoneyTrail",
+    "stored": {
+      "title": "What is stored",
+      "google": "From your Google account: your name, email address and profile photo. Nothing else.",
+      "records": "What you record: your accounts, categories and transactions, with every change to them. An edit never erases the earlier version.",
+      "device": "On your device: a cookie that keeps you signed in, a security token against forged requests and the language you chose."
+    },
+    "where": {
+      "title": "Where",
+      "servers": "Your data is kept in a PostgreSQL database at Neon and handled by the app's server at Fly.io, both in Frankfurt, Germany.",
+      "pages": "The app's pages are served by Cloudflare. Your data does not pass through it.",
+      "telemetry": "Technical records (logs, metrics and traces) go to Grafana Cloud, in the EU (Germany). The logs identify you only by an internal number, never with amounts or personal data."
+    },
+    "access": {
+      "title": "Who can see it",
+      "you": "Only you, in the app. Nobody else who uses MoneyTrail can see your accounts or transactions.",
+      "maintainer": "The person who maintains MoneyTrail has technical access to the database."
+    },
+    "trackers": {
+      "title": "No ads, no trackers",
+      "none": "MoneyTrail has no ads and no third-party trackers."
+    },
+    "rights": {
+      "title": "Asking for a copy or for deletion",
+      "ask": "To get a copy of your data, or to have it deleted, ask the maintainer directly. For now this is done by hand; doing it yourself in the app is planned for version 0.4."
+    }
   },
   "summary": {
     "title": "Summary",
