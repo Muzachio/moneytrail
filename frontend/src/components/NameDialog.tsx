@@ -3,6 +3,8 @@ import { useId } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
+import type { CategoryIcon } from '@/api/categories'
+import { IconPicker } from '@/components/categories/IconPicker'
 import { FormError } from '@/components/FormError'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,8 +17,12 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { categoryIconNames } from '@/lib/categories'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage, nameSchema } from '@/lib/forms'
+
+/** What the dialog saves: the name, and the icon when it offers the icons. */
+export type NameDialogValues = { name: string; icon?: CategoryIcon }
 
 type NameDialogProps = {
   open: boolean
@@ -25,9 +31,14 @@ type NameDialogProps = {
   submitLabel: string
   /** The name the field starts with: the current one when renaming, empty when adding. */
   initialName?: string
+  /**
+   * Offers the category icons to pick from, with this one picked at first. Left out for an
+   * account, and for a default category, which keeps the icon of its key.
+   */
+  initialIcon?: CategoryIcon
   placeholder?: string
-  /** Sends the name; what it throws is shown in the form, and the dialog stays open. */
-  onSave: (name: string) => Promise<unknown>
+  /** Sends the values; what it throws is shown in the form, and the dialog stays open. */
+  onSave: (values: NameDialogValues) => Promise<unknown>
   /**
    * The message for an error that is about the name itself, such as a name already taken, shown
    * at the field. Other errors are shown for the whole form.
@@ -37,7 +48,10 @@ type NameDialogProps = {
   returnFocusTo?: HTMLElement | null
 }
 
-/** A dialog with a single name field: adding a category, or renaming an account or a category. */
+/**
+ * A dialog with a name field, and the category icons when it is for a category of the person's
+ * own: adding a category, or renaming an account or a category.
+ */
 export function NameDialog({
   open,
   onOpenChange,
@@ -63,11 +77,15 @@ export function NameDialog({
   )
 }
 
-const nameFormSchema = z.object({ name: nameSchema })
+const nameFormSchema = z.object({
+  name: nameSchema,
+  icon: z.enum(categoryIconNames).optional(),
+})
 
 function NameForm({
   submitLabel,
   initialName = '',
+  initialIcon,
   placeholder,
   onSave,
   nameError,
@@ -80,18 +98,18 @@ function NameForm({
   const errorId = useId()
   const form = useForm({
     resolver: zodResolver(nameFormSchema),
-    defaultValues: { name: initialName },
+    defaultValues: { name: initialName, icon: initialIcon },
   })
 
-  const submit = form.handleSubmit(async ({ name }) => {
+  const submit = form.handleSubmit(async ({ name, icon }) => {
     // Saving a name that did not change would still turn a default category's translated name
     // into a fixed one, in one language.
-    if (name === initialName.trim()) {
+    if (name === initialName.trim() && icon === initialIcon) {
       onSaved()
       return
     }
     try {
-      await onSave(name)
+      await onSave({ name, icon })
       onSaved()
     } catch (error) {
       const message = nameError?.(error)
@@ -124,6 +142,9 @@ function NameForm({
           </Field>
         )}
       />
+      {initialIcon !== undefined && (
+        <IconPicker field={form.register('icon')} />
+      )}
       <FormError form={form} />
       <DialogFooter className="mx-0 mb-0 border-0 bg-transparent p-0">
         <DialogClose asChild>

@@ -297,13 +297,14 @@ export function fakeTransactions(
       const byCategory: CategorySpending[] = [...spent]
         .sort(([a, x], [b, y]) => y - x || order(a) - order(b))
         .map(([categoryId, amountMinor]) => {
-          const { key, name } = categories.find(
+          const { key, name, icon } = categories.find(
             (category) => category.id === categoryId,
           )!
           return {
             categoryId,
             ...(key !== undefined && { key }),
             ...(name !== undefined && { name }),
+            icon,
             spending: { amountMinor, currency: 'EUR' },
           }
         })

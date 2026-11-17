@@ -15,12 +15,15 @@ import {
  */
 export function RowMenu({
   label,
+  renameLabel,
   archiveHint,
   onRename,
   onArchive,
 }: {
   /** Names the row, as "More actions for Wallet": every row has the same icon button. */
   label: string
+  /** The first item's text, "Rename" unless the dialog it opens changes more than the name. */
+  renameLabel?: string
   archiveHint: string
   /** Gets the menu's button, for the rename dialog to give focus back to when it closes. */
   onRename: (menuButton: HTMLElement | null) => void
@@ -46,7 +49,7 @@ export function RowMenu({
       <DropdownMenuContent align="end" className="w-58">
         <DropdownMenuItem onSelect={() => onRename(button.current)}>
           <Pencil aria-hidden />
-          {t('rowMenu.rename')}
+          {renameLabel ?? t('rowMenu.rename')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onArchive} className="items-start">
           <Archive aria-hidden className="mt-0.5" />

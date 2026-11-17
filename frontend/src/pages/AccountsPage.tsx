@@ -160,7 +160,9 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
         title={t('accounts.renameTitle')}
         submitLabel={t('common.save')}
         initialName={renaming?.name}
-        onSave={(name) => rename.mutateAsync({ id: renaming?.id ?? '', name })}
+        onSave={({ name }) =>
+          rename.mutateAsync({ id: renaming?.id ?? '', name })
+        }
         returnFocusTo={renameOpener}
       />
     </>

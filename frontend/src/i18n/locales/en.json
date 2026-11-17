@@ -186,6 +186,7 @@
   "rowMenu": {
     "label": "More actions for {{name}}",
     "rename": "Rename",
+    "edit": "Edit",
     "archive": "Archive"
   },
   "accounts": {
@@ -272,6 +273,34 @@
     },
     "add": "Add category",
     "renameTitle": "Rename category",
+    "editTitle": "Edit category",
+    "icon": "Icon",
+    "icons": {
+      "house": "House",
+      "utensils": "Fork and knife",
+      "tram-front": "Tram",
+      "receipt": "Receipt",
+      "shopping-bag": "Shopping bag",
+      "ticket": "Ticket",
+      "heart": "Heart",
+      "tag": "Tag",
+      "banknote": "Banknote",
+      "rotate-ccw": "Arrow going back",
+      "gift": "Gift",
+      "car": "Car",
+      "fuel": "Fuel pump",
+      "plane": "Plane",
+      "coffee": "Coffee cup",
+      "shirt": "T-shirt",
+      "smartphone": "Phone",
+      "graduation-cap": "Graduation cap",
+      "baby": "Baby",
+      "paw-print": "Paw print",
+      "dumbbell": "Dumbbell",
+      "wrench": "Wrench",
+      "piggy-bank": "Piggy bank",
+      "briefcase": "Briefcase"
+    },
     "nameTaken": {
       "EXPENSE": "You already have an expense category with this name.",
       "INCOME": "You already have an income category with this name."
