@@ -36,6 +36,12 @@ moneytrail:
   web:
     app-url: ${MONEYTRAIL_APP_URL}
     csrf-cookie-domain: ${MONEYTRAIL_COOKIE_DOMAIN}
+  # Only invited people sign in (#51, docs/deploy.md). MONEYTRAIL_INVITED_EMAILS is a Fly secret:
+  # the Google accounts' emails, separated by commas. Unlike the values above it may be missing:
+  # then the list is empty and nobody gets in, which a deploy survives and the startup log says.
+  sign-in:
+    invite-only: true
+    invited-emails: ${MONEYTRAIL_INVITED_EMAILS:}
 
 # Traces, metrics and logs to Grafana Cloud's OTLP gateway (ADR-0008). GRAFANA_OTLP_ENDPOINT is
 # the stack's gateway (backend/fly.toml); GRAFANA_OTLP_AUTHORIZATION, "Basic <base64 of

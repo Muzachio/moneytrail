@@ -41,13 +41,46 @@
     "title": "Entrar no MoneyTrail",
     "lead": "Segue o rasto de cada cêntimo: as tuas contas, os teus gastos e para onde foi o dinheiro.",
     "failed": "Não foi possível entrar. Usa uma conta Google com o endereço de email verificado e tenta novamente.",
+    "notInvited": "Por agora, o MoneyTrail só está aberto a quem foi convidado, e esta conta Google não está entre os convidados. Se recebeste um convite, entra com a conta Google do endereço de email convidado.",
     "google": "Continuar com o Google",
     "scope": "Só recebemos o teu nome, endereço de email e foto de perfil.",
     "history": "Editar nunca apaga o histórico: cada alteração fica registada.",
     "noTrackers": "Sem anúncios nem rastreadores de terceiros.",
     "install": "Instala-o no telemóvel como uma app.",
     "license": "Código aberto com licença MIT",
-    "github": "Ver no GitHub"
+    "github": "Ver no GitHub",
+    "privacy": "Privacidade"
+  },
+  "privacy": {
+    "title": "Privacidade",
+    "lead": "O MoneyTrail é um projeto pessoal, usado por alguns amigos convidados. Esta página diz o que guarda sobre ti, onde o guarda e quem o pode ver.",
+    "updated": "Última atualização: novembro de 2026",
+    "back": "Voltar ao MoneyTrail",
+    "stored": {
+      "title": "O que fica guardado",
+      "google": "Da tua conta Google: o nome, o endereço de email e a foto de perfil. Mais nada.",
+      "records": "O que registas: as tuas contas, categorias e movimentos, com todas as alterações. Editar nunca apaga a versão anterior.",
+      "device": "No teu dispositivo: um cookie que mantém a sessão iniciada, um código de segurança contra pedidos forjados e o idioma que escolheste."
+    },
+    "where": {
+      "title": "Onde",
+      "servers": "Os teus dados ficam numa base de dados PostgreSQL na Neon e são tratados pelo servidor da app na Fly.io, ambos em Frankfurt, na Alemanha.",
+      "pages": "As páginas da app são servidas pela Cloudflare. Os teus dados não passam por lá.",
+      "telemetry": "Os registos técnicos (logs, métricas e traces) vão para a Grafana Cloud, na UE (Alemanha). Os logs só te identificam por um número interno, nunca com valores nem dados pessoais."
+    },
+    "access": {
+      "title": "Quem os pode ver",
+      "you": "Só tu, na app. Mais ninguém que use o MoneyTrail vê as tuas contas ou os teus movimentos.",
+      "maintainer": "Quem mantém o MoneyTrail tem acesso técnico à base de dados."
+    },
+    "trackers": {
+      "title": "Sem anúncios nem rastreadores",
+      "none": "O MoneyTrail não tem anúncios nem rastreadores de terceiros."
+    },
+    "rights": {
+      "title": "Pedir uma cópia ou apagar os dados",
+      "ask": "Para receberes uma cópia dos teus dados, ou para os apagares, pede diretamente a quem mantém a app. Por agora é feito à mão; está previsto poderes fazê-lo tu na app a partir da versão 0.4."
+    }
   },
   "summary": {
     "title": "Resumo",

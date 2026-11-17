@@ -361,6 +361,9 @@ the first transaction and then does nothing instead of failing the sign-in.
 
 ## Security
 - Google login through Spring Security's OAuth2 client (authorization code + PKCE, `state`, `nonce`).
+- Production is invite-only: an allowlist of verified emails in a Fly secret, checked before
+  anything is stored; an empty list lets nobody in ([deploy.md](deploy.md#who-can-sign-in)). A
+  refused sign-in ends its session and returns to the app with a fixed reason, never the email.
 - Server-side sessions in Postgres (Spring Session JDBC). Cookie `__Host-SESSION`:
   `HttpOnly; Secure; SameSite=Lax`.
 - Frontend `app.<domain>` and API `api.<domain>` on the same site. CORS allowlist with

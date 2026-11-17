@@ -36,6 +36,65 @@ succeeds, the deploy log only says so; when it fails, flyctl tries to add its la
 Either way, Flyway's own lines (`Successfully applied …`, or `Schema … is up to date`) are in
 `fly logs --app moneytrail-api` and in Grafana.
 
+## Who can sign in
+
+Production is invite-only: only a Google account whose email is in the Fly secret
+`MONEYTRAIL_INVITED_EMAILS` gets in. Anyone else goes back to the sign-in page, which says in
+English or Portuguese that the app is open to invited people only. They get no user, no ledger
+and no session, and the address they used appears in no URL and no log line.
+
+- **Why a list in the app, not Google's "Testing" mode.** Testing mode would also keep strangers
+  out, but Google shows its own error page and the rule would live only in the Google console.
+  With the list, the app shows its own message in both languages, the rule is covered by tests
+  (`InvitationsTests`, `InvitedSignInTests`, `SignInFailureHandlerTests`), and it sits with the
+  app's other secrets.
+- **Why a secret.** The emails are personal data and this repository is public: they live only in
+  Fly.io, never in the code, the tests, the logs or a URL.
+- **An empty or missing list lets nobody in.** It must never mean "everyone": a forgotten secret
+  closes the app instead of opening it to every Google account. Unlike the secrets above, a missing
+  list does not stop the app from starting, so a deploy still succeeds, and the startup log says so:
+  `Sign-in is invite-only and no email is invited` (a warning), or `Sign-in is invite-only: 3 emails
+  invited`. The log shows the count, never the emails.
+- **Only verified emails count**, and case does not matter. An email must be the Google account's
+  own address, the one Google shows when choosing an account: an address outside Gmail only works
+  if a Google account was created with it.
+- **Locally anyone with a verified Google email can sign in**, so a fresh clone works without a
+  list. To try the list locally, put `moneytrail.sign-in.invite-only=true` and
+  `moneytrail.sign-in.invited-emails=<email>,<email>` in `backend/.env`.
+
+### Adding or removing someone
+
+In the dashboard, **moneytrail-api → Secrets**, replace `MONEYTRAIL_INVITED_EMAILS` with the whole
+new list (`<email 1>,<email 2>,…`). The app reads the list when it starts, so the change applies
+once the machine restarts with it: `fly secrets set` restarts it by itself; after a change in the
+dashboard, if the startup log still shows the old count, run `fly secrets deploy --app
+moneytrail-api`. Typing the value in the dashboard, rather than in `fly secrets set`, keeps the
+emails out of the shell history.
+
+Removing an email stops new sign-ins at once. A session the person already has ends after 30
+minutes without use. Their data stays until it is deleted by hand (export and deletion are M4).
+
+The secret must exist before a deploy that brings this rule for the first time, or nobody,
+the maintainer included, can sign in.
+
+### How many people use it
+
+Counts only, in Neon's SQL editor, so no name, email or amount is shown:
+
+```sql
+SELECT
+  (SELECT count(*) FROM users) AS users,
+  (SELECT count(DISTINCT l.owner_id)
+     FROM ledgers l JOIN accounts a ON a.ledger_id = l.id
+    WHERE l.owner_type = 'USER' AND a.kind IN ('ASSET', 'LIABILITY')) AS users_with_accounts,
+  -- Transactions only: neither an opening balance (it posts to EQUITY) nor a reversal.
+  (SELECT count(DISTINCT e.created_by)
+     FROM journal_entries e
+    WHERE e.reverses_entry_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM postings p JOIN accounts a ON a.id = p.account_id
+                       WHERE p.entry_id = e.id AND a.kind = 'EQUITY')) AS users_with_transactions;
+```
+
 ## One-time setup
 
 Done once, in this order, before the first deploy.
@@ -67,6 +126,7 @@ Secrets, in the dashboard (**moneytrail-api → Secrets**), so the values never 
 | `SPRING_DATASOURCE_URL` | the Neon JDBC URL above |
 | `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | the Neon user and password |
 | `GRAFANA_OTLP_AUTHORIZATION` | `Basic <…>`: Grafana Cloud → OpenTelemetry → *View connection details* → generate a token; take the `OTEL_EXPORTER_OTLP_HEADERS` value after `Authorization=`, with `%20` turned into a space |
+| `MONEYTRAIL_INVITED_EMAILS` | the emails of the Google accounts that may sign in, separated by commas ([Who can sign in](#who-can-sign-in)) |
 
 The release command migrates with the same `SPRING_DATASOURCE_*` secrets, so the database
 credentials live only here.
