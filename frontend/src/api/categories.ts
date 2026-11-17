@@ -5,8 +5,10 @@ import { reportsKey } from './reports'
 import type { components } from './schema'
 
 export type Category = components['schemas']['Category']
+export type CategoryIcon = components['schemas']['CategoryIcon']
 export type CategoryKind = components['schemas']['CategoryKind']
 export type CategoryUpdate = components['schemas']['CategoryUpdate']
+export type NewCategory = components['schemas']['NewCategory']
 
 export const categoriesKey = ['categories'] as const
 
@@ -25,14 +27,17 @@ export function useCategories() {
 export function useCreateCategory() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (category: { kind: CategoryKind; name: string }) =>
+    mutationFn: async (category: NewCategory) =>
       dataOrThrow(await api.POST('/v1/categories', { body: category })),
     // Fetched again rather than inserted here: the API decides the order of the list.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: categoriesKey }),
   })
 }
 
-/** Renames, archives or restores a category. The reports carry its name: they are fetched again. */
+/**
+ * Renames a category, changes its icon, archives or restores it. The reports carry its name and
+ * icon: they are fetched again.
+ */
 export function useUpdateCategory() {
   const queryClient = useQueryClient()
   return useMutation({

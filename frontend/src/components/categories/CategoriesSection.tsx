@@ -1,20 +1,27 @@
+import type { TFunction } from 'i18next'
 import { Plus } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   type Category,
   type CategoryKind,
+  type CategoryUpdate,
   useCategories,
   useCreateCategory,
   useUpdateCategory,
 } from '@/api/categories'
 import { ApiError } from '@/api/problem'
 import { ArchivedSection } from '@/components/ArchivedSection'
-import { NameDialog } from '@/components/NameDialog'
+import { NameDialog, type NameDialogValues } from '@/components/NameDialog'
 import { LoadFailed, Loading } from '@/components/QueryState'
 import { RowMenu } from '@/components/RowMenu'
 import { Button } from '@/components/ui/button'
-import { categoryIcon, categoryName } from '@/lib/categories'
+import {
+  categoryIcon,
+  categoryName,
+  defaultIcon,
+  isDefaultCategory,
+} from '@/lib/categories'
 import { apiErrorMessage } from '@/lib/forms'
 
 const kinds = ['EXPENSE', 'INCOME'] as const satisfies readonly CategoryKind[]
@@ -151,6 +158,11 @@ export function CategoriesSection() {
   }
 
   const dialog = editing ?? lastEditing
+  // The person's own categories can change their icon too, so their dialog edits; a default
+  // category keeps the icon of its key, so its dialog only renames.
+  const editsIcon =
+    dialog?.action === 'add' ||
+    (dialog?.action === 'rename' && !isDefaultCategory(dialog.category))
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-4">
       <div>
@@ -168,7 +180,7 @@ export function CategoriesSection() {
         onOpenChange={(open) => !open && setEditing(null)}
         title={
           dialog?.action === 'rename'
-            ? t('categories.renameTitle')
+            ? t(editsIcon ? 'categories.editTitle' : 'categories.renameTitle')
             : t(`categories.new.${dialog?.kind ?? 'EXPENSE'}`)
         }
         submitLabel={
@@ -179,10 +191,24 @@ export function CategoriesSection() {
             ? categoryName(dialog.category, t)
             : undefined
         }
-        onSave={(name) =>
+        initialIcon={
+          !editsIcon
+            ? undefined
+            : dialog?.action === 'rename'
+              ? dialog.category.icon
+              : defaultIcon
+        }
+        onSave={({ name, icon }) =>
           dialog?.action === 'rename'
-            ? rename.mutateAsync({ id: dialog.category.id, name })
-            : create.mutateAsync({ kind: dialog?.kind ?? 'EXPENSE', name })
+            ? rename.mutateAsync({
+                id: dialog.category.id,
+                ...changes(dialog.category, { name, icon }, t),
+              })
+            : create.mutateAsync({
+                kind: dialog?.kind ?? 'EXPENSE',
+                name,
+                icon,
+              })
         }
         nameError={nameTaken(
           dialog?.action === 'rename'
@@ -193,6 +219,21 @@ export function CategoriesSection() {
       />
     </section>
   )
+}
+
+/**
+ * Only what the dialog changed: a name sent unchanged would still turn a default category's
+ * translated name into a fixed one. The dialog sends nothing when nothing changed.
+ */
+function changes(
+  category: Category,
+  { name, icon }: NameDialogValues,
+  t: TFunction,
+): Omit<CategoryUpdate, 'archived'> {
+  return {
+    ...(name !== categoryName(category, t) ? { name } : {}),
+    ...(icon !== undefined && icon !== category.icon ? { icon } : {}),
+  }
 }
 
 function CategoryList({
@@ -241,6 +282,9 @@ function CategoryList({
                 </span>
                 <RowMenu
                   label={t('rowMenu.label', { name })}
+                  renameLabel={
+                    isDefaultCategory(category) ? undefined : t('rowMenu.edit')
+                  }
                   archiveHint={t('categories.archiveHint')}
                   onRename={(menuButton) => onRename(category, menuButton)}
                   onArchive={() => onArchive(category)}

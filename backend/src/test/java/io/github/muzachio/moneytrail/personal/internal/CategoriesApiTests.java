@@ -11,6 +11,7 @@ import io.github.muzachio.moneytrail.ledger.Account;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
+import io.github.muzachio.moneytrail.shared.api.model.CategoryIcon;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -91,6 +93,22 @@ class CategoriesApiTests extends PostgresIntegrationTest {
         body.extractingPath("$.items[*].name")
                 .asInstanceOf(InstanceOfAssertFactories.LIST)
                 .isEmpty();
+        // The design canvas' icon of each key.
+        body.extractingPath("$.items[*].icon")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsExactly(
+                        "house",
+                        "utensils",
+                        "tram-front",
+                        "receipt",
+                        "shopping-bag",
+                        "ticket",
+                        "heart",
+                        "tag",
+                        "banknote",
+                        "rotate-ccw",
+                        "gift",
+                        "tag");
     }
 
     @Test
@@ -121,6 +139,149 @@ class CategoriesApiTests extends PostgresIntegrationTest {
         assertThat(body(created)).doesNotContain("\"key\"");
         // After the default expenses, before the income ones.
         assertThat(get(ana)).bodyJson().extractingPath("$.items[8].name").isEqualTo("Pets");
+    }
+
+    @Test
+    void createsACategoryWithTheIconPickedForIt() {
+        MvcTestResult created = post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "paw-print"}""");
+
+        assertThat(created)
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.icon")
+                .isEqualTo("paw-print");
+        var listed = assertThat(get(ana)).bodyJson();
+        listed.extractingPath("$.items[8].name").isEqualTo("Pets");
+        listed.extractingPath("$.items[8].icon").isEqualTo("paw-print");
+        assertThat(jdbc.sql("SELECT icon FROM category_icons WHERE category_id = :id")
+                        .param("id", idOf(created))
+                        .query(String.class)
+                        .single())
+                .isEqualTo("paw-print");
+    }
+
+    @Test
+    void aCategoryCreatedWithoutAnIconHasTheTag() {
+        assertThat(post(ana, """
+                        {"kind": "INCOME", "name": "Side jobs"}"""))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.icon")
+                .isEqualTo("tag");
+    }
+
+    /** A category of the user's own from before V11 has no row in category_icons. */
+    @Test
+    void aCategoryWithoutAPickedIconHasTheTag() {
+        UUID pets = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "paw-print"}"""));
+        jdbc.sql("DELETE FROM category_icons WHERE category_id = :id")
+                .param("id", pets)
+                .update();
+
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo("tag");
+        assertThat(patch(ana, pets, """
+                        {"icon": "dumbbell"}"""))
+                .as("and it can pick one")
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.icon")
+                .isEqualTo("dumbbell");
+    }
+
+    @Test
+    void changesTheIconOfACategoryOfTheUsersOwnAndLeavesTheRestAsItWas() {
+        UUID pets = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "paw-print"}"""));
+
+        var changed = assertThat(patch(ana, pets, """
+                        {"icon": "heart"}""")).hasStatusOk().bodyJson();
+        changed.extractingPath("$.icon").isEqualTo("heart");
+        changed.extractingPath("$.name").isEqualTo("Pets");
+        changed.extractingPath("$.archived").isEqualTo(false);
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo("heart");
+
+        var renamed = assertThat(patch(ana, pets, """
+                        {"name": "Cats", "icon": "paw-print", "archived": true}""")).hasStatusOk().bodyJson();
+        renamed.extractingPath("$.name").isEqualTo("Cats");
+        renamed.extractingPath("$.icon").isEqualTo("paw-print");
+        renamed.extractingPath("$.archived").isEqualTo(true);
+
+        assertThat(patch(ana, pets, """
+                        {"archived": false}"""))
+                .as("restoring keeps the icon")
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.icon")
+                .isEqualTo("paw-print");
+    }
+
+    @Test
+    void aRefusedNameLeavesTheIconAsItWas() {
+        UUID pets = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "paw-print"}"""));
+
+        assertNameTaken(patch(ana, pets, """
+                {"name": "Food", "icon": "utensils"}"""));
+
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo("paw-print");
+    }
+
+    @Test
+    void aDefaultCategoryKeepsTheIconOfItsKey() {
+        UUID food = defaultCategory(ana, "food");
+
+        assertBadRequest(patch(ana, food, """
+                {"icon": "car"}"""));
+        assertBadRequest(patch(ana, food, """
+                {"name": "Groceries", "icon": "utensils"}"""));
+
+        var listed = assertThat(get(ana)).bodyJson();
+        listed.extractingPath("$.items[?(@.key == 'food')].icon")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsExactly("utensils");
+        listed.extractingPath("$.items[?(@.key == 'food')].name")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .as("nothing else changed either")
+                .isEmpty();
+        assertThat(jdbc.sql("SELECT count(*) FROM category_icons WHERE category_id = :id")
+                        .param("id", food)
+                        .query(Long.class)
+                        .single())
+                .isZero();
+    }
+
+    /** The database's check has every name of the API's list (IconTests: so has Icon). */
+    @ParameterizedTest
+    @EnumSource(CategoryIcon.class)
+    void everyIconOnTheListCanBePickedAndStored(CategoryIcon icon) {
+        UUID category = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "%s"}""".formatted(icon.getValue())));
+        assertThat(patch(ana, category, """
+                        {"icon": "tag"}""")).hasStatusOk();
+
+        assertThat(patch(ana, category, """
+                        {"icon": "%s"}""".formatted(icon.getValue()))).hasStatusOk();
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo(icon.getValue());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"dragon", "Utensils", "PAW_PRINT", "7"})
+    void refusesAnIconNotOnTheList(String icon) {
+        UUID pets = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets"}"""));
+
+        assertBadRequest(post(ana, """
+                {"kind": "EXPENSE", "name": "Cats", "icon": "%s"}""".formatted(icon)));
+        assertBadRequest(patch(ana, pets, """
+                {"icon": "%s"}""".formatted(icon)));
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo("tag");
+        assertThat(get(ana))
+                .bodyJson()
+                .extractingPath("$.items[*].name")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsExactly("Pets");
     }
 
     @Test
@@ -226,17 +387,22 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     @Test
     void anotherUsersCategoryIsNotFound() {
         UUID anasFood = defaultCategory(ana, "food");
+        UUID anasPets = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pets", "icon": "paw-print"}"""));
         UUID rui = signedInUser();
 
         assertNotFound(patch(rui, anasFood, """
                 {"name": "Mine now"}"""));
         assertNotFound(patch(rui, anasFood, """
                 {"archived": true}"""));
+        assertNotFound(patch(rui, anasPets, """
+                {"icon": "car"}"""));
 
         assertThat(ledger.findAccount(anasFood)).hasValueSatisfying(food -> {
             assertThat(food.name()).isEqualTo("Food");
             assertThat(food.archived()).isFalse();
         });
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].icon").isEqualTo("paw-print");
     }
 
     @Test
@@ -272,7 +438,7 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"name\": \" \"}", "{\"archived\": null}"})
+    @ValueSource(strings = {"{}", "{\"name\": \" \"}", "{\"archived\": null}", "{\"icon\": null}"})
     void refusesAnInvalidUpdate(String body) {
         assertBadRequest(patch(ana, defaultCategory(ana, "food"), body));
     }
@@ -314,6 +480,11 @@ class CategoriesApiTests extends PostgresIntegrationTest {
         List<String> ids = JsonPath.read(body(list), "$.items[?(@.key == '" + key + "')].id");
         assertThat(ids).hasSize(1);
         return UUID.fromString(ids.getFirst());
+    }
+
+    private static UUID idOf(MvcTestResult created) {
+        assertThat(created).hasStatus(HttpStatus.CREATED);
+        return UUID.fromString(JsonPath.read(body(created), "$.id"));
     }
 
     private static String body(MvcTestResult result) {

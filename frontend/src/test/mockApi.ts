@@ -1,6 +1,12 @@
 import { vi } from 'vitest'
 import type { Account, AccountUpdate, NewAccount } from '@/api/accounts'
-import type { Category, CategoryKind, CategoryUpdate } from '@/api/categories'
+import type {
+  Category,
+  CategoryIcon,
+  CategoryKind,
+  CategoryUpdate,
+  NewCategory,
+} from '@/api/categories'
 import { api } from '@/api/client'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
@@ -41,30 +47,39 @@ export function testAccount(
   }
 }
 
-/** The default categories every user starts with, in the API's order, none renamed. */
+/**
+ * The default categories every user starts with, in the API's order, none renamed, each with the
+ * icon the API gives its key.
+ */
 export function defaultCategories(): Category[] {
-  const expense = [
-    'housing',
-    'food',
-    'transport',
-    'bills',
-    'shopping',
-    'leisure',
-    'health',
-    'other',
+  const expense: [string, CategoryIcon][] = [
+    ['housing', 'house'],
+    ['food', 'utensils'],
+    ['transport', 'tram-front'],
+    ['bills', 'receipt'],
+    ['shopping', 'shopping-bag'],
+    ['leisure', 'ticket'],
+    ['health', 'heart'],
+    ['other', 'tag'],
   ]
-  const income = ['salary', 'refunds', 'gifts', 'other-income']
+  const income: [string, CategoryIcon][] = [
+    ['salary', 'banknote'],
+    ['refunds', 'rotate-ccw'],
+    ['gifts', 'gift'],
+    ['other-income', 'tag'],
+  ]
   return [
-    ...expense.map((key) => testCategory('EXPENSE', { key })),
-    ...income.map((key) => testCategory('INCOME', { key })),
+    ...expense.map(([key, icon]) => testCategory('EXPENSE', { key, icon })),
+    ...income.map(([key, icon]) => testCategory('INCOME', { key, icon })),
   ]
 }
 
+/** An invented category: one of the person's own with the plain tag, unless `overrides` say otherwise. */
 export function testCategory(
   kind: CategoryKind,
   overrides: Partial<Category>,
 ): Category {
-  return { id: testId(), kind, archived: false, ...overrides }
+  return { id: testId(), kind, icon: 'tag', archived: false, ...overrides }
 }
 
 /** An invented expense of the design canvas' October, unless `overrides` say otherwise. */
@@ -204,11 +219,11 @@ export function mockApi({
       return ok(account, 201)
     }
     if (path === '/v1/categories') {
-      const { kind, name } = init.body as { kind: CategoryKind; name: string }
+      const { kind, name, icon = 'tag' } = init.body as NewCategory
       if (nameTaken(state.categories, kind, name)) {
         return problem(409, 'category_name_taken')
       }
-      const category = testCategory(kind, { name: name.trim() })
+      const category = testCategory(kind, { name: name.trim(), icon })
       state.categories.push(category)
       return ok(category, 201)
     }
@@ -248,7 +263,12 @@ export function mockApi({
       if (category === undefined) {
         return problem(404, 'category_not_found')
       }
-      const change = changed(init.body as CategoryUpdate)
+      const { icon, ...update } = init.body as CategoryUpdate
+      // A default category keeps the icon of its key.
+      if (icon !== undefined && category.key !== undefined) {
+        return problem(400, 'bad_request')
+      }
+      const change = { ...changed(update), ...(icon !== undefined && { icon }) }
       const after = { ...category, ...change }
       const others = state.categories.filter((other) => other.id !== id)
       if (

@@ -15,7 +15,11 @@ function someCategories(): Category[] {
   const categories = defaultCategories().map((category) =>
     category.key === 'food' ? { ...category, name: 'Groceries' } : category,
   )
-  categories.splice(8, 0, testCategory('EXPENSE', { name: 'Pets' }))
+  categories.splice(
+    8,
+    0,
+    testCategory('EXPENSE', { name: 'Pets', icon: 'paw-print' }),
+  )
   return categories
 }
 
@@ -25,6 +29,11 @@ function list(name: string) {
 
 function row(name: string) {
   return screen.getByText(name, { selector: 'li *' }).closest('li')!
+}
+
+/** The class of the icon in a category's row, which names the Lucide icon drawn. */
+function iconOf(name: string) {
+  return row(name).querySelector('svg')?.getAttribute('class')
 }
 
 async function renderCategories(categories = someCategories()) {
@@ -94,25 +103,139 @@ describe('CategoriesSection', () => {
     ).toEqual(['Salário', 'Reembolsos', 'Presentes', 'Outras receitas'])
   })
 
-  it("shows each default category with its key's icon from the design", async () => {
+  it("shows each category with the icon the API gives it: its key's for a default one, the one picked for the person's own", async () => {
     await renderCategories()
 
-    const icon = (name: string) =>
-      row(name).querySelector('svg')?.getAttribute('class')
-    expect(icon('Housing')).toContain('lucide-house')
+    expect(iconOf('Housing')).toContain('lucide-house')
     // Renaming keeps the key, and so the icon.
-    expect(icon('Groceries')).toContain('lucide-utensils')
-    expect(icon('Transport')).toContain('lucide-tram-front')
-    expect(icon('Bills')).toContain('lucide-receipt')
-    expect(icon('Shopping')).toContain('lucide-shopping-bag')
-    expect(icon('Leisure')).toContain('lucide-ticket')
-    expect(icon('Health')).toContain('lucide-heart')
-    expect(icon('Other')).toContain('lucide-tag')
-    expect(icon('Salary')).toContain('lucide-banknote')
-    expect(icon('Refunds')).toContain('lucide-rotate-ccw')
-    expect(icon('Gifts')).toContain('lucide-gift')
-    expect(icon('Other income')).toContain('lucide-tag')
-    expect(icon('Pets')).toContain('lucide-tag')
+    expect(iconOf('Groceries')).toContain('lucide-utensils')
+    expect(iconOf('Transport')).toContain('lucide-tram-front')
+    expect(iconOf('Bills')).toContain('lucide-receipt')
+    expect(iconOf('Shopping')).toContain('lucide-shopping-bag')
+    expect(iconOf('Leisure')).toContain('lucide-ticket')
+    expect(iconOf('Health')).toContain('lucide-heart')
+    expect(iconOf('Other')).toContain('lucide-tag')
+    expect(iconOf('Salary')).toContain('lucide-banknote')
+    expect(iconOf('Refunds')).toContain('lucide-rotate-ccw')
+    expect(iconOf('Gifts')).toContain('lucide-gift')
+    expect(iconOf('Other income')).toContain('lucide-tag')
+    expect(iconOf('Pets')).toContain('lucide-paw-print')
+  })
+
+  it('adds a category with the icon picked for it', async () => {
+    const { post } = await renderCategories()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'New expense category' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'New expense category',
+    })
+    const icons = within(dialog).getByRole('group', { name: 'Icon' })
+    const radios = within(icons).getAllByRole('radio')
+    expect(radios).toHaveLength(24)
+    // Every icon is named, the same for screen readers and on hover.
+    for (const radio of radios) {
+      const title = radio.closest('label')!.title
+      expect(title).not.toBe('')
+      expect(radio).toHaveAccessibleName(title)
+    }
+    expect(within(icons).getByRole('radio', { name: 'Tag' })).toBeChecked()
+    fireEvent.change(within(dialog).getByLabelText('Name'), {
+      target: { value: 'Gym' },
+    })
+    fireEvent.click(within(icons).getByRole('radio', { name: 'Dumbbell' }))
+    expect(within(icons).getByRole('radio', { name: 'Tag' })).not.toBeChecked()
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Add category' }),
+    )
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(await within(list('Expenses')).findByText('Gym')).toBeVisible()
+    expect(iconOf('Gym')).toContain('lucide-dumbbell')
+    expect(post).toHaveBeenCalledExactlyOnceWith('/v1/categories', {
+      body: { kind: 'EXPENSE', name: 'Gym', icon: 'dumbbell' },
+    })
+  })
+
+  it('names the icons in the current language', async () => {
+    await renderCategories()
+    await act(() => i18n.changeLanguage('pt-PT'))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Nova categoria de despesa' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Nova categoria de despesa',
+    })
+    const icons = within(dialog).getByRole('group', { name: 'Ícone' })
+    expect(within(icons).getByRole('radio', { name: 'Etiqueta' })).toBeChecked()
+    const pawPrint = within(icons).getByRole('radio', { name: 'Pegada' })
+    expect(pawPrint.closest('label')).toHaveAttribute('title', 'Pegada')
+  })
+
+  it("edits the icon of a category of the person's own, sending only what changed", async () => {
+    const { patch } = await renderCategories()
+
+    await chooseFromMenu('More actions for Pets', /Edit/)
+    const dialog = await screen.findByRole('dialog', { name: 'Edit category' })
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Pets')
+    const icons = within(dialog).getByRole('group', { name: 'Icon' })
+    expect(
+      within(icons).getByRole('radio', { name: 'Paw print' }),
+    ).toBeChecked()
+    fireEvent.click(within(icons).getByRole('radio', { name: 'Heart' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await vi.waitFor(() => expect(iconOf('Pets')).toContain('lucide-heart'))
+    expect(patch).toHaveBeenCalledExactlyOnceWith('/v1/categories/{id}', {
+      params: { path: { id: expect.any(String) } },
+      body: { icon: 'heart' },
+    })
+  })
+
+  it("edits the name and the icon of a category of the person's own at once", async () => {
+    const { patch } = await renderCategories()
+
+    await chooseFromMenu('More actions for Pets', /Edit/)
+    const dialog = await screen.findByRole('dialog', { name: 'Edit category' })
+    fireEvent.change(within(dialog).getByLabelText('Name'), {
+      target: { value: 'Cats' },
+    })
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Gift' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(await within(list('Expenses')).findByText('Cats')).toBeVisible()
+    expect(iconOf('Cats')).toContain('lucide-gift')
+    expect(patch).toHaveBeenCalledExactlyOnceWith('/v1/categories/{id}', {
+      params: { path: { id: expect.any(String) } },
+      body: { name: 'Cats', icon: 'gift' },
+    })
+  })
+
+  it("sends nothing when a category of the person's own is saved unchanged", async () => {
+    const { patch } = await renderCategories()
+
+    await chooseFromMenu('More actions for Pets', /Edit/)
+    const dialog = await screen.findByRole('dialog', { name: 'Edit category' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(patch).not.toHaveBeenCalled()
+  })
+
+  it('offers no icons for a default category, which keeps the icon of its key', async () => {
+    await renderCategories()
+
+    await chooseFromMenu('More actions for Transport', /Rename/)
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Rename category',
+    })
+
+    expect(within(dialog).queryByRole('group', { name: 'Icon' })).toBeNull()
+    expect(within(dialog).queryByRole('radio')).toBeNull()
   })
 
   it('adds a category of the kind chosen', async () => {
@@ -135,9 +258,11 @@ describe('CategoriesSection', () => {
     expect(
       screen.getByRole('button', { name: 'New income category' }),
     ).toHaveFocus()
+    // The tag the picker starts with, as the API would give it anyway.
     expect(post).toHaveBeenCalledExactlyOnceWith('/v1/categories', {
-      body: { kind: 'INCOME', name: 'Freelance' },
+      body: { kind: 'INCOME', name: 'Freelance', icon: 'tag' },
     })
+    expect(iconOf('Freelance')).toContain('lucide-tag')
   })
 
   it('shows a name the API says is taken at the name field', async () => {

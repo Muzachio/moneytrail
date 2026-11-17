@@ -4,6 +4,7 @@ import io.github.muzachio.moneytrail.identity.SignedIn;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.shared.api.CategoriesApi;
 import io.github.muzachio.moneytrail.shared.api.model.Category;
+import io.github.muzachio.moneytrail.shared.api.model.CategoryIcon;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryKind;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryList;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryUpdate;
@@ -31,19 +32,28 @@ class CategoriesController implements CategoriesApi {
 
     @Override
     public ResponseEntity<Category> createCategory(NewCategory newCategory) {
-        UserCategory created =
-                categories.create(SignedIn.userId(), toAccountKind(newCategory.getKind()), newCategory.getName());
+        CategoryIcon icon = newCategory.getIcon();
+        UserCategory created = categories.create(
+                SignedIn.userId(),
+                toAccountKind(newCategory.getKind()),
+                newCategory.getName(),
+                icon == null ? Icon.TAG : toIcon(icon));
         return ResponseEntity.status(HttpStatus.CREATED).body(toApi(created));
     }
 
     @Override
     public ResponseEntity<Category> updateCategory(UUID id, CategoryUpdate update) {
-        return ResponseEntity.ok(
-                toApi(categories.update(SignedIn.userId(), id, update.getName(), update.getArchived())));
+        CategoryIcon icon = update.getIcon();
+        return ResponseEntity.ok(toApi(categories.update(
+                SignedIn.userId(), id, update.getName(), icon == null ? null : toIcon(icon), update.getArchived())));
     }
 
     private static Category toApi(UserCategory category) {
-        Category body = new Category(category.id(), toCategoryKind(category.kind()), category.archived());
+        Category body = new Category(
+                category.id(),
+                toCategoryKind(category.kind()),
+                CategoryIcon.fromValue(category.icon().value()),
+                category.archived());
         if (category.key() != null) {
             body.key(category.key());
         }
@@ -51,6 +61,11 @@ class CategoriesController implements CategoriesApi {
             body.name(category.name());
         }
         return body;
+    }
+
+    // By the name both lists share, so the API's list and Icon cannot pair the wrong icons.
+    private static Icon toIcon(CategoryIcon icon) {
+        return Icon.of(icon.getValue());
     }
 
     private static AccountKind toAccountKind(CategoryKind kind) {

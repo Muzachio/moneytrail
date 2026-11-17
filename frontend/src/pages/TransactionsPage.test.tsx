@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { i18n } from '@/i18n/i18n'
-import { euros, mockApi, testTransaction } from '@/test/mockApi'
+import { euros, mockApi, testCategory, testTransaction } from '@/test/mockApi'
 import { OCTOBER_25, october } from '@/test/october'
 import { renderApp } from '@/test/renderApp'
 
@@ -95,6 +95,37 @@ describe('TransactionsPage', () => {
       'Tuesday, 20 October',
       'Thursday, 1 October',
     ])
+  })
+
+  it("draws each transaction with its category's icon, in the list and in the detail", async () => {
+    const data = october()
+    const pets = testCategory('EXPENSE', { name: 'Pets', icon: 'paw-print' })
+    data.categories.push(pets)
+    data.transactions.push(
+      testTransaction({
+        description: 'Cat food',
+        occurredOn: '2026-10-25',
+        recordedAt: '2026-10-25T20:00:00Z',
+        categoryId: pets.id,
+        accountId: data.checking.id,
+        amount: euros(1200),
+      }),
+    )
+    mockApi(data)
+    renderApp('/transactions')
+
+    const today = await screen.findByRole('region', { name: /^Today/ })
+    const catFood = within(today).getByRole('link', { name: /^Cat food/ })
+    expect(catFood.querySelector('svg')).toHaveClass('lucide-paw-print')
+    expect(
+      within(today)
+        .getByRole('link', { name: /^Brunch/ })
+        .querySelector('svg'),
+    ).toHaveClass('lucide-utensils')
+
+    fireEvent.click(catFood)
+    const sheet = await screen.findByRole('dialog', { name: 'Cat food' })
+    expect(sheet.querySelector('svg.lucide-paw-print')).not.toBeNull()
   })
 
   it('marks edited transactions', async () => {

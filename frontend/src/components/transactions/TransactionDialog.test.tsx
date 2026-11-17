@@ -273,7 +273,7 @@ describe('TransactionDialog', () => {
     ).toHaveTextContent('Coffee')
   })
 
-  it('creates a category from the "New category" chip and picks it', async () => {
+  it('creates a category from the "New category" chip, with the icon picked, and picks it', async () => {
     const { dialog, post, state } = await openNewTransaction()
 
     fireEvent.click(
@@ -284,13 +284,19 @@ describe('TransactionDialog', () => {
     })
     fill(nameDialog, 'Name', 'Pets')
     fireEvent.click(
+      within(nameDialog).getByRole('radio', { name: 'Paw print' }),
+    )
+    fireEvent.click(
       within(nameDialog).getByRole('button', { name: 'Add category' }),
     )
 
     const pets = await within(dialog).findByRole('radio', { name: 'Pets' })
     await waitFor(() => expect(pets).toBeChecked())
+    expect(pets.closest('label')!.querySelector('svg')).toHaveClass(
+      'lucide-paw-print',
+    )
     expect(post).toHaveBeenCalledWith('/v1/categories', {
-      body: { kind: 'EXPENSE', name: 'Pets' },
+      body: { kind: 'EXPENSE', name: 'Pets', icon: 'paw-print' },
     })
     // Creating the category sent nothing else: the transaction waits for Save.
     expect(sentTransactions(post)).toEqual([])

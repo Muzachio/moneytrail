@@ -108,9 +108,9 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         // Shopping and health tie; shopping is a default category opened before health.
         body.extractingPath("$.categories")
                 .isEqualTo(List.of(
-                        category(food, "food", null, 980 + 3872),
-                        category(shopping, "shopping", null, 1290),
-                        category(health, "health", null, 1290)));
+                        category(food, "food", null, "utensils", 980 + 3872),
+                        category(shopping, "shopping", null, "shopping-bag", 1290),
+                        category(health, "health", null, "heart", 1290)));
         body.doesNotHavePath("$.months");
     }
 
@@ -154,7 +154,7 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         assertThat(report(ana, "from=2026-06-15&to=2026-07-10&groupBy=category"))
                 .bodyJson()
                 .extractingPath("$.categories")
-                .isEqualTo(List.of(category(food, "food", null, 200 + 400)));
+                .isEqualTo(List.of(category(food, "food", null, "utensils", 200 + 400)));
         assertThat(report(ana, "from=2026-07-10&to=2026-07-10&groupBy=month"))
                 .bodyJson()
                 .extractingPath("$.months")
@@ -175,7 +175,7 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
                 .bodyJson();
         october.extractingPath("$.income").isEqualTo(eur(0));
         october.extractingPath("$.spending").isEqualTo(eur(980));
-        october.extractingPath("$.categories").isEqualTo(List.of(category(food, "food", null, 980)));
+        october.extractingPath("$.categories").isEqualTo(List.of(category(food, "food", null, "utensils", 980)));
         assertThat(report(ana, thisMonth + "&groupBy=category")).bodyJson().isStrictlyEqualTo("""
                         {"income": {"amountMinor": 0, "currency": "EUR"},
                          "spending": {"amountMinor": 0, "currency": "EUR"},
@@ -209,7 +209,9 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         byCategory
                 .extractingPath("$.categories")
                 .as("the cinema reversed, the pharmacy moved to health, the taxi to November")
-                .isEqualTo(List.of(category(food, "food", null, 2750), category(health, "health", null, 1290)));
+                .isEqualTo(List.of(
+                        category(food, "food", null, "utensils", 2750),
+                        category(health, "health", null, "heart", 1290)));
 
         var byMonth = assertThat(report(ana, "from=2026-10-01&to=2026-11-30&groupBy=month"))
                 .hasStatusOk()
@@ -220,7 +222,7 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
     }
 
     @Test
-    void namesTheCategoriesAsTheCategoriesEndpointDoes() {
+    void namesAndDrawsTheCategoriesAsTheCategoriesEndpointDoes() {
         UUID pets = createCategory(ana, "Pets");
         record(ana, expense(food, card, 4000, "Groceries", "2026-10-02"));
         record(ana, expense(health, card, 3000, "Dentist", "2026-10-03"));
@@ -228,18 +230,20 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         record(ana, expense(shopping, card, 1000, "Umbrella", "2026-10-05"));
         updateCategory(ana, health, "{\"name\": \"Doctors\"}");
         updateCategory(ana, shopping, "{\"archived\": true}");
+        updateCategory(ana, pets, "{\"icon\": \"paw-print\"}");
 
         MvcTestResult report = report(ana, OCTOBER + "&groupBy=category");
 
         assertThat(report)
                 .bodyJson()
                 .extractingPath("$.categories")
-                .as("a renamed default keeps its key, and an archived category still counts")
+                .as("a renamed default keeps its key and icon, the user's own has the icon picked for it, and an"
+                        + " archived category still counts")
                 .isEqualTo(List.of(
-                        category(food, "food", null, 4000),
-                        category(health, "health", "Doctors", 3000),
-                        category(pets, null, "Pets", 2000),
-                        category(shopping, "shopping", null, 1000)));
+                        category(food, "food", null, "utensils", 4000),
+                        category(health, "health", "Doctors", "heart", 3000),
+                        category(pets, null, "Pets", "paw-print", 2000),
+                        category(shopping, "shopping", null, "shopping-bag", 1000)));
         List<Map<String, Object>> listed = JsonPath.read(bodyOf(categories(ana)), "$.items");
         Map<Object, Map<String, Object>> byId = new LinkedHashMap<>();
         listed.forEach(category -> byId.put(category.get("id"), category));
@@ -248,6 +252,7 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
             Map<String, Object> same = Objects.requireNonNull(byId.get(category.get("categoryId")));
             assertThat(category.get("key")).isEqualTo(same.get("key"));
             assertThat(category.get("name")).isEqualTo(same.get("name"));
+            assertThat(category.get("icon")).isEqualTo(same.get("icon"));
         });
     }
 
@@ -262,10 +267,10 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
 
         var anas = assertThat(report(ana, OCTOBER + "&groupBy=category")).bodyJson();
         anas.extractingPath("$.income").isEqualTo(eur(0));
-        anas.extractingPath("$.categories").isEqualTo(List.of(category(food, "food", null, 980)));
+        anas.extractingPath("$.categories").isEqualTo(List.of(category(food, "food", null, "utensils", 980)));
         var ruis = assertThat(report(rui, OCTOBER + "&groupBy=category")).bodyJson();
         ruis.extractingPath("$.income").isEqualTo(eur(99000));
-        ruis.extractingPath("$.categories").isEqualTo(List.of(category(ruisHealth, "health", null, 5000)));
+        ruis.extractingPath("$.categories").isEqualTo(List.of(category(ruisHealth, "health", null, "heart", 5000)));
         assertThat(report(rui, OCTOBER + "&groupBy=month"))
                 .bodyJson()
                 .extractingPath("$.months")
@@ -454,7 +459,8 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
     }
 
     /** What the report sends for a category: the key and the name only when the category has them. */
-    private static Map<String, Object> category(UUID id, @Nullable String key, @Nullable String name, long spending) {
+    private static Map<String, Object> category(
+            UUID id, @Nullable String key, @Nullable String name, String icon, long spending) {
         Map<String, Object> category = new LinkedHashMap<>();
         category.put("categoryId", id.toString());
         if (key != null) {
@@ -463,6 +469,7 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         if (name != null) {
             category.put("name", name);
         }
+        category.put("icon", icon);
         category.put("spending", eur(spending));
         return category;
     }

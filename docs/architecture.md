@@ -135,7 +135,10 @@ shows this month's) leaves out every entry that posts to an `EQUITY` account. A 
 category's stable key (`food`, `salary`, ...) lives in the account's `subtype`; the API sends that key and leaves the name out until the
 user renames the category, so the app shows it in the user's language. Within a ledger and a
 kind, active categories have different names, ignoring case (a unique index, so concurrent
-requests cannot get around it).
+requests cannot get around it). A default category's icon comes from its key and never changes;
+the icon a user picks for a category of their own, from a fixed list (`CategoryIcon` in the API),
+is kept by `personal` in its own `category_icons` table, so the ledger's accounts know nothing
+about how the app draws them.
 
 | Account kind | Examples | Normal balance |
 |---|---|---|
@@ -250,6 +253,7 @@ postings         (id bigint identity pk, entry_id fk, account_id, currency,
                   amount_minor bigint check (amount_minor <> 0),
                   fk(account_id, currency) → accounts(id, currency))
 account_balances (account_id pk fk, balance_minor bigint, version bigint, updated_at)
+category_icons   (category_id pk fk accounts, icon text check in CategoryIcon)  -- personal's
 
 groups           (id uuid pk, name, currency char(3), ledger_id fk, created_by, created_at)
 group_members    (group_id, user_id, account_id fk accounts, role, joined_at, pk(group_id, user_id))

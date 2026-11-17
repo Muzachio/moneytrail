@@ -1,7 +1,13 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { i18n } from '@/i18n/i18n'
-import { euros, mockApi, testAccount, testTransaction } from '@/test/mockApi'
+import {
+  euros,
+  mockApi,
+  testAccount,
+  testCategory,
+  testTransaction,
+} from '@/test/mockApi'
 import { OCTOBER_25, october } from '@/test/october'
 import { onPhone } from '@/test/phone'
 import { renderApp } from '@/test/renderApp'
@@ -134,6 +140,34 @@ describe('SummaryPage', () => {
       expect(
         within(categories).getByRole('link', { name: 'See transactions' }),
       ).toHaveAttribute('href', '/transactions')
+    })
+
+    it("draws each category with the icon the API gives it, and the person's own with the one picked for it", async () => {
+      const seed = data()
+      const pets = testCategory('EXPENSE', { name: 'Pets', icon: 'paw-print' })
+      seed.categories.push(pets)
+      seed.transactions.push(
+        testTransaction({
+          description: 'Cat food',
+          occurredOn: '2026-10-25',
+          recordedAt: '2026-10-25T20:00:00Z',
+          categoryId: pets.id,
+          accountId: seed.checking.id,
+          amount: euros(1200),
+        }),
+      )
+      render('/', seed)
+
+      const categories = await screen.findByRole('region', {
+        name: 'Spending by category',
+      })
+      const drawn = (container: HTMLElement, text: string) =>
+        within(container).getByText(text).closest('li')!.querySelector('svg')
+      expect(drawn(categories, 'Pets')).toHaveClass('lucide-paw-print')
+      expect(drawn(categories, 'Food')).toHaveClass('lucide-utensils')
+      const recent = region('Recent transactions')
+      expect(drawn(recent, 'Cat food')).toHaveClass('lucide-paw-print')
+      expect(drawn(recent, 'Brunch')).toHaveClass('lucide-utensils')
     })
 
     it('shows the six-month trend with a table that says it in words', async () => {

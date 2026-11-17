@@ -8,15 +8,16 @@ import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.NewAccount;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The user's categories: the {@code EXPENSE} and {@code INCOME} accounts of their personal ledger.
- * Name rules (unique per kind among active categories, ignoring case) are the ledger's, which
- * answers {@code category_name_taken}.
+ * The user's categories: the {@code EXPENSE} and {@code INCOME} accounts of their personal ledger,
+ * with the icons picked for the user's own ones. Name rules (unique per kind among active
+ * categories, ignoring case) are the ledger's, which answers {@code category_name_taken}.
  */
 @Service
 @Transactional
@@ -24,59 +25,86 @@ class Categories {
 
     // Expenses before income; within a kind the defaults in their order, then the user's own. The
     // sort is stable, so the user's own stay in the ledger's order, which is the order of creation.
-    private static final Comparator<Account> LIST_ORDER = comparingInt(
-                    (Account account) -> account.kind() == AccountKind.EXPENSE ? 0 : 1)
-            .thenComparingInt(account -> DefaultCategory.of(account.kind(), account.subtype())
+    private static final Comparator<UserCategory> LIST_ORDER = comparingInt(
+                    (UserCategory category) -> category.kind() == AccountKind.EXPENSE ? 0 : 1)
+            .thenComparingInt(category -> DefaultCategory.of(category.kind(), category.key())
                     .map(Enum::ordinal)
                     .orElse(Integer.MAX_VALUE));
 
     private final LedgerService ledger;
     private final PersonalLedgers personalLedgers;
+    private final CategoryIcons icons;
 
-    Categories(LedgerService ledger, PersonalLedgers personalLedgers) {
+    Categories(LedgerService ledger, PersonalLedgers personalLedgers, CategoryIcons icons) {
         this.ledger = ledger;
         this.personalLedgers = personalLedgers;
+        this.icons = icons;
     }
 
     List<UserCategory> list(UUID userId) {
-        return ledger.accounts(personalLedgers.ledgerOf(userId)).stream()
-                .filter(Categories::isCategory)
+        return inLedger(personalLedgers.ledgerOf(userId)).stream()
                 .sorted(LIST_ORDER)
-                .map(UserCategory::of)
                 .toList();
     }
 
-    UserCategory create(UUID userId, AccountKind kind, String name) {
+    /**
+     * Every category of a ledger, archived ones included, in the ledger's order. One query finds the
+     * icons of all the user's own categories; the defaults' come from their keys.
+     */
+    List<UserCategory> inLedger(UUID ledgerId) {
+        List<Account> categories = ledger.accounts(ledgerId).stream()
+                .filter(Categories::isCategory)
+                .toList();
+        Map<UUID, Icon> picked = icons.of(categories.stream()
+                .filter(category -> !isDefault(category))
+                .map(Account::id)
+                .toList());
+        return categories.stream()
+                .map(category -> UserCategory.of(category, picked))
+                .toList();
+    }
+
+    UserCategory create(UUID userId, AccountKind kind, String name, Icon icon) {
         if (!isCategoryKind(kind)) {
             throw new IllegalArgumentException(kind + " is not a category kind");
         }
         UUID ledgerId = personalLedgers.ledgerOf(userId);
-        return UserCategory.of(
-                ledger.openAccount(new NewAccount(ledgerId, kind, null, clean(name), PersonalLedgers.CURRENCY)));
+        Account created =
+                ledger.openAccount(new NewAccount(ledgerId, kind, null, clean(name), PersonalLedgers.CURRENCY));
+        icons.pick(created.id(), icon);
+        return UserCategory.of(created, Map.of(created.id(), icon));
     }
 
     /**
      * Archives before renaming and restores after, so a name is only checked against the other
-     * active categories when the category itself ends up active.
+     * active categories when the category itself ends up active. A refused name rolls the icon back
+     * with the rest.
      */
-    UserCategory update(UUID userId, UUID categoryId, @Nullable String name, @Nullable Boolean archived) {
-        if (name == null && archived == null) {
-            throw CategoryException.badRequest("Send a name, archived, or both.");
+    UserCategory update(
+            UUID userId, UUID categoryId, @Nullable String name, @Nullable Icon icon, @Nullable Boolean archived) {
+        if (name == null && icon == null && archived == null) {
+            throw CategoryException.badRequest("Send a name, an icon, archived, or more than one of them.");
         }
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Account category = ledger.findAccount(categoryId)
                 .filter(account -> account.ledgerId().equals(ledgerId) && isCategory(account))
                 .orElseThrow(() -> CategoryException.notFound(categoryId));
+        if (icon != null && isDefault(category)) {
+            throw CategoryException.badRequest("A default category keeps the icon of its key.");
+        }
         if (Boolean.TRUE.equals(archived)) {
             category = ledger.archiveAccount(categoryId);
         }
         if (name != null) {
             category = ledger.renameAccount(categoryId, clean(name));
         }
+        if (icon != null) {
+            icons.pick(categoryId, icon);
+        }
         if (Boolean.FALSE.equals(archived)) {
             category = ledger.restoreAccount(categoryId);
         }
-        return UserCategory.of(category);
+        return UserCategory.of(category, icons.of(List.of(categoryId)));
     }
 
     // The schema refuses blank names, but its pattern only knows ASCII spaces; strip() knows all.
@@ -86,6 +114,10 @@ class Categories {
             throw CategoryException.badRequest("A category needs a name.");
         }
         return stripped;
+    }
+
+    private static boolean isDefault(Account category) {
+        return DefaultCategory.of(category.kind(), category.subtype()).isPresent();
     }
 
     private static boolean isCategory(Account account) {

@@ -4,6 +4,7 @@ import io.github.muzachio.moneytrail.identity.SignedIn;
 import io.github.muzachio.moneytrail.personal.CategoryLabel;
 import io.github.muzachio.moneytrail.shared.Money;
 import io.github.muzachio.moneytrail.shared.api.ReportsApi;
+import io.github.muzachio.moneytrail.shared.api.model.CategoryIcon;
 import io.github.muzachio.moneytrail.shared.api.model.CategorySpending;
 import io.github.muzachio.moneytrail.shared.api.model.MonthTotals;
 import io.github.muzachio.moneytrail.shared.api.model.ReportGrouping;
@@ -48,8 +49,9 @@ class ReportsController implements ReportsApi {
     }
 
     private static CategorySpending toApi(SpendingByCategory.CategorySpending category) {
-        CategorySpending body = new CategorySpending(category.categoryId(), toApi(category.spending()));
         CategoryLabel label = category.label();
+        CategorySpending body = new CategorySpending(
+                category.categoryId(), CategoryIcon.fromValue(label.icon()), toApi(category.spending()));
         if (label.key() != null) {
             body.key(label.key());
         }

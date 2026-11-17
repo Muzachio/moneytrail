@@ -187,6 +187,7 @@
   "rowMenu": {
     "label": "Mais ações para {{name}}",
     "rename": "Mudar o nome",
+    "edit": "Editar",
     "archive": "Arquivar"
   },
   "accounts": {
@@ -273,6 +274,34 @@
     },
     "add": "Adicionar categoria",
     "renameTitle": "Mudar o nome da categoria",
+    "editTitle": "Editar categoria",
+    "icon": "Ícone",
+    "icons": {
+      "house": "Casa",
+      "utensils": "Garfo e faca",
+      "tram-front": "Elétrico",
+      "receipt": "Recibo",
+      "shopping-bag": "Saco de compras",
+      "ticket": "Bilhete",
+      "heart": "Coração",
+      "tag": "Etiqueta",
+      "banknote": "Nota",
+      "rotate-ccw": "Seta para trás",
+      "gift": "Presente",
+      "car": "Carro",
+      "fuel": "Bomba de combustível",
+      "plane": "Avião",
+      "coffee": "Chávena de café",
+      "shirt": "T-shirt",
+      "smartphone": "Telemóvel",
+      "graduation-cap": "Chapéu de formatura",
+      "baby": "Bebé",
+      "paw-print": "Pegada",
+      "dumbbell": "Haltere",
+      "wrench": "Chave inglesa",
+      "piggy-bank": "Mealheiro",
+      "briefcase": "Pasta"
+    },
     "nameTaken": {
       "EXPENSE": "Já tens uma categoria de despesa com este nome.",
       "INCOME": "Já tens uma categoria de receita com este nome."

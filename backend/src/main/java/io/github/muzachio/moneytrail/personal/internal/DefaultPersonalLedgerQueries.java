@@ -2,7 +2,6 @@ package io.github.muzachio.moneytrail.personal.internal;
 
 import static java.util.stream.Collectors.toMap;
 
-import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.ledger.Ledger;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
@@ -20,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 class DefaultPersonalLedgerQueries implements PersonalLedgerQueries {
 
     private final LedgerService ledger;
+    private final Categories categories;
 
-    DefaultPersonalLedgerQueries(LedgerService ledger) {
+    DefaultPersonalLedgerQueries(LedgerService ledger, Categories categories) {
         this.ledger = ledger;
+        this.categories = categories;
     }
 
     @Override
@@ -35,12 +36,13 @@ class DefaultPersonalLedgerQueries implements PersonalLedgerQueries {
         return PersonalLedgers.CURRENCY;
     }
 
-    /** {@link UserCategory#of} decides the label, so it is the same as the categories endpoint's. */
+    /** {@link Categories#inLedger} decides the label, so it is the same as the categories endpoint's. */
     @Override
     public Map<UUID, CategoryLabel> categoryLabels(UUID ledgerId) {
-        return ledger.accounts(ledgerId).stream()
-                .filter(account -> account.kind() == AccountKind.EXPENSE || account.kind() == AccountKind.INCOME)
-                .map(UserCategory::of)
-                .collect(toMap(UserCategory::id, category -> new CategoryLabel(category.key(), category.name())));
+        return categories.inLedger(ledgerId).stream()
+                .collect(toMap(
+                        UserCategory::id,
+                        category -> new CategoryLabel(
+                                category.key(), category.name(), category.icon().value())));
     }
 }

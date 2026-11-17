@@ -37,7 +37,7 @@ class SpendingProperties {
             Stream.generate(UUID::randomUUID).limit(2).toList();
     private static final Map<UUID, CategoryLabel> LABELS = Stream.concat(
                     EXPENSE_CATEGORIES.stream(), INCOME_CATEGORIES.stream())
-            .collect(Collectors.toMap(Function.identity(), id -> new CategoryLabel(null, "Category " + id)));
+            .collect(Collectors.toMap(Function.identity(), id -> new CategoryLabel(null, "Category " + id, "tag")));
 
     record Sums(ReportPeriod period, List<CategorySum> sums) {}
 

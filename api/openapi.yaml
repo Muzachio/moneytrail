@@ -208,11 +208,13 @@ paths:
     patch:
       operationId: updateCategory
       tags: [categories]
-      summary: Rename, archive or restore a category
+      summary: Rename a category, change its icon, archive or restore it
       description: |
         Changes the properties sent and leaves the others as they are. An archived category keeps
         its history, but new transactions cannot use it. Renaming a default category makes the app
-        show the new name instead of its translation of `key`.
+        show the new name instead of its translation of `key`. Only a category of the user's own can
+        change its icon: a default category keeps the icon of its key, and sending `icon` for one
+        answers `400`.
       requestBody:
         required: true
         content:
@@ -815,12 +817,50 @@ components:
       pattern: '^\s*\S[\s\S]*$'
       description: Spaces around the name are removed.
       example: Groceries
+    CategoryIcon:
+      type: string
+      # The first eleven are the default categories' icons (design canvas), the rest are for the
+      # user's own. A new name needs a migration too: the database checks the list (V11).
+      enum:
+        - house
+        - utensils
+        - tram-front
+        - receipt
+        - shopping-bag
+        - ticket
+        - heart
+        - tag
+        - banknote
+        - rotate-ccw
+        - gift
+        - car
+        - fuel
+        - plane
+        - coffee
+        - shirt
+        - smartphone
+        - graduation-cap
+        - baby
+        - paw-print
+        - dumbbell
+        - wrench
+        - piggy-bank
+        - briefcase
+      description: |
+        The picture the app shows next to a category, by its name in Lucide (lucide.dev), the app's
+        icon set. A default category has the icon of its key, which never changes: `housing` has
+        `house`, `food` `utensils`, `transport` `tram-front`, `bills` `receipt`, `shopping`
+        `shopping-bag`, `leisure` `ticket`, `health` `heart`, `other` and `other-income` `tag`,
+        `salary` `banknote`, `refunds` `rotate-ccw` and `gifts` `gift`. A category of the user's own
+        has the one picked for it, from the whole list.
+      example: utensils
     Category:
       type: object
-      required: [id, kind, archived]
+      required: [id, kind, icon, archived]
       description: |
         An `EXPENSE` or `INCOME` account of the user's personal ledger (docs/architecture.md, "The
-        ledger"). Show `name` when it is present, otherwise the app's translation of `key`.
+        ledger"). Show `name` when it is present, otherwise the app's translation of `key`, and
+        `icon` next to it.
       properties:
         id:
           type: string
@@ -832,7 +872,7 @@ components:
           description: |
             Only on the default categories, and it never changes: `housing`, `food`, `transport`,
             `bills`, `shopping`, `leisure`, `health` and `other` for expenses, `salary`, `refunds`,
-            `gifts` and `other-income` for income. The app translates it and picks an icon from it.
+            `gifts` and `other-income` for income. The app translates it.
           example: food
         name:
           type: string
@@ -840,6 +880,11 @@ components:
             The name the user gave the category. A default category has none until the user renames
             it, so each person sees it in their own language.
           example: Groceries
+        icon:
+          $ref: '#/components/schemas/CategoryIcon'
+          description: |
+            The icon of its key for a default category. For one of the user's own, the icon picked
+            for it, or `tag` if none was.
         archived:
           type: boolean
           description: Archived categories keep their history but cannot be used for new transactions.
@@ -859,6 +904,9 @@ components:
           $ref: '#/components/schemas/CategoryKind'
         name:
           $ref: '#/components/schemas/CategoryName'
+        icon:
+          $ref: '#/components/schemas/CategoryIcon'
+          description: Any icon of the list. Leave it out for `tag`.
     CategoryUpdate:
       type: object
       minProperties: 1
@@ -866,6 +914,11 @@ components:
       properties:
         name:
           $ref: '#/components/schemas/CategoryName'
+        icon:
+          $ref: '#/components/schemas/CategoryIcon'
+          description: |
+            Only for a category of the user's own. A default category keeps the icon of its key, so
+            sending one for it answers `400`.
         archived:
           type: boolean
           description: '`true` archives the category, `false` restores it.'
@@ -1130,10 +1183,10 @@ components:
             $ref: '#/components/schemas/MonthTotals'
     CategorySpending:
       type: object
-      required: [categoryId, spending]
+      required: [categoryId, icon, spending]
       description: |
         How much one expense category got in the period. Show `name` when it is present, otherwise
-        the app's translation of `key`, as for a `Category`.
+        the app's translation of `key`, and `icon` next to it, as for a `Category`.
       properties:
         categoryId:
           type: string
@@ -1146,6 +1199,9 @@ components:
           type: string
           description: Only once the user has named the category, as `Category.name`.
           example: Groceries
+        icon:
+          $ref: '#/components/schemas/CategoryIcon'
+          description: As `Category.icon`.
         spending:
           $ref: '#/components/schemas/Money'
           description: Above zero.
