@@ -17,12 +17,13 @@ CREATE TABLE category_keys (
         'holiday-allowance', 'christmas-allowance', 'sales', 'pension'))
 );
 
--- Every category that already has a name from the list, in English or in Portuguese and whatever its
--- case, gets that key: the defaults nobody renamed, and the ones people created or renamed. The
--- account takes the English name. A Portuguese name becomes the English one only when no other
--- active category of the ledger and kind already has it: "Alimentação" next to the default "Food"
--- stays as typed, rather than break the rule against repeated names. Archived categories may share
--- names, so they always convert.
+-- Every category that already has a name from the list, in English or in Portuguese, gets that key:
+-- the defaults nobody renamed, and the ones people created or renamed. Names are compared as the app
+-- compares what a person types, case and accents aside, so "Ginasio" is "Ginásio". The account
+-- takes the English name. A name that this changes, beyond its case, takes it only when no other
+-- active category of the ledger and kind has it already, and only the oldest of several that would
+-- take it, rather than break the rule against repeated names: "Alimentação" next to the default
+-- "Food" stays as typed. Archived categories may share names, so they always convert.
 WITH known (key, kind, english, portuguese) AS (
     VALUES ('housing', 'EXPENSE', 'Housing', 'Casa'),
            ('food', 'EXPENSE', 'Food', 'Alimentação'),
@@ -67,33 +68,55 @@ WITH known (key, kind, english, portuguese) AS (
            ('sales', 'INCOME', 'Sales', 'Vendas'),
            ('pension', 'INCOME', 'Pension', 'Reforma')
 ),
+-- Lower case without the accents Portuguese uses.
+plain_category AS (
+    SELECT a.id, a.ledger_id, a.kind, a.archived_at, a.name,
+           translate(lower(a.name COLLATE pg_c_utf8),
+                     'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc') AS plain
+    FROM accounts a
+    WHERE a.kind IN ('EXPENSE', 'INCOME')
+),
+plain_known AS (
+    SELECT k.key, k.kind, k.english,
+           translate(lower(k.english COLLATE pg_c_utf8),
+                     'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc') AS plain_english,
+           translate(lower(k.portuguese COLLATE pg_c_utf8),
+                     'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc') AS plain_portuguese
+    FROM known k
+),
 candidate AS (
     -- DISTINCT ON in case a name were on the list twice for one kind; no name is, today.
-    SELECT DISTINCT ON (a.id)
-           a.id, a.ledger_id, a.kind, a.archived_at, k.key, k.english,
-           lower(a.name COLLATE pg_c_utf8) <> lower(k.english COLLATE pg_c_utf8) AS portuguese
-    FROM accounts a
-    JOIN known k
-      ON k.kind = a.kind
-     AND lower(a.name COLLATE pg_c_utf8)
-         IN (lower(k.english COLLATE pg_c_utf8), lower(k.portuguese COLLATE pg_c_utf8))
-    ORDER BY a.id, k.key
+    SELECT DISTINCT ON (c.id)
+           c.id, c.ledger_id, c.kind, c.archived_at, k.key, k.english,
+           -- Whether the unique index would see a new name: it compares lower case, accents included.
+           lower(c.name COLLATE pg_c_utf8) <> lower(k.english COLLATE pg_c_utf8) AS renamed
+    FROM plain_category c
+    JOIN plain_known k ON k.kind = c.kind AND c.plain IN (k.plain_english, k.plain_portuguese)
+    ORDER BY c.id, k.key
+),
+ranked AS (
+    SELECT c.*,
+           -- Among the active categories that would take the same English name, the oldest first.
+           row_number() OVER (PARTITION BY c.ledger_id, c.kind, c.key, c.archived_at IS NULL AND c.renamed
+                              ORDER BY c.id) AS place
+    FROM candidate c
 ),
 convertible AS (
-    SELECT c.id, c.key, c.english
-    FROM candidate c
-    WHERE NOT c.portuguese
-       OR c.archived_at IS NOT NULL
-       OR NOT EXISTS (
-           SELECT 1
-           FROM accounts other
-           WHERE other.ledger_id = c.ledger_id
-             AND other.kind = c.kind
-             AND other.id <> c.id
-             AND other.archived_at IS NULL
-             AND lower(other.name COLLATE pg_c_utf8) = lower(c.english COLLATE pg_c_utf8))
+    SELECT r.id, r.key, r.english
+    FROM ranked r
+    WHERE NOT r.renamed
+       OR r.archived_at IS NOT NULL
+       OR (r.place = 1
+           AND NOT EXISTS (
+               SELECT 1
+               FROM accounts other
+               WHERE other.ledger_id = r.ledger_id
+                 AND other.kind = r.kind
+                 AND other.id <> r.id
+                 AND other.archived_at IS NULL
+                 AND lower(other.name COLLATE pg_c_utf8) = lower(r.english COLLATE pg_c_utf8)))
 ),
-renamed AS (
+english_names AS (
     UPDATE accounts a
     SET name = c.english
     FROM convertible c

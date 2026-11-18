@@ -62,6 +62,7 @@ class CategoryKeysMigrationTests extends PostgresIntegrationTest {
         UUID shoppingAsGroceries = category(ana, "EXPENSE", "shopping", "Supermercado", false);
         UUID foodAgain = category(ana, "EXPENSE", null, "Alimentação", false);
         UUID gym = category(ana, "EXPENSE", null, "GINÁSIO", false);
+        UUID gymWithoutTheAccent = category(ana, "EXPENSE", null, "Ginasio", false);
         UUID pets = category(ana, "EXPENSE", null, "pets", false);
         UUID archivedTravel = category(ana, "EXPENSE", null, "Viagens", true);
         UUID travel = category(ana, "EXPENSE", null, "Travel", false);
@@ -74,6 +75,10 @@ class CategoryKeysMigrationTests extends PostgresIntegrationTest {
         UUID rui = ledger();
         UUID ruisFood = category(rui, "EXPENSE", null, "Alimentação", false);
         UUID ruisEducation = category(rui, "EXPENSE", null, "Educação", false);
+        UUID ruisWater = category(rui, "EXPENSE", null, "agua", false);
+        UUID ruisGas = category(rui, "EXPENSE", null, "Gas", false);
+        UUID ruisGasWithTheAccent = category(rui, "EXPENSE", null, "Gás", false);
+        UUID olderGym = first(gym, gymWithoutTheAccent);
 
         migrateTo("12");
 
@@ -84,7 +89,14 @@ class CategoryKeysMigrationTests extends PostgresIntegrationTest {
         assertCalled(shoppingAsGroceries, "groceries", "Groceries");
         // "Food" is taken by the default: renaming this one would repeat it.
         assertCalled(foodAgain, null, "Alimentação");
-        assertCalled(gym, "gym", "Gym");
+        // Case and accents aside both are Ginásio, and both would become Gym: only the older one does.
+        if (olderGym.equals(gym)) {
+            assertCalled(gym, "gym", "Gym");
+            assertCalled(gymWithoutTheAccent, null, "Ginasio");
+        } else {
+            assertCalled(gymWithoutTheAccent, "gym", "Gym");
+            assertCalled(gym, null, "GINÁSIO");
+        }
         assertCalled(pets, "pets", "Pets");
         // Archived categories may share a name.
         assertCalled(archivedTravel, "travel", "Travel");
@@ -98,6 +110,19 @@ class CategoryKeysMigrationTests extends PostgresIntegrationTest {
         // Another ledger: nothing there is called Food.
         assertCalled(ruisFood, "food", "Food");
         assertCalled(ruisEducation, "education", "Education");
+        assertCalled(ruisWater, "water", "Water");
+        // "Gás" would become "Gas", which the other one already is.
+        assertCalled(ruisGas, "gas", "Gas");
+        assertCalled(ruisGasWithTheAccent, null, "Gás");
+    }
+
+    /** The one Postgres orders first, as the migration's "oldest" does. */
+    private UUID first(UUID one, UUID other) {
+        return before.sql("SELECT id FROM accounts WHERE id IN (:one, :other) ORDER BY id LIMIT 1")
+                .param("one", one)
+                .param("other", other)
+                .query(UUID.class)
+                .single();
     }
 
     private void migrateTo(String version) {
