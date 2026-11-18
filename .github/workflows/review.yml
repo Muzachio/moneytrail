@@ -10,6 +10,11 @@ name: Review
 #
 # It reviews once, when a pull request opens or leaves draft. To review it again after new
 # commits, close and reopen the pull request.
+#
+# A pull request that adds or changes this file is not reviewed: the Claude GitHub App only
+# signs in when the workflow is identical to the one on main. That run skips ("Workflow
+# validation failed") and still reports success, so the review is the summary comment, not
+# the green check.
 on:
   pull_request:
     branches: [main]
