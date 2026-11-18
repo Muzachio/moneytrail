@@ -102,6 +102,10 @@ included, so private data must never reach a commit.
 - For every PR, verify each "Done when" item of the linked issue against real evidence
   (build output, CI run, settings), tick the boxes in the issue, and make sure the issue
   ends up closed. An item that is not met blocks the merge.
+- Every PR from a branch of this repository gets an automated review
+  (`.github/workflows/review.yml`, following `.github/pr-review.md`). Before merging, fix
+  each finding or answer it in the PR with the reason it stays. The review advises; it is
+  not a required check.
 - Every PR also ticks the `docs/roadmap.md` lines it completes. A line stays unticked
   while any part of it is still pending.
 - A change that alters architecture comes with a new ADR in `docs/adr/`.

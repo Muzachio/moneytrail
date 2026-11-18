@@ -32,6 +32,7 @@ entries, integer money, idempotent APIs, safe concurrency and a transactional ou
 | **Spec-first API** | OpenAPI 3.1 generates both the Spring interfaces and the TypeScript client → [ADR-0006](docs/adr/0006-spec-first-openapi.md) |
 | **Testing** | Property-based tests (jqwik), Testcontainers, module tests, k6 load tests |
 | **Observability** | OpenTelemetry traces, Micrometer metrics, structured logs → Grafana |
+| **Automated review** | Every pull request is reviewed against the project's rules (money, privacy, tests) and its issue's acceptance criteria. Read-only and advisory: it comments, the maintainer decides → [instructions](.github/pr-review.md) |
 
 ## Tech stack
 
