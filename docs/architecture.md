@@ -131,14 +131,18 @@ Each user has one **personal ledger**, which `personal` opens the first time the
 (users from before it existed: their next sign-in), with the default categories and an
 `Equity:Opening balances` account that the accounts' opening balances are posted against. Such an
 entry records money the user already had, so an account's change over a month (the accounts list
-shows this month's) leaves out every entry that posts to an `EQUITY` account. A default
-category's stable key (`food`, `salary`, ...) lives in the account's `subtype`; the API sends that key and leaves the name out until the
-user renames the category, so the app shows it in the user's language. Within a ledger and a
-kind, active categories have different names, ignoring case (a unique index, so concurrent
-requests cannot get around it). A default category's icon comes from its key and never changes;
-the icon a user picks for a category of their own, from a fixed list (`CategoryIcon` in the API),
-is kept by `personal` in its own `category_icons` table, so the ledger's accounts know nothing
-about how the app draws them.
+shows this month's) leaves out every entry that posts to an `EQUITY` account. Which default a
+category is (`food`, `salary`, ...) lives in the account's `subtype` and never changes. What a
+category is called is either a **known name**, a key from the app's list (`CategoryKey` in the
+API: the defaults' names and about thirty more), or a name the user typed. A known name is kept by
+`personal` in its own `category_keys` table and shown in each person's language; the app sends the
+key when the user types a name from the list in the language it is showing, so "Ginásio" typed in
+Portuguese reads "Gym" in English. The account keeps the known name's English form, so the rule
+that active categories of a ledger and kind have different names, ignoring case (a unique index,
+so concurrent requests cannot get around it), sees "Alimentação" and "Food" as the same name. A
+default category's icon never changes; the icon a user picks for a category of their own, from a
+fixed list (`CategoryIcon`), is kept by `personal` in `category_icons`. Neither table changes the
+ledger: its accounts know nothing about how the app names or draws a category.
 
 | Account kind | Examples | Normal balance |
 |---|---|---|
@@ -254,6 +258,7 @@ postings         (id bigint identity pk, entry_id fk, account_id, currency,
                   fk(account_id, currency) → accounts(id, currency))
 account_balances (account_id pk fk, balance_minor bigint, version bigint, updated_at)
 category_icons   (category_id pk fk accounts, icon text check in CategoryIcon)  -- personal's
+category_keys    (category_id pk fk accounts, key text check in CategoryKey)    -- personal's
 
 groups           (id uuid pk, name, currency char(3), ledger_id fk, created_by, created_at)
 group_members    (group_id, user_id, account_id fk accounts, role, joined_at, pk(group_id, user_id))

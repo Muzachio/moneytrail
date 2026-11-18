@@ -314,7 +314,7 @@
     "archived": {
       "title": "Categorias arquivadas ({{count}})"
     },
-    "defaults": {
+    "names": {
       "housing": "Casa",
       "food": "Alimentação",
       "transport": "Transportes",
@@ -326,7 +326,37 @@
       "salary": "Salário",
       "refunds": "Reembolsos",
       "gifts": "Presentes",
-      "other-income": "Outras receitas"
+      "other-income": "Outras receitas",
+      "groceries": "Supermercado",
+      "restaurants": "Restaurantes",
+      "rent": "Renda",
+      "condo-fees": "Condomínio",
+      "electricity": "Luz",
+      "water": "Água",
+      "gas": "Gás",
+      "phone-internet": "Telecomunicações",
+      "subscriptions": "Subscrições",
+      "fuel": "Combustível",
+      "tolls": "Portagens",
+      "insurance": "Seguros",
+      "pharmacy": "Farmácia",
+      "personal-care": "Cuidados pessoais",
+      "clothes": "Roupa",
+      "gym": "Ginásio",
+      "education": "Educação",
+      "kids": "Filhos",
+      "pets": "Animais",
+      "travel": "Viagens",
+      "gifts-given": "Presentes",
+      "taxes": "Impostos",
+      "freelance": "Trabalhos extra",
+      "bonus": "Bónus",
+      "interest": "Juros",
+      "dividends": "Dividendos",
+      "holiday-allowance": "Subsídio de férias",
+      "christmas-allowance": "Subsídio de Natal",
+      "sales": "Vendas",
+      "pension": "Reforma"
     }
   },
   "transactions": {

@@ -1,48 +1,95 @@
 import { PawPrint, Tag, Utensils } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
-import type { CategoryIcon } from '@/api/categories'
+import type { CategoryIcon, CategoryKey } from '@/api/categories'
 import { i18n } from '@/i18n/i18n'
-import { categoryIcon, categoryIconNames, categoryName } from './categories'
+import {
+  categoryIcon,
+  categoryIconNames,
+  categoryKeys,
+  categoryName,
+  knownNames,
+  naming,
+} from './categories'
 
-const t = i18n.getFixedT('en')
+const english = i18n.getFixedT('en')
+const portuguese = i18n.getFixedT('pt-PT')
 
 describe('categoryName', () => {
-  it('translates the key of a default category the person has not renamed', () => {
-    const food = {
-      id: '1',
-      kind: 'EXPENSE' as const,
-      key: 'food',
-      icon: 'utensils' as const,
-      archived: false,
-    }
-
-    expect(categoryName(food, t)).toBe('Food')
-    expect(categoryName(food, i18n.getFixedT('pt-PT'))).toBe('Alimentação')
+  it('translates a known name into the current language', () => {
+    expect(categoryName({ key: 'food' }, english)).toBe('Food')
+    expect(categoryName({ key: 'food' }, portuguese)).toBe('Alimentação')
+    expect(categoryName({ key: 'gym' }, english)).toBe('Gym')
+    expect(categoryName({ key: 'gym' }, portuguese)).toBe('Ginásio')
   })
 
-  it("shows the person's name once they renamed it, in every language", () => {
-    const groceries = {
-      id: '1',
-      kind: 'EXPENSE' as const,
-      key: 'food',
-      name: 'Groceries',
-      icon: 'utensils' as const,
-      archived: false,
-    }
-
-    expect(categoryName(groceries, i18n.getFixedT('pt-PT'))).toBe('Groceries')
+  it('shows a typed name as it is, in every language', () => {
+    expect(categoryName({ name: 'Pilates' }, portuguese)).toBe('Pilates')
+    expect(categoryName({ name: 'Pilates' }, english)).toBe('Pilates')
   })
 
   it('shows a key this version does not know as it is', () => {
-    const pets = {
-      id: '1',
-      kind: 'EXPENSE' as const,
-      key: 'pets',
-      icon: 'tag' as const,
-      archived: false,
-    }
+    expect(categoryName({ key: 'pilates' as CategoryKey }, english)).toBe(
+      'pilates',
+    )
+  })
+})
 
-    expect(categoryName(pets, t)).toBe('pets')
+describe('naming', () => {
+  it('finds the known name typed in the current language, whatever its case, accents and spaces', () => {
+    expect(naming('EXPENSE', 'Ginásio', portuguese)).toEqual({ key: 'gym' })
+    expect(naming('EXPENSE', '  ginasio ', portuguese)).toEqual({ key: 'gym' })
+    expect(naming('EXPENSE', 'GINÁSIO', portuguese)).toEqual({ key: 'gym' })
+    expect(naming('EXPENSE', 'gym', english)).toEqual({ key: 'gym' })
+    expect(naming('INCOME', 'subsidio de natal', portuguese)).toEqual({
+      key: 'christmas-allowance',
+    })
+  })
+
+  it("finds the defaults' names too", () => {
+    expect(naming('EXPENSE', 'Alimentação', portuguese)).toEqual({
+      key: 'food',
+    })
+    expect(naming('INCOME', 'Other income', english)).toEqual({
+      key: 'other-income',
+    })
+  })
+
+  it('leaves a name typed in the other language as it is', () => {
+    expect(naming('EXPENSE', 'Pets', portuguese)).toEqual({ name: 'Pets' })
+    expect(naming('EXPENSE', 'Ginásio', english)).toEqual({ name: 'Ginásio' })
+  })
+
+  it('only looks among the names of the kind', () => {
+    expect(naming('EXPENSE', 'Presentes', portuguese)).toEqual({
+      key: 'gifts-given',
+    })
+    expect(naming('INCOME', 'Presentes', portuguese)).toEqual({
+      key: 'gifts',
+    })
+    expect(naming('INCOME', 'Ginásio', portuguese)).toEqual({
+      name: 'Ginásio',
+    })
+  })
+
+  it('keeps any other name as typed, without the spaces around it', () => {
+    expect(naming('EXPENSE', '  Pilates  ', portuguese)).toEqual({
+      name: 'Pilates',
+    })
+  })
+
+  it('finds every known name in both languages by its own key', () => {
+    for (const [language, t] of [
+      ['en', english],
+      ['pt-PT', portuguese],
+    ] as const) {
+      for (const key of categoryKeys) {
+        // The first match is the key itself: no two names of a kind read the same.
+        expect(
+          naming(knownNames[key], t(`categories.names.${key}`), t),
+          `${key} in ${language}`,
+        ).toEqual({ key })
+      }
+    }
   })
 })
 

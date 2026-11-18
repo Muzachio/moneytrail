@@ -3,11 +3,13 @@ import type { Account, AccountUpdate, NewAccount } from '@/api/accounts'
 import type {
   Category,
   CategoryIcon,
+  CategoryKey,
   CategoryKind,
   CategoryUpdate,
   NewCategory,
 } from '@/api/categories'
 import { api } from '@/api/client'
+import { i18n } from '@/i18n/i18n'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 import type { NewTransaction, Transaction } from '@/api/transactions'
@@ -48,11 +50,11 @@ export function testAccount(
 }
 
 /**
- * The default categories every user starts with, in the API's order, none renamed, each with the
- * icon the API gives its key.
+ * The default categories every user starts with, in the API's order, none renamed: each called by
+ * its known name, with its own icon.
  */
 export function defaultCategories(): Category[] {
-  const expense: [string, CategoryIcon][] = [
+  const expense: [CategoryKey, CategoryIcon][] = [
     ['housing', 'house'],
     ['food', 'utensils'],
     ['transport', 'tram-front'],
@@ -62,15 +64,19 @@ export function defaultCategories(): Category[] {
     ['health', 'heart'],
     ['other', 'tag'],
   ]
-  const income: [string, CategoryIcon][] = [
+  const income: [CategoryKey, CategoryIcon][] = [
     ['salary', 'banknote'],
     ['refunds', 'rotate-ccw'],
     ['gifts', 'gift'],
     ['other-income', 'tag'],
   ]
+  const asDefault =
+    (kind: CategoryKind) =>
+    ([key, icon]: [CategoryKey, CategoryIcon]) =>
+      testCategory(kind, { key, icon, default: true })
   return [
-    ...expense.map(([key, icon]) => testCategory('EXPENSE', { key, icon })),
-    ...income.map(([key, icon]) => testCategory('INCOME', { key, icon })),
+    ...expense.map(asDefault('EXPENSE')),
+    ...income.map(asDefault('INCOME')),
   ]
 }
 
@@ -79,7 +85,14 @@ export function testCategory(
   kind: CategoryKind,
   overrides: Partial<Category>,
 ): Category {
-  return { id: testId(), kind, icon: 'tag', archived: false, ...overrides }
+  return {
+    id: testId(),
+    kind,
+    default: false,
+    icon: 'tag',
+    archived: false,
+    ...overrides,
+  }
 }
 
 /** An invented expense of the design canvas' October, unless `overrides` say otherwise. */
@@ -219,11 +232,21 @@ export function mockApi({
       return ok(account, 201)
     }
     if (path === '/v1/categories') {
-      const { kind, name, icon = 'tag' } = init.body as NewCategory
-      if (nameTaken(state.categories, kind, name)) {
+      const { kind, key, name, icon = 'tag' } = init.body as NewCategory
+      const called =
+        key !== undefined
+          ? { key }
+          : name !== undefined
+            ? { name: name.trim() }
+            : undefined
+      // A key or a name, one of them.
+      if (called === undefined || (key !== undefined && name !== undefined)) {
+        return problem(400, 'bad_request')
+      }
+      if (nameTaken(state.categories, kind, called)) {
         return problem(409, 'category_name_taken')
       }
-      const category = testCategory(kind, { name: name.trim(), icon })
+      const category = testCategory(kind, { ...called, icon })
       state.categories.push(category)
       return ok(category, 201)
     }
@@ -263,21 +286,36 @@ export function mockApi({
       if (category === undefined) {
         return problem(404, 'category_not_found')
       }
-      const { icon, ...update } = init.body as CategoryUpdate
-      // A default category keeps the icon of its key.
-      if (icon !== undefined && category.key !== undefined) {
+      const { icon, key, name, ...update } = init.body as CategoryUpdate
+      // A default category keeps its icon, and a key and a name both rename a category.
+      if (
+        (icon !== undefined && category.default) ||
+        (key !== undefined && name !== undefined)
+      ) {
         return problem(400, 'bad_request')
       }
+      const renamed =
+        key !== undefined
+          ? { key }
+          : name !== undefined
+            ? { name: name.trim() }
+            : undefined
       const change = { ...changed(update), ...(icon !== undefined && { icon }) }
       const after = { ...category, ...change }
       const others = state.categories.filter((other) => other.id !== id)
       if (
         !after.archived &&
-        nameTaken(others, after.kind, after.name ?? after.key ?? '')
+        nameTaken(others, after.kind, renamed ?? category)
       ) {
         return problem(409, 'category_name_taken')
       }
       Object.assign(category, change)
+      if (renamed !== undefined) {
+        // A known name or a typed one, never both.
+        delete category.key
+        delete category.name
+        Object.assign(category, renamed)
+      }
       return ok({ ...category })
     }
     throw new Error(`Unexpected PATCH ${path}`)
@@ -309,13 +347,27 @@ function changed({ name, archived }: { name?: string; archived?: boolean }) {
   }
 }
 
-/** As the API's unique index: the name of another active category of the kind, ignoring case. */
-function nameTaken(categories: Category[], kind: CategoryKind, name: string) {
+/**
+ * As the API's unique index: the name of another active category of the kind, ignoring case, a
+ * known name by its English form, so that it is taken in every language.
+ */
+function nameTaken(
+  categories: Category[],
+  kind: CategoryKind,
+  called: Pick<Category, 'key' | 'name'>,
+) {
+  const wanted = keptName(called)
   return categories.some(
     (category) =>
       category.kind === kind &&
       !category.archived &&
-      (category.name ?? category.key ?? '').toLowerCase() ===
-        name.trim().toLowerCase(),
+      keptName(category) === wanted,
   )
+}
+
+function keptName({ key, name }: Pick<Category, 'key' | 'name'>) {
+  const english = i18n.getFixedT('en')
+  return (
+    key !== undefined ? english(`categories.names.${key}`) : (name ?? '')
+  ).toLowerCase()
 }

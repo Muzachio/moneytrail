@@ -175,9 +175,10 @@ paths:
       tags: [categories]
       summary: Create a category
       description: |
-        Adds an expense or income category of the user's own. Creating a category moves no money,
-        so it takes no `Idempotency-Key`: a retry of a request that succeeded answers `409`, because
-        the name is then taken.
+        Adds an expense or income category of the user's own, named by a `key` from the app's list
+        or by a `name` of the user's. Creating a category moves no money, so it takes no
+        `Idempotency-Key`: a retry of a request that succeeded answers `409`, because the name is
+        then taken.
       requestBody:
         required: true
         content:
@@ -211,10 +212,10 @@ paths:
       summary: Rename a category, change its icon, archive or restore it
       description: |
         Changes the properties sent and leaves the others as they are. An archived category keeps
-        its history, but new transactions cannot use it. Renaming a default category makes the app
-        show the new name instead of its translation of `key`. Only a category of the user's own can
-        change its icon: a default category keeps the icon of its key, and sending `icon` for one
-        answers `400`.
+        its history, but new transactions cannot use it. Any category, a default one included, can be
+        renamed with a `key` from the app's list, which the app then shows in each person's language,
+        or with a `name`, which it shows as it is. Only a category of the user's own can change its
+        icon: a default category keeps its icon, and sending `icon` for one answers `400`.
       requestBody:
         required: true
         content:
@@ -556,8 +557,9 @@ components:
             code: category_not_found
     CategoryNameTaken:
       description: |
-        Another active category of the same kind already has this name, ignoring case. Archived
-        categories do not count.
+        Another active category of the same kind already has this name, ignoring case. A name from
+        the app's list is compared by its English name (`CategoryKey`), so it is taken in every
+        language. Archived categories do not count.
       content:
         application/problem+json:
           schema:
@@ -816,7 +818,72 @@ components:
       # which searches, and to Java's validator, which matches the whole value.
       pattern: '^\s*\S[\s\S]*$'
       description: Spaces around the name are removed.
-      example: Groceries
+      example: Pilates classes
+    CategoryKey:
+      type: string
+      # The first twelve are the default categories'. A new key needs a migration too: the database
+      # checks the list (V12).
+      enum:
+        - housing
+        - food
+        - transport
+        - bills
+        - shopping
+        - leisure
+        - health
+        - other
+        - salary
+        - refunds
+        - gifts
+        - other-income
+        - groceries
+        - restaurants
+        - rent
+        - condo-fees
+        - electricity
+        - water
+        - gas
+        - phone-internet
+        - subscriptions
+        - fuel
+        - tolls
+        - insurance
+        - pharmacy
+        - personal-care
+        - clothes
+        - gym
+        - education
+        - kids
+        - pets
+        - travel
+        - gifts-given
+        - taxes
+        - freelance
+        - bonus
+        - interest
+        - dividends
+        - holiday-allowance
+        - christmas-allowance
+        - sales
+        - pension
+      description: |
+        A category name the app knows, which it shows in each person's language. Each key is for one
+        kind. Expenses: `housing` (Housing), `food` (Food), `transport` (Transport), `bills` (Bills),
+        `shopping` (Shopping), `leisure` (Leisure), `health` (Health), `other` (Other), `groceries`
+        (Groceries), `restaurants` (Restaurants), `rent` (Rent), `condo-fees` (Condo fees),
+        `electricity` (Electricity), `water` (Water), `gas` (Gas), `phone-internet` (Phone and
+        internet), `subscriptions` (Subscriptions), `fuel` (Fuel), `tolls` (Tolls), `insurance`
+        (Insurance), `pharmacy` (Pharmacy), `personal-care` (Personal care), `clothes` (Clothes),
+        `gym` (Gym), `education` (Education), `kids` (Kids), `pets` (Pets), `travel` (Travel),
+        `gifts-given` (Gifts) and `taxes` (Taxes). Income: `salary` (Salary), `refunds` (Refunds),
+        `gifts` (Gifts), `other-income` (Other income), `freelance` (Freelance), `bonus` (Bonus),
+        `interest` (Interest), `dividends` (Dividends), `holiday-allowance` (Holiday allowance),
+        `christmas-allowance` (Christmas allowance), `sales` (Sales) and `pension` (Pension).
+
+        The English name in brackets is the one the rule against repeated names compares, so a
+        known name is taken in every language at once: while the default `food` is active, neither
+        `key` `food` nor `name` "Food" can be given to another expense category.
+      example: groceries
     CategoryIcon:
       type: string
       # The first eleven are the default categories' icons (design canvas), the rest are for the
@@ -848,19 +915,19 @@ components:
         - briefcase
       description: |
         The picture the app shows next to a category, by its name in Lucide (lucide.dev), the app's
-        icon set. A default category has the icon of its key, which never changes: `housing` has
-        `house`, `food` `utensils`, `transport` `tram-front`, `bills` `receipt`, `shopping`
-        `shopping-bag`, `leisure` `ticket`, `health` `heart`, `other` and `other-income` `tag`,
-        `salary` `banknote`, `refunds` `rotate-ccw` and `gifts` `gift`. A category of the user's own
-        has the one picked for it, from the whole list.
+        icon set. A default category keeps the icon it starts with, whatever its name later: the
+        default `housing` has `house`, `food` `utensils`, `transport` `tram-front`, `bills`
+        `receipt`, `shopping` `shopping-bag`, `leisure` `ticket`, `health` `heart`, `other` and
+        `other-income` `tag`, `salary` `banknote`, `refunds` `rotate-ccw` and `gifts` `gift`. A
+        category of the user's own has the one picked for it, from the whole list.
       example: utensils
     Category:
       type: object
-      required: [id, kind, icon, archived]
+      required: [id, kind, default, icon, archived]
       description: |
         An `EXPENSE` or `INCOME` account of the user's personal ledger (docs/architecture.md, "The
-        ledger"). Show `name` when it is present, otherwise the app's translation of `key`, and
-        `icon` next to it.
+        ledger"). It has either a `key`, which the app shows in the person's language, or a `name`,
+        which it shows as it is, never both; and `icon` next to it.
       properties:
         id:
           type: string
@@ -868,23 +935,27 @@ components:
         kind:
           $ref: '#/components/schemas/CategoryKind'
         key:
-          type: string
+          $ref: '#/components/schemas/CategoryKey'
           description: |
-            Only on the default categories, and it never changes: `housing`, `food`, `transport`,
-            `bills`, `shopping`, `leisure`, `health` and `other` for expenses, `salary`, `refunds`,
-            `gifts` and `other-income` for income. The app translates it.
-          example: food
+            When the category's name is one the app knows: a default category until it gets another
+            name, and any category that was given one with `key`. The app translates it, so each
+            person sees it in their own language.
         name:
           type: string
           description: |
-            The name the user gave the category. A default category has none until the user renames
-            it, so each person sees it in their own language.
-          example: Groceries
+            When the category's name is one the user typed, which the app shows as it is in every
+            language.
+          example: Pilates classes
+        default:
+          type: boolean
+          description: |
+            One of the categories every ledger starts with. It keeps its icon, and the list shows the
+            defaults first, whatever their names.
         icon:
           $ref: '#/components/schemas/CategoryIcon'
           description: |
-            The icon of its key for a default category. For one of the user's own, the icon picked
-            for it, or `tag` if none was.
+            A default category's own icon. For one of the user's own, the icon picked for it, or
+            `tag` if none was.
         archived:
           type: boolean
           description: Archived categories keep their history but cannot be used for new transactions.
@@ -898,10 +969,16 @@ components:
             $ref: '#/components/schemas/Category'
     NewCategory:
       type: object
-      required: [kind, name]
+      required: [kind]
+      description: |
+        Send `key` or `name`, one of them: both, or neither, answer `400`. The app sends `key` when
+        the name the person typed is one it knows in the language it is showing.
       properties:
         kind:
           $ref: '#/components/schemas/CategoryKind'
+        key:
+          $ref: '#/components/schemas/CategoryKey'
+          description: A key of this kind, the defaults' included. One of the other kind answers `400`.
         name:
           $ref: '#/components/schemas/CategoryName'
         icon:
@@ -910,15 +987,22 @@ components:
     CategoryUpdate:
       type: object
       minProperties: 1
-      description: The properties to change, at least one.
+      description: |
+        The properties to change, at least one. `key` and `name` both rename the category, so only
+        one of them can be sent.
       properties:
+        key:
+          $ref: '#/components/schemas/CategoryKey'
+          description: |
+            A key of the category's kind: the app then shows its translation. Giving a default
+            category its own key back makes it translated again after a `name`.
         name:
           $ref: '#/components/schemas/CategoryName'
         icon:
           $ref: '#/components/schemas/CategoryIcon'
           description: |
-            Only for a category of the user's own. A default category keeps the icon of its key, so
-            sending one for it answers `400`.
+            Only for a category of the user's own. A default category keeps its icon, so sending one
+            for it answers `400`.
         archived:
           type: boolean
           description: '`true` archives the category, `false` restores it.'
@@ -1185,20 +1269,20 @@ components:
       type: object
       required: [categoryId, icon, spending]
       description: |
-        How much one expense category got in the period. Show `name` when it is present, otherwise
-        the app's translation of `key`, and `icon` next to it, as for a `Category`.
+        How much one expense category got in the period. It has either a `key`, which the app shows
+        in the person's language, or a `name`, which it shows as it is, and `icon` next to it, as a
+        `Category` does.
       properties:
         categoryId:
           type: string
           format: uuid
         key:
-          type: string
-          description: Only on the default categories, as `Category.key`.
-          example: food
+          $ref: '#/components/schemas/CategoryKey'
+          description: As `Category.key`.
         name:
           type: string
-          description: Only once the user has named the category, as `Category.name`.
-          example: Groceries
+          description: As `Category.name`.
+          example: Pilates classes
         icon:
           $ref: '#/components/schemas/CategoryIcon'
           description: As `Category.icon`.

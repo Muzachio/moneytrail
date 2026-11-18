@@ -313,7 +313,7 @@
     "archived": {
       "title": "Archived categories ({{count}})"
     },
-    "defaults": {
+    "names": {
       "housing": "Housing",
       "food": "Food",
       "transport": "Transport",
@@ -325,7 +325,37 @@
       "salary": "Salary",
       "refunds": "Refunds",
       "gifts": "Gifts",
-      "other-income": "Other income"
+      "other-income": "Other income",
+      "groceries": "Groceries",
+      "restaurants": "Restaurants",
+      "rent": "Rent",
+      "condo-fees": "Condo fees",
+      "electricity": "Electricity",
+      "water": "Water",
+      "gas": "Gas",
+      "phone-internet": "Phone and internet",
+      "subscriptions": "Subscriptions",
+      "fuel": "Fuel",
+      "tolls": "Tolls",
+      "insurance": "Insurance",
+      "pharmacy": "Pharmacy",
+      "personal-care": "Personal care",
+      "clothes": "Clothes",
+      "gym": "Gym",
+      "education": "Education",
+      "kids": "Kids",
+      "pets": "Pets",
+      "travel": "Travel",
+      "gifts-given": "Gifts",
+      "taxes": "Taxes",
+      "freelance": "Freelance",
+      "bonus": "Bonus",
+      "interest": "Interest",
+      "dividends": "Dividends",
+      "holiday-allowance": "Holiday allowance",
+      "christmas-allowance": "Christmas allowance",
+      "sales": "Sales",
+      "pension": "Pension"
     }
   },
   "transactions": {

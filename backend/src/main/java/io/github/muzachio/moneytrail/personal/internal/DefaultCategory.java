@@ -1,8 +1,5 @@
 package io.github.muzachio.moneytrail.personal.internal;
 
-import static io.github.muzachio.moneytrail.ledger.AccountKind.EXPENSE;
-import static io.github.muzachio.moneytrail.ledger.AccountKind.INCOME;
-
 import io.github.muzachio.moneytrail.ledger.AccountKind;
 import java.util.Arrays;
 import java.util.Optional;
@@ -10,56 +7,54 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The categories every personal ledger starts with, in the order the app lists them (design
- * canvas). The key never changes: the app translates it, so it is kept in the account's {@code
- * subtype}, which the ledger keeps for the UI. The name is the English one, stored so that the
- * database can compare names when the user adds or renames a category. The icon is the design
- * canvas' one for the key, and it never changes either, so it is not stored.
+ * canvas). Each one starts with a name the app knows, and its key is also kept in the account's
+ * {@code subtype}, which the ledger keeps for the UI: that one never changes, so it says which
+ * default a category is whatever the person later calls it. The icon is the design canvas' one, and
+ * it never changes either, so it is not stored.
  */
 enum DefaultCategory {
-    HOUSING(EXPENSE, "housing", "Housing", Icon.HOUSE),
-    FOOD(EXPENSE, "food", "Food", Icon.UTENSILS),
-    TRANSPORT(EXPENSE, "transport", "Transport", Icon.TRAM_FRONT),
-    BILLS(EXPENSE, "bills", "Bills", Icon.RECEIPT),
-    SHOPPING(EXPENSE, "shopping", "Shopping", Icon.SHOPPING_BAG),
-    LEISURE(EXPENSE, "leisure", "Leisure", Icon.TICKET),
-    HEALTH(EXPENSE, "health", "Health", Icon.HEART),
-    OTHER(EXPENSE, "other", "Other", Icon.TAG),
-    SALARY(INCOME, "salary", "Salary", Icon.BANKNOTE),
-    REFUNDS(INCOME, "refunds", "Refunds", Icon.ROTATE_CCW),
-    GIFTS(INCOME, "gifts", "Gifts", Icon.GIFT),
-    OTHER_INCOME(INCOME, "other-income", "Other income", Icon.TAG);
+    HOUSING(KnownName.HOUSING, Icon.HOUSE),
+    FOOD(KnownName.FOOD, Icon.UTENSILS),
+    TRANSPORT(KnownName.TRANSPORT, Icon.TRAM_FRONT),
+    BILLS(KnownName.BILLS, Icon.RECEIPT),
+    SHOPPING(KnownName.SHOPPING, Icon.SHOPPING_BAG),
+    LEISURE(KnownName.LEISURE, Icon.TICKET),
+    HEALTH(KnownName.HEALTH, Icon.HEART),
+    OTHER(KnownName.OTHER, Icon.TAG),
+    SALARY(KnownName.SALARY, Icon.BANKNOTE),
+    REFUNDS(KnownName.REFUNDS, Icon.ROTATE_CCW),
+    GIFTS(KnownName.GIFTS, Icon.GIFT),
+    OTHER_INCOME(KnownName.OTHER_INCOME, Icon.TAG);
 
-    private final AccountKind kind;
-    private final String key;
-    private final String defaultName;
+    private final KnownName name;
     private final Icon icon;
 
-    DefaultCategory(AccountKind kind, String key, String defaultName, Icon icon) {
-        this.kind = kind;
-        this.key = key;
-        this.defaultName = defaultName;
+    DefaultCategory(KnownName name, Icon icon) {
+        this.name = name;
         this.icon = icon;
     }
 
     AccountKind kind() {
-        return kind;
+        return name.kind();
     }
 
     String key() {
-        return key;
+        return name.key();
     }
 
-    String defaultName() {
-        return defaultName;
+    /** The name it starts with. */
+    KnownName knownName() {
+        return name;
     }
 
     Icon icon() {
         return icon;
     }
 
-    static Optional<DefaultCategory> of(AccountKind kind, @Nullable String key) {
+    /** The default category an account is, by the key in its {@code subtype}. */
+    static Optional<DefaultCategory> of(AccountKind kind, @Nullable String subtype) {
         return Arrays.stream(values())
-                .filter(category -> category.kind == kind && category.key.equals(key))
+                .filter(category -> category.kind() == kind && category.key().equals(subtype))
                 .findFirst();
     }
 }

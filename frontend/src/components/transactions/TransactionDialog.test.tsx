@@ -296,14 +296,14 @@ describe('TransactionDialog', () => {
       'lucide-paw-print',
     )
     expect(post).toHaveBeenCalledWith('/v1/categories', {
-      body: { kind: 'EXPENSE', name: 'Pets', icon: 'paw-print' },
+      body: { kind: 'EXPENSE', key: 'pets', icon: 'paw-print' },
     })
     // Creating the category sent nothing else: the transaction waits for Save.
     expect(sentTransactions(post)).toEqual([])
     expect(screen.getByRole('dialog', { name: 'New transaction' })).toBe(dialog)
     expect(state.categories.at(-1)).toMatchObject({
       kind: 'EXPENSE',
-      name: 'Pets',
+      key: 'pets',
     })
   })
 
