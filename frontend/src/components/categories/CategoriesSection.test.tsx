@@ -12,8 +12,12 @@ import { renderApp } from '@/test/renderApp'
 
 /** The defaults, with Food renamed by the person and a category of their own. */
 function someCategories(): Category[] {
-  const categories = defaultCategories().map((category) =>
-    category.key === 'food' ? { ...category, name: 'Groceries' } : category,
+  const categories: Category[] = defaultCategories().map(
+    ({ key, ...category }) =>
+      // A typed name instead of the known one: the API sends one of them, never both.
+      key === 'food'
+        ? { ...category, name: 'Groceries' }
+        : { ...category, key },
   )
   categories.splice(
     8,
@@ -154,7 +158,7 @@ describe('CategoriesSection', () => {
     expect(await within(list('Expenses')).findByText('Gym')).toBeVisible()
     expect(iconOf('Gym')).toContain('lucide-dumbbell')
     expect(post).toHaveBeenCalledExactlyOnceWith('/v1/categories', {
-      body: { kind: 'EXPENSE', name: 'Gym', icon: 'dumbbell' },
+      body: { kind: 'EXPENSE', key: 'gym', icon: 'dumbbell' },
     })
   })
 
@@ -260,7 +264,7 @@ describe('CategoriesSection', () => {
     ).toHaveFocus()
     // The tag the picker starts with, as the API would give it anyway.
     expect(post).toHaveBeenCalledExactlyOnceWith('/v1/categories', {
-      body: { kind: 'INCOME', name: 'Freelance', icon: 'tag' },
+      body: { kind: 'INCOME', key: 'freelance', icon: 'tag' },
     })
     expect(iconOf('Freelance')).toContain('lucide-tag')
   })
@@ -310,6 +314,133 @@ describe('CategoriesSection', () => {
     })
     await act(() => i18n.changeLanguage('pt-PT'))
     expect(within(list('Despesas')).getByText('Commuting')).toBeVisible()
+  })
+
+  it('creates a category with a name the app knows in Portuguese, which reads in English too', async () => {
+    const { post } = await renderCategories()
+    await act(() => i18n.changeLanguage('pt-PT'))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Nova categoria de despesa' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Nova categoria de despesa',
+    })
+    fireEvent.change(within(dialog).getByLabelText('Nome'), {
+      target: { value: 'ginasio' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Adicionar categoria' }),
+    )
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(await within(list('Despesas')).findByText('Ginásio')).toBeVisible()
+    expect(post).toHaveBeenCalledExactlyOnceWith('/v1/categories', {
+      body: { kind: 'EXPENSE', key: 'gym', icon: 'tag' },
+    })
+    await act(() => i18n.changeLanguage('en'))
+    expect(within(list('Expenses')).getByText('Gym')).toBeVisible()
+  })
+
+  it('creates a category with a name the app knows in English, which reads in Portuguese too', async () => {
+    const { post } = await renderCategories()
+
+    fireEvent.click(screen.getByRole('button', { name: 'New income category' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: 'New income category',
+    })
+    fireEvent.change(within(dialog).getByLabelText('Name'), {
+      target: { value: 'Christmas allowance' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Add category' }),
+    )
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(
+      await within(list('Income')).findByText('Christmas allowance'),
+    ).toBeVisible()
+    expect(post).toHaveBeenCalledWith('/v1/categories', {
+      body: { kind: 'INCOME', key: 'christmas-allowance', icon: 'tag' },
+    })
+    await act(() => i18n.changeLanguage('pt-PT'))
+    expect(
+      within(list('Receitas')).getByText('Subsídio de Natal'),
+    ).toBeVisible()
+  })
+
+  it('keeps a name typed in the other language as it is', async () => {
+    const { post } = await renderCategories([...defaultCategories()])
+    await act(() => i18n.changeLanguage('pt-PT'))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Nova categoria de despesa' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Nova categoria de despesa',
+    })
+    fireEvent.change(within(dialog).getByLabelText('Nome'), {
+      target: { value: 'Pets' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Adicionar categoria' }),
+    )
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(await within(list('Despesas')).findByText('Pets')).toBeVisible()
+    expect(post).toHaveBeenCalledWith('/v1/categories', {
+      body: { kind: 'EXPENSE', name: 'Pets', icon: 'tag' },
+    })
+    await act(() => i18n.changeLanguage('en'))
+    expect(within(list('Expenses')).getByText('Pets')).toBeVisible()
+  })
+
+  it('says a known name is taken in every language: no second «Alimentação» next to the default', async () => {
+    await renderCategories([...defaultCategories()])
+    await act(() => i18n.changeLanguage('pt-PT'))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Nova categoria de despesa' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Nova categoria de despesa',
+    })
+    const name = within(dialog).getByLabelText('Nome')
+    fireEvent.change(name, { target: { value: 'Alimentação' } })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Adicionar categoria' }),
+    )
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Já tens uma categoria de despesa com este nome.',
+    )
+    expect(name).toHaveFocus()
+  })
+
+  it('renaming a default category back to its translation in Portuguese translates it again', async () => {
+    const { patch } = await renderCategories()
+    await act(() => i18n.changeLanguage('pt-PT'))
+
+    // Food, which the person had renamed Groceries.
+    await chooseFromMenu('Mais ações para Groceries', /Mudar o nome/)
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Mudar o nome da categoria',
+    })
+    fireEvent.change(within(dialog).getByLabelText('Nome'), {
+      target: { value: 'Alimentação' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }))
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(
+      await within(list('Despesas')).findByText('Alimentação'),
+    ).toBeVisible()
+    expect(patch).toHaveBeenCalledExactlyOnceWith('/v1/categories/{id}', {
+      params: { path: { id: expect.any(String) } },
+      body: { key: 'food' },
+    })
+    await act(() => i18n.changeLanguage('en'))
+    expect(within(list('Expenses')).getByText('Food')).toBeVisible()
   })
 
   it('leaves a default category translated when it is saved unchanged', async () => {

@@ -37,9 +37,11 @@ class PersonalLedgers {
     static final ZoneId TIME_ZONE = ZoneId.of("Europe/Lisbon");
 
     private final LedgerService ledger;
+    private final CategoryKeys keys;
 
-    PersonalLedgers(LedgerService ledger) {
+    PersonalLedgers(LedgerService ledger, CategoryKeys keys) {
         this.ledger = ledger;
+        this.keys = keys;
     }
 
     /**
@@ -89,10 +91,13 @@ class PersonalLedgers {
         return ledger.findLedger(owner);
     }
 
+    /** Each default category starts called by its known name, which the app translates. */
     private void openDefaultAccounts(UUID ledgerId) {
         for (DefaultCategory category : DefaultCategory.values()) {
-            ledger.openAccount(
-                    new NewAccount(ledgerId, category.kind(), category.key(), category.defaultName(), CURRENCY));
+            KnownName name = category.knownName();
+            Account opened = ledger.openAccount(
+                    new NewAccount(ledgerId, category.kind(), category.key(), name.english(), CURRENCY));
+            keys.give(opened.id(), name);
         }
         ledger.openAccount(
                 new NewAccount(ledgerId, AccountKind.EQUITY, OPENING_BALANCES, "Opening balances", CURRENCY));

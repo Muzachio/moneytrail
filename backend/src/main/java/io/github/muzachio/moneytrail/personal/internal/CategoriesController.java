@@ -5,11 +5,13 @@ import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.shared.api.CategoriesApi;
 import io.github.muzachio.moneytrail.shared.api.model.Category;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryIcon;
+import io.github.muzachio.moneytrail.shared.api.model.CategoryKey;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryKind;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryList;
 import io.github.muzachio.moneytrail.shared.api.model.CategoryUpdate;
 import io.github.muzachio.moneytrail.shared.api.model.NewCategory;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,11 +34,15 @@ class CategoriesController implements CategoriesApi {
 
     @Override
     public ResponseEntity<Category> createCategory(NewCategory newCategory) {
+        Naming naming = toNaming(newCategory.getKey(), newCategory.getName());
+        if (naming == null) {
+            throw CategoryException.badRequest("Send a key or a name.");
+        }
         CategoryIcon icon = newCategory.getIcon();
         UserCategory created = categories.create(
                 SignedIn.userId(),
                 toAccountKind(newCategory.getKind()),
-                newCategory.getName(),
+                naming,
                 icon == null ? Icon.TAG : toIcon(icon));
         return ResponseEntity.status(HttpStatus.CREATED).body(toApi(created));
     }
@@ -45,22 +51,39 @@ class CategoriesController implements CategoriesApi {
     public ResponseEntity<Category> updateCategory(UUID id, CategoryUpdate update) {
         CategoryIcon icon = update.getIcon();
         return ResponseEntity.ok(toApi(categories.update(
-                SignedIn.userId(), id, update.getName(), icon == null ? null : toIcon(icon), update.getArchived())));
+                SignedIn.userId(),
+                id,
+                toNaming(update.getKey(), update.getName()),
+                icon == null ? null : toIcon(icon),
+                update.getArchived())));
     }
 
     private static Category toApi(UserCategory category) {
         Category body = new Category(
                 category.id(),
                 toCategoryKind(category.kind()),
+                category.isDefault(),
                 CategoryIcon.fromValue(category.icon().value()),
                 category.archived());
-        if (category.key() != null) {
-            body.key(category.key());
+        KnownName key = category.key();
+        if (key != null) {
+            body.key(CategoryKey.fromValue(key.key()));
         }
         if (category.name() != null) {
             body.name(category.name());
         }
         return body;
+    }
+
+    /** Both rename the category, so one of them at most; null when neither was sent. */
+    private static @Nullable Naming toNaming(@Nullable CategoryKey key, @Nullable String name) {
+        if (key != null && name != null) {
+            throw CategoryException.badRequest("Send a key or a name, not both.");
+        }
+        if (key != null) {
+            return new Naming.Known(KnownName.of(key.getValue()).orElseThrow());
+        }
+        return name == null ? null : new Naming.Typed(name);
     }
 
     // By the name both lists share, so the API's list and Icon cannot pair the wrong icons.

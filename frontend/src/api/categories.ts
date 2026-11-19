@@ -6,6 +6,7 @@ import type { components } from './schema'
 
 export type Category = components['schemas']['Category']
 export type CategoryIcon = components['schemas']['CategoryIcon']
+export type CategoryKey = components['schemas']['CategoryKey']
 export type CategoryKind = components['schemas']['CategoryKind']
 export type CategoryUpdate = components['schemas']['CategoryUpdate']
 export type NewCategory = components['schemas']['NewCategory']

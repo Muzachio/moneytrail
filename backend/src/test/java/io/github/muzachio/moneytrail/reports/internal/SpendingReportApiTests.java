@@ -230,19 +230,19 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
         record(ana, expense(shopping, card, 1000, "Umbrella", "2026-10-05"));
         updateCategory(ana, health, "{\"name\": \"Doctors\"}");
         updateCategory(ana, shopping, "{\"archived\": true}");
-        updateCategory(ana, pets, "{\"icon\": \"paw-print\"}");
+        updateCategory(ana, pets, "{\"key\": \"pets\", \"icon\": \"paw-print\"}");
 
         MvcTestResult report = report(ana, OCTOBER + "&groupBy=category");
 
         assertThat(report)
                 .bodyJson()
                 .extractingPath("$.categories")
-                .as("a renamed default keeps its key and icon, the user's own has the icon picked for it, and an"
-                        + " archived category still counts")
+                .as("a default renamed with a typed name has that name and its icon, the user's own has the known"
+                        + " name and the icon given to it, and an archived category still counts")
                 .isEqualTo(List.of(
                         category(food, "food", null, "utensils", 4000),
-                        category(health, "health", "Doctors", "heart", 3000),
-                        category(pets, null, "Pets", "paw-print", 2000),
+                        category(health, null, "Doctors", "heart", 3000),
+                        category(pets, "pets", null, "paw-print", 2000),
                         category(shopping, "shopping", null, "shopping-bag", 1000)));
         List<Map<String, Object>> listed = JsonPath.read(bodyOf(categories(ana)), "$.items");
         Map<Object, Map<String, Object>> byId = new LinkedHashMap<>();

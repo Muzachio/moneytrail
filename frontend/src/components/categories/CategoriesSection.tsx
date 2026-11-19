@@ -21,6 +21,7 @@ import {
   categoryName,
   defaultIcon,
   isDefaultCategory,
+  naming,
 } from '@/lib/categories'
 import { apiErrorMessage } from '@/lib/forms'
 
@@ -206,7 +207,7 @@ export function CategoriesSection() {
               })
             : create.mutateAsync({
                 kind: dialog?.kind ?? 'EXPENSE',
-                name,
+                ...naming(dialog?.kind ?? 'EXPENSE', name, t),
                 icon,
               })
         }
@@ -222,16 +223,28 @@ export function CategoriesSection() {
 }
 
 /**
- * Only what the dialog changed: a name sent unchanged would still turn a default category's
- * translated name into a fixed one. The dialog sends nothing when nothing changed.
+ * Only what the dialog changed. A name the person did not touch is not sent, so changing only the
+ * icon of "Pets", typed on purpose in Portuguese, does not turn it into the known name `pets`. A
+ * name they did change is sent as the API keeps it, a known name or a typed one: "Comida" renamed
+ * "Alimentação" in Portuguese becomes the known name `food` again, and "ginásio" for "Ginásio" is
+ * no change at all. The dialog sends nothing when nothing changed.
  */
 function changes(
   category: Category,
   { name, icon }: NameDialogValues,
   t: TFunction,
 ): Omit<CategoryUpdate, 'archived'> {
+  const called =
+    name === categoryName(category, t)
+      ? undefined
+      : naming(category.kind, name, t)
+  const renamed =
+    called !== undefined &&
+    ('key' in called
+      ? called.key !== category.key
+      : called.name !== category.name)
   return {
-    ...(name !== categoryName(category, t) ? { name } : {}),
+    ...(renamed ? called : {}),
     ...(icon !== undefined && icon !== category.icon ? { icon } : {}),
   }
 }

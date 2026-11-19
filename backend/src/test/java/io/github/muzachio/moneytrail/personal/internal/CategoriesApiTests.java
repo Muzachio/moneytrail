@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.assertj.core.api.InstanceOfAssertFactories;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -93,6 +94,16 @@ class CategoriesApiTests extends PostgresIntegrationTest {
         body.extractingPath("$.items[*].name")
                 .asInstanceOf(InstanceOfAssertFactories.LIST)
                 .isEmpty();
+        body.extractingPath("$.items[*].default")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsOnly(true);
+        assertThat(jdbc.sql("""
+                        SELECT count(*) FROM category_keys k
+                        JOIN accounts a ON a.id = k.category_id
+                        JOIN ledgers l ON l.id = a.ledger_id
+                        WHERE l.owner_id = :userId AND k.key = a.subtype""").param("userId", ana).query(Long.class).single())
+                .as("each default starts called by its own known name")
+                .isEqualTo(12);
         // The design canvas' icon of each key.
         body.extractingPath("$.items[*].icon")
                 .asInstanceOf(InstanceOfAssertFactories.LIST)
@@ -135,10 +146,118 @@ class CategoriesApiTests extends PostgresIntegrationTest {
                 .bodyJson();
         body.extractingPath("$.kind").isEqualTo("EXPENSE");
         body.extractingPath("$.name").isEqualTo("Pets");
+        body.extractingPath("$.default").isEqualTo(false);
         body.extractingPath("$.archived").isEqualTo(false);
+        // A name is shown as typed, even one the app knows: the app sends `key` for those.
         assertThat(body(created)).doesNotContain("\"key\"");
         // After the default expenses, before the income ones.
         assertThat(get(ana)).bodyJson().extractingPath("$.items[8].name").isEqualTo("Pets");
+    }
+
+    @Test
+    void createsACategoryCalledByAKnownNameKeptInEnglish() {
+        MvcTestResult created = post(ana, """
+                {"kind": "EXPENSE", "key": "gym", "icon": "dumbbell"}""");
+
+        var body = assertThat(created).hasStatus(HttpStatus.CREATED).bodyJson();
+        body.extractingPath("$.key").isEqualTo("gym");
+        body.extractingPath("$.default").isEqualTo(false);
+        body.extractingPath("$.icon").isEqualTo("dumbbell");
+        assertThat(body(created)).doesNotContain("\"name\"");
+        UUID gym = idOf(created);
+        assertThat(ledger.findAccount(gym))
+                .hasValueSatisfying(account -> assertThat(account.name()).isEqualTo("Gym"));
+        assertThat(keyOf(gym)).isEqualTo("gym");
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[8].key").isEqualTo("gym");
+    }
+
+    /** The app sends `key` for "Alimentação" typed in Portuguese, and so finds the default food. */
+    @Test
+    void aKnownNameIsTakenInEveryLanguage() {
+        assertNameTaken(post(ana, """
+                {"kind": "EXPENSE", "key": "food"}"""));
+        assertThat(post(ana, """
+                        {"kind": "EXPENSE", "key": "gym"}""")).hasStatus(HttpStatus.CREATED);
+        assertNameTaken(post(ana, """
+                {"kind": "EXPENSE", "key": "gym"}"""));
+        assertNameTaken(post(ana, """
+                {"kind": "EXPENSE", "name": "GYM"}"""));
+
+        assertThat(post(ana, """
+                        {"kind": "EXPENSE", "key": "gifts-given"}"""))
+                .as("Gifts, but an expense: the income default of that name is another kind")
+                .hasStatus(HttpStatus.CREATED);
+        assertThat(post(signedInUser(), """
+                        {"kind": "EXPENSE", "key": "gym"}""")).as("another user").hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void aDefaultsKnownNameIsFreeWhileTheDefaultIsArchived() {
+        UUID food = defaultCategory(ana, "food");
+        assertThat(patch(ana, food, """
+                        {"archived": true}""")).hasStatusOk();
+
+        var created = assertThat(post(ana, """
+                        {"kind": "EXPENSE", "key": "food"}""")).hasStatus(HttpStatus.CREATED).bodyJson();
+        created.extractingPath("$.key").isEqualTo("food");
+        created.extractingPath("$.default").isEqualTo(false);
+
+        assertNameTaken(patch(ana, food, """
+                {"archived": false}"""));
+    }
+
+    @Test
+    void renamesACategoryWithAKnownNameOrATypedOne() {
+        UUID pilates = idOf(post(ana, """
+                {"kind": "EXPENSE", "name": "Pilates"}"""));
+
+        MvcTestResult known = patch(ana, pilates, """
+                {"key": "gym"}""");
+        assertThat(known).hasStatusOk().bodyJson().extractingPath("$.key").isEqualTo("gym");
+        assertThat(body(known)).doesNotContain("\"name\"");
+        assertThat(ledger.findAccount(pilates))
+                .hasValueSatisfying(account -> assertThat(account.name()).isEqualTo("Gym"));
+
+        MvcTestResult typed = patch(ana, pilates, """
+                {"name": "Pilates"}""");
+        assertThat(typed).hasStatusOk().bodyJson().extractingPath("$.name").isEqualTo("Pilates");
+        assertThat(body(typed)).doesNotContain("\"key\"");
+        assertThat(keyOf(pilates)).isNull();
+    }
+
+    @Test
+    void aDefaultCategoryCalledByAnotherKnownNameStaysADefault() {
+        UUID shopping = defaultCategory(ana, "shopping");
+
+        var renamed = assertThat(patch(ana, shopping, """
+                        {"key": "groceries"}""")).hasStatusOk().bodyJson();
+        renamed.extractingPath("$.key").isEqualTo("groceries");
+        renamed.extractingPath("$.default").isEqualTo(true);
+        renamed.extractingPath("$.icon").isEqualTo("shopping-bag");
+
+        var listed = assertThat(get(ana)).bodyJson();
+        listed.extractingPath("$.items[4].id")
+                .as("still in the defaults' order")
+                .isEqualTo(shopping.toString());
+        listed.extractingPath("$.items[4].key").isEqualTo("groceries");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"kind\": \"INCOME\", \"key\": \"gym\"}",
+                "{\"kind\": \"EXPENSE\", \"key\": \"salary\"}",
+                "{\"kind\": \"EXPENSE\", \"key\": \"dragon\"}",
+                "{\"kind\": \"EXPENSE\", \"key\": \"gym\", \"name\": \"Gym\"}",
+                "{\"kind\": \"EXPENSE\", \"key\": null, \"name\": null}"
+            })
+    void refusesAKeyOfTheOtherKindAKeyNotOnTheListOrNeitherOrBoth(String body) {
+        assertBadRequest(post(ana, body));
+        assertThat(get(ana))
+                .bodyJson()
+                .extractingPath("$.items")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .hasSize(12);
     }
 
     @Test
@@ -229,7 +348,7 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     }
 
     @Test
-    void aDefaultCategoryKeepsTheIconOfItsKey() {
+    void aDefaultCategoryKeepsItsIcon() {
         UUID food = defaultCategory(ana, "food");
 
         assertBadRequest(patch(ana, food, """
@@ -324,23 +443,27 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     }
 
     @Test
-    void renamingADefaultCategoryKeepsItsKeyAndShowsTheNewName() {
+    void aDefaultCategoryRenamedWithATypedNameShowsItAndStaysADefault() {
         UUID food = defaultCategory(ana, "food");
 
-        var renamed = assertThat(patch(ana, food, """
-                        {"name": "Groceries"}""")).hasStatusOk().bodyJson();
-        renamed.extractingPath("$.key").isEqualTo("food");
-        renamed.extractingPath("$.name").isEqualTo("Groceries");
-        renamed.extractingPath("$.archived").isEqualTo(false);
+        MvcTestResult renamed = patch(ana, food, """
+                {"name": "Comida"}""");
+        var body = assertThat(renamed).hasStatusOk().bodyJson();
+        body.extractingPath("$.name").isEqualTo("Comida");
+        body.extractingPath("$.default").isEqualTo(true);
+        body.extractingPath("$.icon").isEqualTo("utensils");
+        body.extractingPath("$.archived").isEqualTo(false);
+        assertThat(body(renamed)).as("a name or a key, never both").doesNotContain("\"key\"");
 
         assertNameTaken(patch(ana, food, """
                 {"name": "transport"}"""));
-        assertThat(patch(ana, food, """
-                        {"name": "Food"}"""))
-                .as("back to the default name, so back to the translation")
+        var back = assertThat(patch(ana, food, """
+                        {"key": "food"}"""))
+                .as("its own key back, so translated again")
                 .hasStatusOk()
-                .bodyJson()
-                .doesNotHavePath("$.name");
+                .bodyJson();
+        back.extractingPath("$.key").isEqualTo("food");
+        back.doesNotHavePath("$.name");
     }
 
     @Test
@@ -380,8 +503,10 @@ class CategoriesApiTests extends PostgresIntegrationTest {
                 {"archived": false}"""));
         assertNameTaken(patch(ana, gifts, """
                 {"name": "salary", "archived": false}"""));
-        assertThat(patch(ana, gifts, """
-                        {"name": "Gifts", "archived": false}""")).hasStatusOk().bodyJson().doesNotHavePath("$.name");
+        var restored = assertThat(patch(ana, gifts, """
+                        {"key": "gifts", "archived": false}""")).hasStatusOk().bodyJson();
+        restored.doesNotHavePath("$.name");
+        restored.extractingPath("$.key").isEqualTo("gifts");
     }
 
     @Test
@@ -397,6 +522,8 @@ class CategoriesApiTests extends PostgresIntegrationTest {
                 {"archived": true}"""));
         assertNotFound(patch(rui, anasPets, """
                 {"icon": "car"}"""));
+        assertNotFound(patch(rui, anasPets, """
+                {"key": "gym"}"""));
 
         assertThat(ledger.findAccount(anasFood)).hasValueSatisfying(food -> {
             assertThat(food.name()).isEqualTo("Food");
@@ -438,9 +565,22 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"name\": \" \"}", "{\"archived\": null}", "{\"icon\": null}"})
+    @ValueSource(
+            strings = {
+                "{}",
+                "{\"name\": \" \"}",
+                "{\"archived\": null}",
+                "{\"icon\": null}",
+                "{\"key\": null}",
+                "{\"key\": \"salary\"}",
+                "{\"key\": \"dragon\"}",
+                "{\"key\": \"groceries\", \"name\": \"Groceries\"}"
+            })
     void refusesAnInvalidUpdate(String body) {
-        assertBadRequest(patch(ana, defaultCategory(ana, "food"), body));
+        UUID food = defaultCategory(ana, "food");
+
+        assertBadRequest(patch(ana, food, body));
+        assertThat(keyOf(food)).as("still called by its own name").isEqualTo("food");
     }
 
     @Test
@@ -485,6 +625,15 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     private static UUID idOf(MvcTestResult created) {
         assertThat(created).hasStatus(HttpStatus.CREATED);
         return UUID.fromString(JsonPath.read(body(created), "$.id"));
+    }
+
+    /** The key of the known name a category is called by, or null when it is called by a typed name. */
+    private @Nullable String keyOf(UUID categoryId) {
+        return jdbc.sql("SELECT key FROM category_keys WHERE category_id = :id")
+                .param("id", categoryId)
+                .query(String.class)
+                .optional()
+                .orElse(null);
     }
 
     private static String body(MvcTestResult result) {

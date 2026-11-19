@@ -39,10 +39,12 @@ class DefaultPersonalLedgerQueries implements PersonalLedgerQueries {
     /** {@link Categories#inLedger} decides the label, so it is the same as the categories endpoint's. */
     @Override
     public Map<UUID, CategoryLabel> categoryLabels(UUID ledgerId) {
-        return categories.inLedger(ledgerId).stream()
-                .collect(toMap(
-                        UserCategory::id,
-                        category -> new CategoryLabel(
-                                category.key(), category.name(), category.icon().value())));
+        return categories.inLedger(ledgerId).stream().collect(toMap(UserCategory::id, category -> {
+            KnownName key = category.key();
+            return new CategoryLabel(
+                    key == null ? null : key.key(),
+                    category.name(),
+                    category.icon().value());
+        }));
     }
 }

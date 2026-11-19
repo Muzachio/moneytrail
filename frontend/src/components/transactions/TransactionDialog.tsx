@@ -53,7 +53,12 @@ import {
 } from '@/components/ui/input-group'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { CURRENCY } from '@/lib/accounts'
-import { categoryIcon, categoryName, defaultIcon } from '@/lib/categories'
+import {
+  categoryIcon,
+  categoryName,
+  defaultIcon,
+  naming,
+} from '@/lib/categories'
 import { isDay, today } from '@/lib/dates'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage, moneyInputMessage } from '@/lib/forms'
@@ -746,7 +751,7 @@ function TransactionFields({
         onSave={async ({ name, icon }) => {
           const category = await createCategory.mutateAsync({
             kind,
-            name,
+            ...naming(kind, name, t),
             icon,
           })
           form.setValue(categoryField(type), category.id, {
