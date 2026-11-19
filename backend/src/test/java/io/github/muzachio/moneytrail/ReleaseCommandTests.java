@@ -69,7 +69,7 @@ class ReleaseCommandTests {
         }
         assertThat(flyway(database).info().pending()).isEmpty();
 
-        // The api also runs the scheduled jobs (fly.toml), so this starts the scheduler and ShedLock too.
+        // The api also runs the scheduled jobs (fly.toml), so this starts ShedLock and the cleanup too.
         int port = freePort();
         App api = start(database, FlyToml.arguments("api"), "--server.port=" + port);
         try {

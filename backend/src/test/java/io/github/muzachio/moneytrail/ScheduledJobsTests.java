@@ -12,7 +12,7 @@ import org.springframework.core.env.StandardEnvironment;
 /**
  * Which processes run the scheduled jobs: the setting {@code moneytrail.jobs.enabled} as Spring Boot
  * resolves it at startup, from the arguments each process gets in fly.toml and the application*.yml
- * files. The scheduler and the jobs exist exactly where it is on (ExpiredIdempotencyKeysTests,
+ * files. The jobs and their ShedLock setup exist exactly where it is on (ExpiredIdempotencyKeysTests,
  * IdempotentRequestsTests).
  */
 class ScheduledJobsTests {
