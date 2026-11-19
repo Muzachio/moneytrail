@@ -1,6 +1,11 @@
 # The worker process group (backend/fly.toml): the same image and code as the API, without an
 # HTTP server, for background work. It runs the scheduled jobs (shared.scheduling), so far the
-# daily cleanup of idempotency keys; imports and budget alerts come later.
+# daily cleanup of idempotency keys; imports and budget alerts come later. The group has no machine
+# yet, so in production the api runs the jobs meanwhile (backend/fly.toml).
 spring:
   main:
     web-application-type: none
+
+moneytrail:
+  jobs:
+    enabled: true

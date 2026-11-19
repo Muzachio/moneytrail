@@ -27,6 +27,8 @@ spring:
   session:
     jdbc:
       # Deleting expired sessions every minute (the default) would wake Neon around the clock.
+      # The daily cleanup of idempotency keys runs in one of these minutes on purpose
+      # (ExpiredIdempotencyKeys), so it never wakes Neon on its own.
       cleanup-cron: "0 0 * * * *"
 
 # The app and the API on subdomains of one domain (ADR-0007), e.g. MONEYTRAIL_APP_URL

@@ -36,6 +36,13 @@ There is one artifact (a single jar / image) running in two roles, plus a short 
 run on every deploy. Locally and at the start of production both roles can run in one
 process.
 
+Whether a process runs the scheduled jobs is one setting, `moneytrail.jobs.enabled`, not its
+profile. The worker turns it on. In production the `worker` group has no machine yet: a second
+machine for one query a day would double the bill. Until it has one, the `api` process turns
+the setting on too (`backend/fly.toml`). The `migrate` run never does: it must exit once the
+migrations are applied. ShedLock keeps each run of a job to one process, so the jobs move to a
+worker by giving it a machine and then turning the setting off in the `api`.
+
 ## Tech stack
 
 | Concern | Choice |
@@ -329,7 +336,8 @@ around the controller in **one transaction**:
 3. Otherwise the controller runs; its services join the transaction. Its response is
    serialized, stored and committed **with the business writes**, before Spring MVC sends a
    byte of it, and the client gets exactly the stored bytes.
-4. The worker deletes keys older than 24 h once a day (`@Scheduled` + ShedLock).
+4. Every day at 03:00 UTC a scheduled job deletes the keys older than 24 h (`@Scheduled` +
+   ShedLock), in the process that runs the jobs: for now the `api` in production.
 
 A request that throws, or whose commit fails, leaves neither writes nor a key behind and can
 be retried with the same key. A `HandlerInterceptor` could not do this: it runs before and
@@ -410,4 +418,4 @@ the first transaction and then does nothing instead of failing the sign-in.
 | Env | How |
 |---|---|
 | Local | `./gradlew bootRun` (Spring Boot docker-compose support starts Postgres automatically) + `npm run dev` in `frontend/` |
-| Production | Fly.io (api + worker roles), Neon Postgres, Cloudflare Pages, custom domain ([ADR-0008](adr/0008-deployment.md)) |
+| Production | Fly.io (api + worker roles; for now one `api` machine, which also runs the scheduled jobs), Neon Postgres, Cloudflare Pages, custom domain ([ADR-0008](adr/0008-deployment.md)) |

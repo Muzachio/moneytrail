@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import net.javacrumbs.shedlock.core.LockProvider;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -293,8 +294,14 @@ class IdempotentRequestsTests extends PostgresIntegrationTest {
         });
     }
 
+    /**
+     * Locally and in tests no process runs the scheduled jobs (moneytrail.jobs.enabled is off): neither
+     * their ShedLock setup (shared.scheduling) nor the cleanup exists. Spring's scheduler itself may,
+     * since Spring Modulith's Moments turns it on for its own hourly and daily events.
+     */
     @Test
-    void theCleanupIsNotPartOfTheApiProcess() {
+    void neitherShedLockNorTheCleanupExistWhileTheJobsAreOff() {
+        assertThat(context.getBeanNamesForType(LockProvider.class)).isEmpty();
         assertThat(context.getBeanNamesForType(ExpiredIdempotencyKeys.class)).isEmpty();
     }
 
