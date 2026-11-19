@@ -8,7 +8,7 @@ typed straight into Fly.io, GitHub or Cloudflare; they never go into this reposi
 | Piece | Where | Address |
 |---|---|---|
 | App (frontend) | Cloudflare Pages project `moneytrail` (`moneytrail-63c.pages.dev`; `moneytrail.pages.dev` belongs to someone else) | https://moneytrail.muzachio.dev |
-| API (backend) | Fly.io app `moneytrail-api`, region `fra`, one `shared-cpu-1x` machine with 512 MB | https://api.moneytrail.muzachio.dev |
+| API (backend) | Fly.io app `moneytrail-api`, region `fra`, one `shared-cpu-1x` machine with 512 MB, which also runs the [scheduled jobs](#scheduled-jobs) | https://api.moneytrail.muzachio.dev |
 | Database | Neon project `moneytrail`, AWS Europe Central 1 (Frankfurt), Postgres 18, branch `production` | not public |
 | Images | `ghcr.io/muzachio/moneytrail-api`, public | |
 | DNS and domain | Cloudflare, zone `muzachio.dev` | |
@@ -94,6 +94,34 @@ SELECT
       AND NOT EXISTS (SELECT 1 FROM postings p JOIN accounts a ON a.id = p.account_id
                        WHERE p.entry_id = e.id AND a.kind = 'EQUITY')) AS users_with_transactions;
 ```
+
+## Scheduled jobs
+
+A process runs the scheduled jobs when the setting `moneytrail.jobs.enabled` is on. The `worker`
+group has no machine: it would add a second machine to the bill for one query a day. So the `api`
+machine runs the jobs, because its command in `backend/fly.toml` ends in
+`--moneytrail.jobs.enabled=true`. The release command never runs them: it must exit once the
+migrations are applied.
+
+| Job | When | Log line |
+|---|---|---|
+| Delete the idempotency keys older than 24 hours | Every day at 03:00 UTC | `Deleted 12 idempotency keys older than PT24H` |
+
+03:00 UTC is a minute in which the hourly cleanup of expired sessions (`cleanup-cron` in
+`application-prod.yml`) already wakes Neon's free compute, so the job never wakes it on its own.
+A key lives between 24 and 48 hours. To check it, counts only, in Neon's SQL editor; once the job
+runs every day, `older_than_48_hours` is always 0:
+
+```sql
+SELECT count(*) AS keys,
+       count(*) FILTER (WHERE created_at < now() - interval '48 hours') AS older_than_48_hours
+  FROM idempotency_keys;
+```
+
+To hand the jobs to a worker, first give the `worker` group a machine (the worker turns the
+setting on in `application-worker.yml`), then remove `--moneytrail.jobs.enabled=true` from the
+`api` command in `backend/fly.toml`. In between both processes have it on, and ShedLock keeps each
+run of a job to one of them.
 
 ## One-time setup
 

@@ -5,16 +5,17 @@ import net.javacrumbs.shedlock.core.LockAssert;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Deletes the keys older than 24 hours, once a day in the worker process. Clients retry within
- * seconds or minutes, so a day is plenty; a key therefore lives between 24 and 48 hours.
+ * Deletes the keys older than 24 hours, once a day, in a process that runs the scheduled jobs
+ * (shared.scheduling). Clients retry within seconds or minutes, so a day is plenty; a key therefore
+ * lives between 24 and 48 hours.
  */
 @Component
-@Profile("worker")
+@ConditionalOnBooleanProperty("moneytrail.jobs.enabled")
 class ExpiredIdempotencyKeys {
 
     static final Duration KEPT_FOR = Duration.ofHours(24);
@@ -28,11 +29,15 @@ class ExpiredIdempotencyKeys {
     }
 
     /**
-     * Every day at 03:30 UTC, on one worker only. ShedLock wraps the method in a proxy, so it must
-     * be public; the lock is held for at least 5 minutes, so a worker whose clock runs a little late
+     * Every day at 03:00 UTC, in one process only. ShedLock wraps the method in a proxy, so it must
+     * be public; the lock is held for at least 5 minutes, so a process whose clock runs a little late
      * finds it taken instead of deleting a second time.
      */
-    @Scheduled(cron = "0 30 3 * * *", zone = "UTC")
+    // 03:00 sharp: Neon's free compute stops after a few idle minutes and wakes on the next query,
+    // and Spring Session's hourly cleanup (cleanup-cron in application-prod.yml) already wakes it at
+    // the top of every hour. In that minute this job adds no wake-up of its own; any other minute
+    // would add one a day.
+    @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     @SchedulerLock(name = "delete-expired-idempotency-keys", lockAtLeastFor = "PT5M")
     public void delete() {
         // Fails loudly if the method ever runs without ShedLock's proxy.

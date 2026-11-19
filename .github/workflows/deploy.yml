@@ -76,9 +76,10 @@ jobs:
       # Every flyctl deploy first runs fly.toml's release_command: the new image applies the
       # database migrations with the app's own Flyway (ADR-0009). If that fails, no machine is
       # touched and the running version keeps serving.
-      # The worker group stays at 0 machines until M1 (fly.toml). A plain deploy launches a
-      # machine for every empty group, so only the first deploy is plain; later ones update the
-      # existing machines (--update-only). --ha=false: one machine, not a costly standby.
+      # The worker group stays at 0 machines: the api runs the scheduled jobs meanwhile (fly.toml).
+      # A plain deploy launches a machine for every empty group, so only the first deploy is plain;
+      # later ones update the existing machines (--update-only). --ha=false: one machine, not a
+      # costly standby.
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

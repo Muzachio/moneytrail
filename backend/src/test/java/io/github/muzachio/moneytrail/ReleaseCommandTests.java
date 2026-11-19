@@ -23,8 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -60,19 +58,20 @@ class ReleaseCommandTests {
         String database = createDatabase("deploy");
 
         // A web server would fail on this taken port; the release command must not start one. And
-        // it must exit even when something keeps the JVM alive, as a scheduler will from M1 on.
+        // it must exit even when something keeps the JVM alive, as a scheduler would.
         try (ServerSocket taken = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             Run release = run(
                     database,
-                    flyToml("release_command"),
+                    FlyToml.arguments("release_command"),
                     "--server.port=" + taken.getLocalPort(),
                     "--spring.main.keep-alive=true");
             assertThat(release.exitCode()).as(release::output).isZero();
         }
         assertThat(flyway(database).info().pending()).isEmpty();
 
+        // The api also runs the scheduled jobs (fly.toml), so this starts the scheduler and ShedLock too.
         int port = freePort();
-        App api = start(database, flyToml("api"), "--server.port=" + port);
+        App api = start(database, FlyToml.arguments("api"), "--server.port=" + port);
         try {
             await().atMost(TIMEOUT).untilAsserted(() -> {
                 if (!api.process().isAlive()) {
@@ -94,7 +93,7 @@ class ReleaseCommandTests {
 
         Run release = run(
                 database,
-                flyToml("release_command"),
+                FlyToml.arguments("release_command"),
                 "--spring.flyway.locations=classpath:db/migration," + brokenLocation);
 
         // A non-zero exit is what stops Fly.io's deploy. The migrations before the broken one stay
@@ -109,19 +108,11 @@ class ReleaseCommandTests {
     void apiRefusesToStartBeforeTheReleaseCommand() throws Exception {
         String database = createDatabase("unmigrated");
 
-        Run api = run(database, flyToml("api"), "--server.port=" + freePort());
+        Run api = run(database, FlyToml.arguments("api"), "--server.port=" + freePort());
 
         assertThat(api.exitCode()).as(api::output).isNotZero();
         assertThat(api.output()).contains("FlywayValidateException");
         assertThat(flyway(database).info().applied()).isEmpty();
-    }
-
-    /** The arguments Fly.io passes to the image's {@code java -jar moneytrail.jar} (fly.toml). */
-    private static List<String> flyToml(String key) throws IOException {
-        Matcher value = Pattern.compile("(?m)^\\s*" + key + "\\s*=\\s*\"([^\"]*)\"")
-                .matcher(Files.readString(Path.of("fly.toml")));
-        assertThat(value.find()).as("%s in fly.toml", key).isTrue();
-        return List.of(value.group(1).trim().split("\\s+"));
     }
 
     private Run run(String database, List<String> arguments, String... moreArguments)

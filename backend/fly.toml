@@ -24,8 +24,14 @@ primary_region = "fra"
 
 # Arguments to the image's `java -jar moneytrail.jar`.
 [processes]
-  api = "--spring.profiles.active=prod"
-  # Background work from M1 on. Kept at 0 machines until there is some (see deploy.yml).
+  # The api also runs the scheduled jobs (moneytrail.jobs.enabled) while the worker group has no
+  # machine: a worker machine would add a second machine to the bill for one query a day. To hand
+  # the jobs to a worker, give it a machine and drop the argument here; ShedLock keeps each run of
+  # a job to one process while both have it on. An argument, not [env]: the release command gets
+  # [env] too, and it must never run the jobs.
+  api = "--spring.profiles.active=prod --moneytrail.jobs.enabled=true"
+  # Background work, scheduled jobs included (application-worker.yml). Kept at 0 machines while
+  # the api runs the jobs (see deploy.yml).
   worker = "--spring.profiles.active=prod,worker"
 
 [http_service]

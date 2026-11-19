@@ -35,6 +35,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.scheduling.config.ScheduledTaskHolder;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -293,8 +294,10 @@ class IdempotentRequestsTests extends PostgresIntegrationTest {
         });
     }
 
+    /** Locally and in tests no process runs the scheduled jobs (moneytrail.jobs.enabled is off). */
     @Test
-    void theCleanupIsNotPartOfTheApiProcess() {
+    void neitherTheSchedulerNorTheCleanupRunWhileTheJobsAreOff() {
+        assertThat(context.getBeanNamesForType(ScheduledTaskHolder.class)).isEmpty();
         assertThat(context.getBeanNamesForType(ExpiredIdempotencyKeys.class)).isEmpty();
     }
 

@@ -59,3 +59,11 @@ management:
         # Off unless a collector exists (observability profile locally, Grafana Cloud in
         # production); otherwise every export attempt would log a connection error.
         enabled: false
+
+moneytrail:
+  jobs:
+    # Whether this process runs the scheduled jobs (shared.scheduling). Off by default, so no job
+    # runs locally or in tests. The worker turns it on (application-worker.yml), and so does the
+    # production api while the worker group has no machine (backend/fly.toml). The migrate run never
+    # does: it must exit once the migrations are applied.
+    enabled: false
