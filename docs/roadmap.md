@@ -31,8 +31,8 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Accounts API + UI (create, rename, archive, balance)
 - [x] Transactions API + UI: expense, income, transfer, reverse/edit. Cursor-paginated list with filters
 - [x] Reports: spend by category (month), 6-month trend, dashboard UI
-- [ ] PWA manifest and install prompt, PT/EN translations
-- [ ] Invite the first 3 friends 🎉
+- [x] PWA manifest and install prompt, PT/EN translations
+- [x] Invite the first friends 🎉
 
 ## M2 — Groups (v0.2)
 - [ ] Groups, members, invite links (hashed tokens, expiry)
@@ -42,6 +42,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [ ] Optional mirror of my share into my personal ledger
 - [ ] `GroupExpenseAdded` event → in-app activity feed
 - [ ] Cross-tenant authorization test suite
+- [ ] First 3 friends using it, and their feedback as issues (#99)
 
 ## M3 — Automation (v0.3, future)
 - [ ] ATCUD QR parser (unit-tested against anonymised receipt samples: invented NIFs, dates and amounts) + `POST /v1/invoices/parse`
