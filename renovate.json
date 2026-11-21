@@ -9,7 +9,7 @@
   "schedule": ["* 0-8 * * 1"],
   "minimumReleaseAge": "3 days",
   "constraints": {
-    "npm": "^11"
+    "npm": "^12.0.0"
   },
   "commitMessageLowerCase": "never",
   "semanticCommitScope": "deps",
