@@ -6,24 +6,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.muzachio.moneytrail.PostgresIntegrationTest;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
-import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 class AccountBalancesTests extends PostgresIntegrationTest {
 
@@ -34,9 +26,6 @@ class AccountBalancesTests extends PostgresIntegrationTest {
 
     @Autowired
     private JdbcClient jdbc;
-
-    @Autowired
-    private TransactionTemplate transaction;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -154,71 +143,17 @@ class AccountBalancesTests extends PostgresIntegrationTest {
     // already holds the lower one.
     @Test
     void postLocksBalancesInAscendingAccountIdOrder() throws Exception {
-        UUID lower = jdbc.sql("SELECT least(:food::uuid, :checking::uuid)")
-                .param("food", food.id())
-                .param("checking", checking.id())
-                .query(UUID.class)
-                .single();
-        UUID higher = lower.equals(food.id()) ? checking.id() : food.id();
-        // Postgres orders uuids differently from UUID.compareTo, so the order comes from the query.
-        Posting[] highestFirst = higher.equals(food.id())
-                ? new Posting[] {posting(food, 1250), posting(checking, -1250)}
-                : new Posting[] {posting(checking, -1250), posting(food, 1250)};
+        BalanceLockProbe locks = new BalanceLockProbe(ledger, jdbc, transactionManager);
+        List<UUID> order = locks.inLockOrder(food.id(), checking.id());
+        UUID lower = order.get(0);
+        UUID higher = order.get(1);
+        NewJournalEntry highestFirst = higher.equals(food.id())
+                ? entry(posting(food, 1250), posting(checking, -1250))
+                : entry(posting(checking, -1250), posting(food, 1250));
 
-        assertThat(heldWhilePostWaitsFor(lower, highestFirst)).doesNotContain(higher);
-        assertThat(heldWhilePostWaitsFor(higher, highestFirst)).contains(lower);
+        assertThat(locks.heldWhilePostWaitsFor(lower, highestFirst)).doesNotContain(higher);
+        assertThat(locks.heldWhilePostWaitsFor(higher, highestFirst)).contains(lower);
         assertThat(ledger.balance(checking.id())).isEqualTo(eur(-2500));
-    }
-
-    /**
-     * Locks one balance, starts a post() that needs it, and returns the other balances post() holds
-     * while it waits. Then lets post() finish.
-     */
-    private List<UUID> heldWhilePostWaitsFor(UUID blocked, Posting... postings) throws Exception {
-        List<UUID> held = new ArrayList<>();
-        CompletableFuture<JournalEntry> waiting = transaction.execute(status -> {
-            lockBalance(blocked);
-            CompletableFuture<JournalEntry> post = CompletableFuture.supplyAsync(() -> post(postings));
-            assertThatThrownBy(() -> post.get(1, TimeUnit.SECONDS)).isInstanceOf(TimeoutException.class);
-            for (UUID other : List.of(food.id(), checking.id())) {
-                if (!other.equals(blocked) && isLockedElsewhere(other)) {
-                    held.add(other);
-                }
-            }
-            return post;
-        });
-        assertThat(waiting).isNotNull();
-        waiting.get(10, TimeUnit.SECONDS);
-        return held;
-    }
-
-    private void lockBalance(UUID accountId) {
-        jdbc.sql("SELECT balance_minor FROM account_balances WHERE account_id = :id FOR UPDATE")
-                .param("id", accountId)
-                .query(Long.class)
-                .single();
-    }
-
-    // From a third connection: NOWAIT fails at once if another transaction holds the row.
-    private boolean isLockedElsewhere(UUID accountId) {
-        TransactionTemplate separate = new TransactionTemplate(transactionManager);
-        separate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        try {
-            separate.executeWithoutResult(status -> {
-                status.setRollbackOnly();
-                jdbc.sql("SELECT balance_minor FROM account_balances WHERE account_id = :id FOR UPDATE NOWAIT")
-                        .param("id", accountId)
-                        .query(Long.class)
-                        .single();
-            });
-            return false;
-        } catch (DataAccessException exception) {
-            // 55P03 lock_not_available; Spring leaves it uncategorized.
-            if (exception.getMostSpecificCause() instanceof SQLException sql && "55P03".equals(sql.getSQLState())) {
-                return true;
-            }
-            throw exception;
-        }
     }
 
     private Account open(AccountKind kind, String name) {
@@ -231,6 +166,10 @@ class AccountBalancesTests extends PostgresIntegrationTest {
 
     private JournalEntry postOn(LocalDate occurredOn, Posting... postings) {
         return ledger.post(new NewJournalEntry(personal.id(), occurredOn, "Test", userId, List.of(postings)));
+    }
+
+    private NewJournalEntry entry(Posting... postings) {
+        return new NewJournalEntry(personal.id(), LocalDate.of(2026, 11, 8), "Test", userId, List.of(postings));
     }
 
     private long sumOfPostings(Account account) {
