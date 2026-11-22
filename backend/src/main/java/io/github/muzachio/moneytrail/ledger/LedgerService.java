@@ -13,10 +13,12 @@ import org.jspecify.annotations.Nullable;
  * The ledger module's public API, and the only way to write journal entries and postings. A broken
  * rule throws a {@link DomainException} whose {@code code} names the rule.
  *
- * <p>An owner has one ledger at most. The active categories ({@link AccountKind#EXPENSE} and {@link
- * AccountKind#INCOME} accounts) of a ledger have different names within each kind, ignoring case;
- * opening, renaming or restoring an account that would break this throws {@code
- * category_name_taken} (409).
+ * <p>An owner has one ledger at most: a person ({@link LedgerOwner#user}) or a group ({@link
+ * LedgerOwner#group}), whose ledger holds a {@link AccountKind#GROUP_MEMBER} account for each member
+ * (ADR-0012). Member accounts may share a name, since two members can have the same one. The active
+ * categories ({@link AccountKind#EXPENSE} and {@link AccountKind#INCOME} accounts) of a ledger have
+ * different names within each kind, ignoring case; opening, renaming or restoring an account that
+ * would break this throws {@code category_name_taken} (409).
  */
 public interface LedgerService {
 
