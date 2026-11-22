@@ -35,14 +35,18 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Invite the first friends 🎉
 
 ## M2 — Groups (v0.2)
+- [x] Design: groups on the ledger (ADR-0012) and group invites (ADR-0013)
 - [ ] Groups, members, invite links (hashed tokens, expiry)
 - [ ] Shared expense with equal / exact / percentage / shares splits, largest-remainder rounding
-- [ ] Group balances and settle-up suggestions (greedy min-payments)
+- [ ] Group balances and settle-up suggestions (greedy, at most n − 1 payments)
 - [ ] Settlements
 - [ ] Optional mirror of my share into my personal ledger
 - [ ] `GroupExpenseAdded` event → in-app activity feed
 - [ ] Cross-tenant authorization test suite
+- [ ] Groups UI: groups list, invite and join, group page with expenses and the split dialog,
+  balances, settle-up and activity, on desktop and phone
 - [ ] First 3 friends using it, and their feedback as issues (#99)
+- [ ] A real group (a trip, a shared house or dinners) using it for at least two weeks (#95)
 
 ## M3 — Automation (v0.3, future)
 - [ ] ATCUD QR parser (unit-tested against anonymised receipt samples: invented NIFs, dates and amounts) + `POST /v1/invoices/parse`

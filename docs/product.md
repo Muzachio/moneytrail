@@ -48,7 +48,8 @@ would build it: immutable entries, idempotent writes, safe concurrency.
 - Create a group, invite friends with a link.
 - Shared expense: paid by one member, split **equally / by exact amounts / by percentage / by shares**.
 - Group balances per member (who is owed, who owes).
-- **Settle up:** suggests the minimum set of payments to clear all debts and records settlements.
+- **Settle up:** suggests a short list of payments (at most one fewer than the people with a
+  balance) that clears all debts, and records settlements.
 - Optional: also record your share as a personal expense in one of your accounts.
 
 ### v0.3 (future): automation

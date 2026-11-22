@@ -129,7 +129,8 @@ Every money movement is a **journal entry** with **two or more postings**.
 Amounts are signed `long` in **minor units** (cents): debit is positive, credit is
 negative. The postings of an entry **must sum to zero** for each currency. In code,
 money is a `Money(long minor, Currency currency)` record. `double` is never used, and
-`BigDecimal` only for FX conversion and percentage splits.
+`BigDecimal` only for FX conversion: splits, percentages included, use whole numbers
+([ADR-0012](adr/0012-groups-on-the-ledger.md)).
 
 Categories *are* ledger accounts of kind `EXPENSE` or `INCOME`, as in Beancount and
 GnuCash. This keeps reports a plain `SUM` over postings.
@@ -187,12 +188,14 @@ mistake had never been posted.
 Balances: Pedro +2000 (is owed €20), Ana −1000, João −1000.
 **Ana settles €10 with Pedro:** Member:Ana +1000, Member:Pedro −1000.
 
-**Rounding:** €10 split three ways gives 333 + 333 + 334. Remainders use the
-largest-remainder method with a deterministic order (by member id), so the same input
-always produces the same split and the total always matches.
+**Rounding:** €10 split three ways gives 334 + 333 + 333. The cent left over goes to the largest
+remainder; here all three are equal, so it goes to the member whose id comes first as text. Equal
+splits, shares and percentages are all whole-number weights divided this way, so the same input
+always produces the same split and the shares always add up to the total
+([ADR-0012](adr/0012-groups-on-the-ledger.md)).
 
-**Settle-up suggestions:** greedily match the largest creditor with the largest debtor
-until every balance is zero. That gives at most *n − 1* payments.
+**Settle-up suggestions:** the member who owes the most pays the member who is owed the most,
+until every balance is zero. That gives at most *n − 1* payments, though not always the fewest.
 
 ### Personal transactions
 
@@ -222,6 +225,29 @@ and nothing listed posts to `EQUITY`). Pages are newest first by `(occurred_on, 
 UUIDv7, so within a day the last recorded comes first. The month's summary counts every matching
 transaction but sums only the categories' postings, so transfers add nothing to income, spending or
 net.
+
+### Groups
+
+Each group has its own ledger, with one `GROUP_MEMBER` account per member and one currency, fixed
+when the group is created ([ADR-0012](adr/0012-groups-on-the-ledger.md)). `groups` records:
+
+| Movement | Postings |
+|---|---|
+| Expense of `T`, paid by P | P `+T`; each person in the split `−share` |
+| Payment of `X` from A to B (a settlement) | A `+X`, B `−X` |
+
+The payer's account can appear twice in an expense (`+T` and their own `−share`), so the entry
+shows both what they paid and their part; a share of zero gets no posting. Every entry adds up to
+zero and posts only to the group's own accounts, so the member balances of a group always add up
+to zero. The split (method, and each person's input and share) is kept by `groups` in
+`expense_splits`. Any member can edit or reverse an expense or a payment, through a reversal and a
+correction as for personal transactions, and the trail shows who made each version. A member
+leaves only with a balance of zero.
+
+People join through an invite link that holds a random token. The database keeps only its
+SHA-256, and the token travels in the link's fragment and in request bodies, never in a URL the
+server sees. A link lets someone into a group, never into the app
+([ADR-0013](adr/0013-group-invites.md)).
 
 ### Reports
 
@@ -267,10 +293,14 @@ account_balances (account_id pk fk, balance_minor bigint, version bigint, update
 category_icons   (category_id pk fk accounts, icon text check in CategoryIcon)  -- personal's
 category_keys    (category_id pk fk accounts, key text check in CategoryKey)    -- personal's
 
-groups           (id uuid pk, name, currency char(3), ledger_id fk, created_by, created_at)
-group_members    (group_id, user_id, account_id fk accounts, role, joined_at, pk(group_id, user_id))
-group_invites    (token_hash pk, group_id, expires_at, created_by)
-expense_splits   (entry_id fk, user_id, method text, input_value numeric, share_minor bigint)
+groups           (id uuid pk, name, currency char(3), ledger_id fk, created_by, created_at,
+                  archived_at)
+group_members    (group_id, user_id, account_id fk accounts, joined_at, left_at,
+                  pk(group_id, user_id))
+group_invites    (id uuid pk, group_id, token_hash bytea unique, created_by, created_at,
+                  expires_at, revoked_at)
+expense_splits   (entry_id fk, user_id, method text, input bigint, share_minor bigint,
+                  pk(entry_id, user_id))  -- input: 1, the shares, basis points or the amount
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
@@ -310,12 +340,14 @@ GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse
 GET              /v1/reports/spending?from=&to=&groupBy=category|month
 
-GET|POST         /v1/groups             POST /v1/groups/{id}/invites
-POST             /v1/invites/{token}/accept
-GET|POST         /v1/groups/{id}/expenses
+GET|POST         /v1/groups             GET|PATCH /v1/groups/{id}   POST /v1/groups/{id}/leave
+GET|POST         /v1/groups/{id}/invites        DELETE /v1/groups/{id}/invites/{inviteId}
+POST             /v1/invites/lookup · POST /v1/invites/accept   (token in the body, never the URL)
+GET|POST         /v1/groups/{id}/expenses       GET /v1/groups/{id}/expenses/{expenseId}
+POST             /v1/groups/{id}/expenses/{expenseId}/reverse
 GET              /v1/groups/{id}/balances
 GET              /v1/groups/{id}/settle-up      (suggestions)
-POST             /v1/groups/{id}/settlements
+POST             /v1/groups/{id}/settlements    POST /v1/groups/{id}/settlements/{settlementId}/reverse
 
 POST             /v1/invoices/parse     (raw QR string → prefilled transaction draft)
 POST             /v1/imports            (CSV upload → 202 + import id) · GET /v1/imports/{id}
@@ -387,6 +419,9 @@ the first transaction and then does nothing instead of failing the sign-in.
   credentials. CSRF protection with `CookieCsrfTokenRepository`: the SPA sends `X-XSRF-TOKEN`.
 - Authorization in every use case: a user only reaches ledgers they own or groups they belong to.
   Integration tests cover cross-tenant access explicitly.
+- Group invite links carry a 256-bit token that only travels in the link's fragment and in
+  request bodies. The database keeps its SHA-256; links expire after 7 days and can be revoked; a
+  link lets someone into a group, never into the app ([ADR-0013](adr/0013-group-invites.md)).
 - Rate limiting per user and IP (Bucket4j, in memory, one instance).
 - Supply chain: Renovate, OWASP dependency-check or Trivy image scan in CI, non-root image.
 
