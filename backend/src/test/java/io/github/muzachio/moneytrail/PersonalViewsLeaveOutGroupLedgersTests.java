@@ -37,10 +37,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * their own ledger only (ADR-0012). Every name and amount is invented.
  *
  * <p>Both ledgers are filled through {@link LedgerService}, with the account and expense posted as
- * {@code personal} posts them, and the test only reads through the API. It sends no POST, so it
- * needs no {@code csrf()}: that post-processor replaces the shared context's CSRF token repository
- * with a session-based one for every later test, and {@code SignInTests} checks that an anonymous
- * request creates no session and gets the {@code XSRF-TOKEN} cookie.
+ * {@code personal} posts them, and the test only reads through the API, which is the side it is
+ * about.
  */
 @AutoConfigureMockMvc
 class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
