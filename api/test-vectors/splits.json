@@ -1,0 +1,218 @@
+{
+  "about": "How group expenses are split (ADR-0012). The backend (SplitsTests) and the frontend's preview (#92) must give exactly these shares, or refuse with exactly these codes. Every number is a whole number: totals, exact amounts and shares in minor units, shares as given, percentages in basis points (10 000 is 100 %), and 1 for each person when splitting equally. Ties between equal remainders go to the member id that comes first as text; the id starting with 8 sorts last as text but first with Java's UUID.compareTo.",
+  "cases": [
+    {
+      "name": "€10 equally among three: the cent left over goes to the id first as text",
+      "total": 1000,
+      "method": "EQUALLY",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 1 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 334 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 333 }
+      ]
+    },
+    {
+      "name": "€1.01 equally between two: the ids are compared as text, not with UUID.compareTo",
+      "total": 101,
+      "method": "EQUALLY",
+      "inputs": [
+        { "member": "8f3e0000-0000-7000-8000-000000000001", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 51 },
+        { "member": "8f3e0000-0000-7000-8000-000000000001", "share": 50 }
+      ]
+    },
+    {
+      "name": "Two cents among three: one share is zero",
+      "total": 2,
+      "method": "EQUALLY",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 1 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 0 }
+      ]
+    },
+    {
+      "name": "Shares 2, 1 and 1 of €10",
+      "total": 1000,
+      "method": "SHARES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 2 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 1 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 500 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 250 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 250 }
+      ]
+    },
+    {
+      "name": "Shares 2, 1 and 1 of €9.99, given out of order: two cents left over go to the largest remainders",
+      "total": 999,
+      "method": "SHARES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 2 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 1 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 499 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 250 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 250 }
+      ]
+    },
+    {
+      "name": "33.33 %, 33.33 % and 33.34 % of €10",
+      "total": 1000,
+      "method": "PERCENTAGES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 3333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 3333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 3334 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 334 }
+      ]
+    },
+    {
+      "name": "50 %, 25 % and 25 % of €123.45",
+      "total": 12345,
+      "method": "PERCENTAGES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 5000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 2500 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 2500 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 6173 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 3086 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 3086 }
+      ]
+    },
+    {
+      "name": "One cent, 50 % each: it goes to the id first as text",
+      "total": 1,
+      "method": "PERCENTAGES",
+      "inputs": [
+        { "member": "8f3e0000-0000-7000-8000-000000000001", "input": 5000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 5000 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 1 },
+        { "member": "8f3e0000-0000-7000-8000-000000000001", "share": 0 }
+      ]
+    },
+    {
+      "name": "The largest amount the API accepts, by percentages, with no overflow",
+      "total": 9007199254740991,
+      "method": "PERCENTAGES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 3333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 3333 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 3334 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 3002099511605172 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 3002099511605172 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 3003000231530647 }
+      ]
+    },
+    {
+      "name": "Exact amounts are kept as they are",
+      "total": 3000,
+      "method": "EXACT_AMOUNTS",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1250 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 1000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "input": 750 }
+      ],
+      "shares": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "share": 1250 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "share": 1000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000c", "share": 750 }
+      ]
+    },
+    {
+      "name": "Nobody in the split",
+      "total": 1000,
+      "method": "EQUALLY",
+      "inputs": [],
+      "error": "split_without_members"
+    },
+    {
+      "name": "A member twice",
+      "total": 1000,
+      "method": "SHARES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 2 }
+      ],
+      "error": "split_member_twice"
+    },
+    {
+      "name": "A share of zero",
+      "total": 1000,
+      "method": "SHARES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 0 }
+      ],
+      "error": "split_input_not_positive"
+    },
+    {
+      "name": "A negative amount, even when the amounts add up",
+      "total": 1000,
+      "method": "EXACT_AMOUNTS",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 1100 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": -100 }
+      ],
+      "error": "split_input_not_positive"
+    },
+    {
+      "name": "Percentages that add up to 99.99 %",
+      "total": 1000,
+      "method": "PERCENTAGES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 5000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 4999 }
+      ],
+      "error": "split_percentages_not_100"
+    },
+    {
+      "name": "Exact amounts that do not add up to the total",
+      "total": 1000,
+      "method": "EXACT_AMOUNTS",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 600 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 300 }
+      ],
+      "error": "split_amounts_not_total"
+    },
+    {
+      "name": "Shares that add up to more than 10 000",
+      "total": 1000,
+      "method": "SHARES",
+      "inputs": [
+        { "member": "019a7c00-0000-7000-8000-00000000000a", "input": 5000 },
+        { "member": "019a7c00-0000-7000-8000-00000000000b", "input": 5001 }
+      ],
+      "error": "split_too_many_parts"
+    }
+  ]
+}
