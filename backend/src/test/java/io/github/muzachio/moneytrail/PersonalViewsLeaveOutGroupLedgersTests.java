@@ -1,7 +1,6 @@
 package io.github.muzachio.moneytrail;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.jayway.jsonpath.JsonPath;
@@ -27,7 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -37,6 +35,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Someone in a group has two ledgers with their movements: their own, and the group's, whose entries
  * they record under their own id. Their accounts, categories, transactions and reports come from
  * their own ledger only (ADR-0012). Every name and amount is invented.
+ *
+ * <p>Both ledgers are filled through {@link LedgerService}, with the account and expense posted as
+ * {@code personal} posts them, and the test only reads through the API. It sends no POST, so it
+ * needs no {@code csrf()}: that post-processor replaces the shared context's CSRF token repository
+ * with a session-based one for every later test, and {@code SignInTests} checks that an anonymous
+ * request creates no session and gets the {@code XSRF-TOKEN} cookie.
  */
 @AutoConfigureMockMvc
 class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
@@ -60,8 +64,9 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
     private JdbcClient jdbc;
 
     private UUID ana;
-    private UUID checking;
-    private UUID lunch;
+    private Ledger personal;
+    private Account checking;
+    private JournalEntry lunch;
     private Ledger group;
     private Account anaInTheGroup;
     private Account joaoInTheGroup;
@@ -70,10 +75,16 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
     @BeforeEach
     void anaHasHerOwnLedgerAndIsInAGroup() {
         ana = signedInUser();
-        checking = createAccount("Everyday checking", 100000);
-        lunch = record("""
-                {"type": "EXPENSE", "amount": {"amountMinor": 1250, "currency": "EUR"}, "occurredOn": "%s",
-                 "description": "Lunch", "categoryId": "%s", "accountId": "%s"}""".formatted(OCTOBER_20, categoryOf("food"), checking));
+        personal = ledger.findLedger(LedgerOwner.user(ana)).orElseThrow();
+        // A checking account and a 12.50 lunch, as the accounts and transactions APIs record them.
+        checking = ledger.openAccount(
+                new NewAccount(personal.id(), AccountKind.ASSET, "checking", "Everyday checking", EUR));
+        lunch = ledger.post(new NewJournalEntry(
+                personal.id(),
+                OCTOBER_20,
+                "Lunch",
+                ana,
+                List.of(new Posting(categoryOf("food"), eur(1250)), posting(checking, -1250))));
 
         group = ledger.openLedger(LedgerOwner.group(UUID.randomUUID()));
         anaInTheGroup = member("Ana");
@@ -93,23 +104,19 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
                 .hasStatusOk()
                 .bodyJson()
                 .extractingPath("$.items[*].id")
-                .isEqualTo(List.of(checking.toString()));
+                .isEqualTo(List.of(checking.id().toString()));
     }
 
     @Test
     void herCategoriesAreOnlyHerOwn() {
-        List<String> ownCategories =
-                ledger
-                        .accounts(ledger.findLedger(LedgerOwner.user(ana))
-                                .orElseThrow()
-                                .id())
-                        .stream()
-                        .filter(account ->
-                                account.kind() == AccountKind.EXPENSE || account.kind() == AccountKind.INCOME)
-                        .map(account -> account.id().toString())
-                        .toList();
+        List<String> ownCategories = ledger.accounts(personal.id()).stream()
+                .filter(account -> account.kind() == AccountKind.EXPENSE || account.kind() == AccountKind.INCOME)
+                .map(account -> account.id().toString())
+                .toList();
+        MvcTestResult categories = get("/v1/categories");
+        assertThat(categories).hasStatusOk();
 
-        List<String> listed = JsonPath.read(bodyOf(get("/v1/categories")), "$.items[*].id");
+        List<String> listed = JsonPath.read(bodyOf(categories), "$.items[*].id");
 
         assertThat(listed).isNotEmpty().containsExactlyInAnyOrderElementsOf(ownCategories);
     }
@@ -119,7 +126,7 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
         var body =
                 assertThat(get("/v1/transactions?month=2026-10")).hasStatusOk().bodyJson();
 
-        body.extractingPath("$.items[*].id").isEqualTo(List.of(lunch.toString()));
+        body.extractingPath("$.items[*].id").isEqualTo(List.of(lunch.id().toString()));
         body.extractingPath("$.summary.count").isEqualTo(1);
         body.extractingPath("$.summary.spending.amountMinor").isEqualTo(1250);
         assertThat(get("/v1/transactions/" + dinner.id())).hasStatus(HttpStatus.NOT_FOUND);
@@ -148,33 +155,8 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
         return userId;
     }
 
-    private UUID createAccount(String name, long openingBalance) {
-        return idOf(created(mvc.post()
-                .uri("/v1/accounts")
-                .with(user(ana.toString()))
-                .with(csrf())
-                .header("Idempotency-Key", UUID.randomUUID().toString())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"name": "%s", "type": "CHECKING", "currency": "EUR",
-                         "openingBalance": {"amountMinor": %d, "currency": "EUR"}}""".formatted(name, openingBalance))
-                .exchange()));
-    }
-
-    private UUID record(String body) {
-        return idOf(created(mvc.post()
-                .uri("/v1/transactions")
-                .with(user(ana.toString()))
-                .with(csrf())
-                .header("Idempotency-Key", UUID.randomUUID().toString())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .exchange()));
-    }
-
     private UUID categoryOf(String key) {
-        UUID ledgerId = ledger.findLedger(LedgerOwner.user(ana)).orElseThrow().id();
-        return ledger.accounts(ledgerId).stream()
+        return ledger.accounts(personal.id()).stream()
                 .filter(account -> key.equals(account.subtype()))
                 .map(Account::id)
                 .findFirst()
@@ -190,16 +172,11 @@ class PersonalViewsLeaveOutGroupLedgersTests extends PostgresIntegrationTest {
     }
 
     private static Posting posting(Account account, long minor) {
-        return new Posting(account.id(), new Money(minor, EUR));
+        return new Posting(account.id(), eur(minor));
     }
 
-    private static MvcTestResult created(MvcTestResult result) {
-        assertThat(result).hasStatus(HttpStatus.CREATED);
-        return result;
-    }
-
-    private static UUID idOf(MvcTestResult result) {
-        return UUID.fromString(JsonPath.read(bodyOf(result), "$.id"));
+    private static Money eur(long minor) {
+        return new Money(minor, EUR);
     }
 
     private static String bodyOf(MvcTestResult result) {
