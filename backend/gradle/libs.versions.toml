@@ -11,9 +11,9 @@ jspecify = "1.0.1"
 openapi-generator = "7.27.0"
 jqwik = "1.10.2"
 shedlock = "7.11.0"
-# Must be built for the OpenTelemetry version Spring Boot manages (1.62.0 in Boot 4.1.2);
-# 2.28.x is, newer releases target newer APIs. Update it together with Spring Boot.
-opentelemetry-logback-appender = "2.28.1-alpha"
+# Must be built for the OpenTelemetry version Spring Boot manages (1.68.0 in Boot 4.2.0);
+# 2.34.x is, newer releases target newer APIs. Update it together with Spring Boot.
+opentelemetry-logback-appender = "2.34.0-alpha"
 
 [libraries]
 # Versions of Spring Boot starters come from the Spring Boot BOM.
