@@ -425,7 +425,10 @@ the first transaction and then does nothing instead of failing the sign-in.
 - Frontend `app.<domain>` and API `api.<domain>` on the same site. CORS allowlist with
   credentials. CSRF protection with `CookieCsrfTokenRepository`: the SPA sends `X-XSRF-TOKEN`.
 - Authorization in every use case: a user only reaches ledgers they own or groups they belong to.
-  Integration tests cover cross-tenant access explicitly.
+  `CrossTenantAuthorizationTests` reads `api/openapi.yaml` and needs a case for every id a request
+  can carry (path, query or body): another user, someone outside a group, a former member, and the
+  owner using an id of the wrong ledger all get the answer of an id that does not exist, and nothing
+  is written. A child id under its parent's path must also be tried under another parent.
 - Group invite links carry a 256-bit token that only travels in the link's fragment and in
   request bodies. The database keeps its SHA-256; links expire after 7 days and can be revoked; a
   link lets someone into a group, never into the app ([ADR-0013](adr/0013-group-invites.md)).

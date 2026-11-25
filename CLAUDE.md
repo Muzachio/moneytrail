@@ -76,7 +76,9 @@ included, so private data must never reach a commit.
 ## Testing expectations
 - New domain logic: unit tests, plus jqwik properties for anything arithmetic.
 - New persistence or endpoints: Testcontainers integration test (real Postgres, no H2).
-- Authorization: test that another user's resources return `404`.
+- Authorization: another user's resources answer like an id that does not exist (`404`, or the
+  `422 …_not_found` of a body or query id). `CrossTenantAuthorizationTests` reads `api/openapi.yaml`
+  and fails until every id a request can carry has a case there: add one with each new endpoint.
 - Run `./gradlew build` before declaring work done.
 
 ## Workflow
