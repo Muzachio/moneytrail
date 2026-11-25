@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.personal.internal;
 import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.Money;
+import io.github.muzachio.moneytrail.shared.TypedText;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -105,9 +106,9 @@ sealed interface Movement {
         }
     }
 
-    // The schema refuses blank descriptions, but its pattern only knows ASCII spaces; strip() knows all.
+    // The schema refuses blank descriptions, but Java's validator reads its \s as ASCII spaces only.
     private static String clean(String description) {
-        String stripped = description.strip();
+        String stripped = TypedText.strip(description);
         if (stripped.isEmpty()) {
             throw TransactionException.badRequest("A transaction needs a description.");
         }

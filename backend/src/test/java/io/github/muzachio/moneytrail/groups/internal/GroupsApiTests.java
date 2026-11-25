@@ -53,7 +53,6 @@ class GroupsApiTests extends PostgresIntegrationTest {
 
     private static final String GROUPS = "/v1/groups";
     private static final Currency EUR = Currency.getInstance("EUR");
-    private static final String EM_SPACE = String.valueOf((char) 0x2003);
 
     @Autowired
     private MockMvcTester mvc;
@@ -111,6 +110,16 @@ class GroupsApiTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void stripsNoBreakSpacesAroundANameAndKeepsTheOnesInside() {
+        assertThat(create(ana, newKey(), """
+                        {"name": "\\u00a0Porto\\u00a0weekend\\u202f"}"""))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.name")
+                .isEqualTo("Porto\u00a0weekend");
+    }
+
+    @Test
     void takesTheCurrencyItIsGiven() {
         assertThat(create(ana, newKey(), """
                         {"name": "Flat", "currency": "EUR"}"""))
@@ -146,8 +155,10 @@ class GroupsApiTests extends PostgresIntegrationTest {
                 {"name": "Porto weekend"}"""));
         assertBadRequest(create(ana, newKey(), """
                 {"name": "   "}"""));
-        // An em space: the schema's pattern only knows ASCII spaces, strip() removes it.
-        assertBadRequest(create(ana, newKey(), "{\"name\": \"" + EM_SPACE + "\"}"));
+        // An em space and two no-break spaces: Java's validator reads the schema's \s as ASCII spaces only.
+        for (String blank : List.of("\\u2003", "\\u00a0", "\\u202f")) {
+            assertBadRequest(create(ana, newKey(), "{\"name\": \"" + blank + "\"}"));
+        }
         assertBadRequest(create(ana, newKey(), """
                 {}"""));
     }
@@ -261,6 +272,10 @@ class GroupsApiTests extends PostgresIntegrationTest {
         assertBadRequest(patch(ana, flat, "{}"));
         assertBadRequest(patch(ana, flat, """
                 {"name": " "}"""));
+        assertBadRequest(patch(ana, flat, """
+                {"name": "\\u00a0"}"""));
+        assertBadRequest(patch(ana, flat, """
+                {"name": "\\u202f"}"""));
     }
 
     @Test

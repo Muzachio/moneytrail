@@ -100,6 +100,15 @@ class TransactionsApiTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void stripsNoBreakSpacesAroundADescriptionAndKeepsTheOnesInside() {
+        assertThat(post(ana, newKey(), expense(food, checking, 2750, "\\u00a0Dinner\\u00a0out\\u202f")))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.description")
+                .isEqualTo("Dinner\u00a0out");
+    }
+
+    @Test
     void recordsAnIncomeAsACreditToTheCategoryAndADebitToTheAccount() {
         MvcTestResult created = post(ana, newKey(), income(salary, checking, 187499, "October salary"));
 
@@ -230,6 +239,10 @@ class TransactionsApiTests extends PostgresIntegrationTest {
                         + " 'description': '   ', 'categoryId': '{food}', 'accountId': '{checking}'}",
                 "{'type': 'EXPENSE', 'amount': {'amountMinor': 980, 'currency': 'EUR'}, 'occurredOn': '2026-10-22',"
                         + " 'description': '\\u2003', 'categoryId': '{food}', 'accountId': '{checking}'}",
+                "{'type': 'EXPENSE', 'amount': {'amountMinor': 980, 'currency': 'EUR'}, 'occurredOn': '2026-10-22',"
+                        + " 'description': '\\u00a0', 'categoryId': '{food}', 'accountId': '{checking}'}",
+                "{'type': 'EXPENSE', 'amount': {'amountMinor': 980, 'currency': 'EUR'}, 'occurredOn': '2026-10-22',"
+                        + " 'description': '\\u202f', 'categoryId': '{food}', 'accountId': '{checking}'}",
                 // The type and the properties it takes.
                 "{'amount': {'amountMinor': 980, 'currency': 'EUR'}, 'occurredOn': '2026-10-22',"
                         + " 'description': 'Lunch', 'categoryId': '{food}', 'accountId': '{checking}'}",
