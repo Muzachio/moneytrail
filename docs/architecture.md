@@ -244,6 +244,13 @@ to zero. The split (method, and each person's input and share) is kept by `group
 correction as for personal transactions, and the trail shows who made each version. A member
 leaves only with a balance of zero.
 
+Only members reach a group: anyone else, someone who left included, gets `404`. Members see each
+other by name and photo, through `identity`'s `UserProfiles`, never by email. Two checks must not
+race with a posting: archiving locks the group's row `FOR UPDATE` while it checks that every balance
+is zero, and leaving locks the member's row `FOR UPDATE` while it checks theirs. An expense or a
+payment locks the group's row and its members' rows `FOR SHARE` before posting, so each waits for
+the other and neither check reads a balance that is about to change.
+
 People join through an invite link that holds a random token. The database keeps only its
 SHA-256, and the token travels in the link's fragment and in request bodies, never in a URL the
 server sees. A link lets someone into a group, never into the app
