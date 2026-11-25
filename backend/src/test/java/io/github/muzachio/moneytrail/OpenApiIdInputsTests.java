@@ -62,6 +62,16 @@ class OpenApiIdInputsTests {
                       properties:
                         userId: {type: string, format: uuid}
                         createdBy: {type: string, format: uuid, readOnly: true}
+                    members:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          userId: {type: string, format: uuid}
+                          share: {type: integer}
+                    tagIds:
+                      type: array
+                      items: {$ref: '#/components/schemas/Id'}
                 Draft:
                   type: object
                   properties:
@@ -75,8 +85,10 @@ class OpenApiIdInputsTests {
         assertThat(OpenApiIdInputs.parse(SPEC))
                 .containsExactly(
                         new IdInput("createThing", "body.accountId", false),
+                        new IdInput("createThing", "body.members[].userId", false),
                         new IdInput("createThing", "body.owner.userId", false),
                         new IdInput("createThing", "body.replacement.accountId", false),
+                        new IdInput("createThing", "body.tagIds[]", false),
                         new IdInput("getExpense", "path.expenseId", true),
                         new IdInput("getExpense", "path.id", false),
                         new IdInput("listThings", "query.ownerId", false));

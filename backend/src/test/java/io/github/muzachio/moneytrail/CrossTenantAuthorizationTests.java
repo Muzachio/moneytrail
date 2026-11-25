@@ -13,9 +13,6 @@ import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.NewAccount;
-import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
-import io.github.muzachio.moneytrail.ledger.Posting;
-import io.github.muzachio.moneytrail.shared.Money;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -66,13 +63,20 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         CATEGORY,
         TRANSACTION,
         GROUP,
-        INVITE
+        INVITE,
+        /** A user named as a member of Ana's group, who paid an expense or is in its split. */
+        MEMBER,
+        /** An expense under the path of Ana's group. */
+        EXPENSE
     }
 
-    /** One request carrying {@code id} where the case says, sent by {@code by}, whose own data fills the rest. */
+    /**
+     * One request carrying {@code id} where the case says, sent by {@code by}, whose own data fills the
+     * rest. A request about a group's member or expense goes to Ana's group, {@code f.group()}.
+     */
     @FunctionalInterface
     interface Request {
-        MvcTestResult send(Person by, UUID id);
+        MvcTestResult send(Fixture f, Person by, UUID id);
     }
 
     /**
@@ -107,9 +111,10 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
 
     /**
      * Ana owns everything. Bea is another user, a stranger to Ana's group. Rita was a member of the
-     * group and left. Ana's account in the group's ledger and an entry of that ledger are ids of the
-     * wrong ledger for her personal requests. Ana is in a second group too, whose children must not
-     * be reached under the first group's path. {@code invite} is a link to Ana's own group.
+     * group and left. Ana's account in the group's ledger and an expense of the group are ids of the
+     * wrong ledger for her personal requests, and the reversal of another expense is an entry of the
+     * group that is not an expense. Ana is in a second group too, whose children must not be reached
+     * under the first group's path. {@code invite} is a link to Ana's own group.
      */
     record Fixture(
             Person ana,
@@ -117,7 +122,8 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             Person rita,
             UUID group,
             UUID groupAccount,
-            UUID groupEntry,
+            UUID groupExpense,
+            UUID groupReversal,
             UUID otherGroup,
             UUID invite) {}
 
@@ -141,80 +147,138 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
     private final Map<String, Case> cases = Map.ofEntries(
             entry(
                     "updateAccount path.id",
-                    new Case(Kind.ACCOUNT, (by, id) -> patch("/v1/accounts/" + id, by.id(), """
+                    new Case(Kind.ACCOUNT, (f, by, id) -> patch("/v1/accounts/" + id, by.id(), """
                     {"name": "Taken"}"""))),
             entry(
                     "updateCategory path.id",
-                    new Case(Kind.CATEGORY, (by, id) -> patch("/v1/categories/" + id, by.id(), """
+                    new Case(Kind.CATEGORY, (f, by, id) -> patch("/v1/categories/" + id, by.id(), """
                     {"name": "Taken"}"""))),
             entry(
                     "listTransactions query.accountId",
-                    new Case(Kind.ACCOUNT, (by, id) -> get("/v1/transactions?accountId=" + id, by.id()))),
+                    new Case(Kind.ACCOUNT, (f, by, id) -> get("/v1/transactions?accountId=" + id, by.id()))),
             entry(
                     "listTransactions query.categoryId",
-                    new Case(Kind.CATEGORY, (by, id) -> get("/v1/transactions?categoryId=" + id, by.id()))),
+                    new Case(Kind.CATEGORY, (f, by, id) -> get("/v1/transactions?categoryId=" + id, by.id()))),
             entry(
                     "createTransaction body.accountId",
-                    new Case(Kind.ACCOUNT, (by, id) -> post("/v1/transactions", by.id(), expense(by.category(), id)))),
+                    new Case(
+                            Kind.ACCOUNT,
+                            (f, by, id) -> post("/v1/transactions", by.id(), expense(by.category(), id)))),
             entry(
                     "createTransaction body.categoryId",
-                    new Case(Kind.CATEGORY, (by, id) -> post("/v1/transactions", by.id(), expense(id, by.account())))),
+                    new Case(
+                            Kind.CATEGORY,
+                            (f, by, id) -> post("/v1/transactions", by.id(), expense(id, by.account())))),
             entry(
                     "createTransaction body.fromAccountId",
                     new Case(
                             Kind.ACCOUNT,
-                            (by, id) -> post("/v1/transactions", by.id(), transfer(id, by.otherAccount())))),
+                            (f, by, id) -> post("/v1/transactions", by.id(), transfer(id, by.otherAccount())))),
             entry(
                     "createTransaction body.toAccountId",
                     new Case(
                             Kind.ACCOUNT,
-                            (by, id) -> post("/v1/transactions", by.id(), transfer(by.otherAccount(), id)))),
+                            (f, by, id) -> post("/v1/transactions", by.id(), transfer(by.otherAccount(), id)))),
             entry(
                     "getTransaction path.id",
-                    new Case(Kind.TRANSACTION, (by, id) -> get("/v1/transactions/" + id, by.id()))),
+                    new Case(Kind.TRANSACTION, (f, by, id) -> get("/v1/transactions/" + id, by.id()))),
             entry(
                     "reverseTransaction path.id",
-                    new Case(Kind.TRANSACTION, (by, id) -> post("/v1/transactions/" + id + "/reverse", by.id(), "{}"))),
+                    new Case(
+                            Kind.TRANSACTION,
+                            (f, by, id) -> post("/v1/transactions/" + id + "/reverse", by.id(), "{}"))),
             entry(
                     "reverseTransaction body.replacement.accountId",
-                    new Case(Kind.ACCOUNT, (by, id) -> reverse(by, expense(by.category(), id)))),
+                    new Case(Kind.ACCOUNT, (f, by, id) -> reverse(by, expense(by.category(), id)))),
             entry(
                     "reverseTransaction body.replacement.categoryId",
-                    new Case(Kind.CATEGORY, (by, id) -> reverse(by, expense(id, by.account())))),
+                    new Case(Kind.CATEGORY, (f, by, id) -> reverse(by, expense(id, by.account())))),
             entry(
                     "reverseTransaction body.replacement.fromAccountId",
-                    new Case(Kind.ACCOUNT, (by, id) -> reverse(by, transfer(id, by.otherAccount())))),
+                    new Case(Kind.ACCOUNT, (f, by, id) -> reverse(by, transfer(id, by.otherAccount())))),
             entry(
                     "reverseTransaction body.replacement.toAccountId",
-                    new Case(Kind.ACCOUNT, (by, id) -> reverse(by, transfer(by.otherAccount(), id)))),
-            entry("getGroup path.id", new Case(Kind.GROUP, (by, id) -> get("/v1/groups/" + id, by.id()))),
-            entry("updateGroup path.id", new Case(Kind.GROUP, (by, id) -> patch("/v1/groups/" + id, by.id(), """
+                    new Case(Kind.ACCOUNT, (f, by, id) -> reverse(by, transfer(by.otherAccount(), id)))),
+            entry("getGroup path.id", new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id, by.id()))),
+            entry("updateGroup path.id", new Case(Kind.GROUP, (f, by, id) -> patch("/v1/groups/" + id, by.id(), """
                     {"name": "Taken", "archived": true}"""))),
             entry(
                     "leaveGroup path.id",
-                    new Case(Kind.GROUP, (by, id) -> post("/v1/groups/" + id + "/leave", by.id(), null))),
+                    new Case(Kind.GROUP, (f, by, id) -> post("/v1/groups/" + id + "/leave", by.id(), null))),
             entry(
                     "createInvite path.id",
-                    new Case(Kind.GROUP, (by, id) -> post("/v1/groups/" + id + "/invites", by.id(), null))),
+                    new Case(Kind.GROUP, (f, by, id) -> post("/v1/groups/" + id + "/invites", by.id(), null))),
             entry(
                     "listInvites path.id",
-                    new Case(Kind.GROUP, (by, id) -> get("/v1/groups/" + id + "/invites", by.id()))),
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/invites", by.id()))),
             // The group is what is tried here, so any link id will do: a member gets invite_not_found.
             entry(
                     "revokeInvite path.id",
                     new Case(
                             Kind.GROUP,
-                            (by, id) -> delete("/v1/groups/" + id + "/invites/" + UUID.randomUUID(), by.id()))),
+                            (f, by, id) -> delete("/v1/groups/" + id + "/invites/" + UUID.randomUUID(), by.id()))),
             entry(
                     "revokeInvite path.inviteId",
                     new Case(
                             Kind.INVITE,
-                            (by, id) -> delete("/v1/groups/" + by.group() + "/invites/" + id, by.id()),
+                            (f, by, id) -> delete("/v1/groups/" + by.group() + "/invites/" + id, by.id()),
                             new MixedParents(
                                     (owner, groupId) ->
                                             idOf(post("/v1/groups/" + groupId + "/invites", owner.id(), null)),
                                     (by, groupId, inviteId) ->
-                                            delete("/v1/groups/" + groupId + "/invites/" + inviteId, by.id())))));
+                                            delete("/v1/groups/" + groupId + "/invites/" + inviteId, by.id())))),
+            entry(
+                    "listGroupExpenses path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/expenses", by.id()))),
+            entry(
+                    "createGroupExpense path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) ->
+                                    post("/v1/groups/" + id + "/expenses", by.id(), groupExpense(by.id(), by.id())))),
+            entry(
+                    "createGroupExpense body.paidBy",
+                    new Case(Kind.MEMBER, (f, by, id) -> post(expenses(f), by.id(), groupExpense(id, by.id())))),
+            entry(
+                    "createGroupExpense body.split.members[].userId",
+                    new Case(Kind.MEMBER, (f, by, id) -> post(expenses(f), by.id(), groupExpense(by.id(), id)))),
+            entry(
+                    "getGroupExpense path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) -> get("/v1/groups/" + id + "/expenses/" + f.groupExpense(), by.id()))),
+            entry(
+                    "getGroupExpense path.expenseId",
+                    new Case(
+                            Kind.EXPENSE,
+                            (f, by, id) -> get(expenses(f) + "/" + id, by.id()),
+                            new MixedParents(
+                                    this::expenseIn,
+                                    (by, groupId, childId) ->
+                                            get("/v1/groups/" + groupId + "/expenses/" + childId, by.id())))),
+            entry(
+                    "reverseGroupExpense path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) -> post(
+                                    "/v1/groups/" + id + "/expenses/" + f.groupExpense() + "/reverse", by.id(), "{}"))),
+            entry(
+                    "reverseGroupExpense path.expenseId",
+                    new Case(
+                            Kind.EXPENSE,
+                            (f, by, id) -> post(expenses(f) + "/" + id + "/reverse", by.id(), "{}"),
+                            new MixedParents(
+                                    this::expenseIn,
+                                    (by, groupId, childId) -> post(
+                                            "/v1/groups/" + groupId + "/expenses/" + childId + "/reverse",
+                                            by.id(),
+                                            "{}")))),
+            entry(
+                    "reverseGroupExpense body.replacement.paidBy",
+                    new Case(Kind.MEMBER, (f, by, id) -> reverseGroupExpense(f, by, groupExpense(id, by.id())))),
+            entry(
+                    "reverseGroupExpense body.replacement.split.members[].userId",
+                    new Case(Kind.MEMBER, (f, by, id) -> reverseGroupExpense(f, by, groupExpense(by.id(), id)))));
 
     @Test
     void everyIdARequestCanCarryHasACase() throws IOException {
@@ -244,9 +308,9 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
     }
 
     /**
-     * No path has a child id until #88, so the mixed-parents check is tried here on a stand-in for a
-     * nested endpoint that ignores its parent: it finds another group's child under any path, which
-     * the check must report.
+     * The real nested endpoints refuse another group's child, so the mixed-parents check is also tried
+     * on a stand-in for one that ignores its parent: it finds another group's child under any path,
+     * which the check must report.
      */
     @Test
     void theMixedParentsCheckReportsAChildFoundUnderAnotherGroup() {
@@ -277,13 +341,13 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             checkMixedParents(mixedParents, fixture, softly);
         }
         for (Attempt attempt : attempts(testCase.kind(), fixture)) {
-            Answer unknown = Answer.of(testCase.request().send(attempt.by(), UUID.randomUUID()));
+            Answer unknown = Answer.of(testCase.request().send(fixture, attempt.by(), UUID.randomUUID()));
             softly.assertThat(unknown.code())
                     .as("%s: an unknown id answers a not-found code", attempt.who())
                     .endsWith("_not_found");
 
             String before = snapshot();
-            Answer answer = Answer.of(testCase.request().send(attempt.by(), attempt.id()));
+            Answer answer = Answer.of(testCase.request().send(fixture, attempt.by(), attempt.id()));
             softly.assertThat(answer)
                     .as("%s: answered like an unknown id", attempt.who())
                     .isEqualTo(unknown);
@@ -291,8 +355,8 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                     .as("%s: nothing written", attempt.who())
                     .isEqualTo(before);
         }
-        Answer unknown = Answer.of(testCase.request().send(fixture.ana(), UUID.randomUUID()));
-        Answer own = Answer.of(testCase.request().send(fixture.ana(), own(testCase.kind(), fixture)));
+        Answer unknown = Answer.of(testCase.request().send(fixture, fixture.ana(), UUID.randomUUID()));
+        Answer own = Answer.of(testCase.request().send(fixture, fixture.ana(), own(testCase.kind(), fixture)));
         softly.assertThat(own).as("the owner's own id is found").isNotEqualTo(unknown);
         softly.assertAll();
     }
@@ -337,7 +401,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                 List.of(
                         new Attempt(
                                 "another user's transaction", f.bea(), f.ana().transaction()),
-                        new Attempt("a member using an entry of the group's ledger", f.ana(), f.groupEntry()));
+                        new Attempt("a member using an expense of the group", f.ana(), f.groupExpense()));
             case GROUP ->
                 List.of(
                         new Attempt("someone outside the group", f.bea(), f.group()),
@@ -347,6 +411,26 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                                 f.ana(),
                                 f.ana().account()));
             case INVITE -> List.of(new Attempt("another user's link, under a group of their own", f.bea(), f.invite()));
+            case MEMBER ->
+                List.of(
+                        new Attempt(
+                                "a member naming someone outside the group",
+                                f.ana(),
+                                f.bea().id()),
+                        new Attempt(
+                                "a member naming a former member",
+                                f.ana(),
+                                f.rita().id()),
+                        new Attempt("a member naming a member account", f.ana(), f.groupAccount()));
+            case EXPENSE ->
+                List.of(
+                        new Attempt("someone outside the group", f.bea(), f.groupExpense()),
+                        new Attempt("a former member", f.rita(), f.groupExpense()),
+                        new Attempt(
+                                "a member using a personal transaction as an expense",
+                                f.ana(),
+                                f.ana().transaction()),
+                        new Attempt("a member using a reversal as an expense", f.ana(), f.groupReversal()));
         };
     }
 
@@ -357,6 +441,8 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             case TRANSACTION -> f.ana().transaction();
             case GROUP -> f.group();
             case INVITE -> f.invite();
+            case MEMBER -> f.ana().id();
+            case EXPENSE -> f.groupExpense();
         };
     }
 
@@ -393,6 +479,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                              FROM category_keys),
                             (SELECT string_agg(id::text || ':' || coalesce(revoked_at::text, ''), ',' ORDER BY id)
                              FROM group_invites),
+                            (SELECT count(*) FROM expense_splits),
                             (SELECT count(*) FROM idempotency_keys))""").query(String.class).single();
     }
 
@@ -413,20 +500,43 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                         .getResponse()
                         .getStatus())
                 .isEqualTo(204);
-        // Joao paid 10.00 for Ana: an entry of the group's ledger, as an expense will post (#88).
-        UUID groupEntry = ledger.post(new NewJournalEntry(
-                        groupLedger,
-                        today(),
-                        "Dinner",
-                        joao,
-                        List.of(
-                                new Posting(memberAccount(group, joao), new Money(1000, EUR)),
-                                new Posting(groupAccount, new Money(-1000, EUR)))))
-                .id();
+        // João paid 10.00 for Ana, twice; the second expense was reversed.
+        String expenses = "/v1/groups/" + group + "/expenses";
+        UUID groupExpense = idOf(post(expenses, joao, groupExpense(joao, ana.id())));
+        UUID reversed = idOf(post(expenses, joao, groupExpense(joao, ana.id())));
+        MvcTestResult reversal = post(expenses + "/" + reversed + "/reverse", joao, "{}");
+        assertThat(reversal.getResponse().getStatus())
+                .as("setting up the fixture")
+                .isEqualTo(200);
+        String reversalId = JsonPath.read(
+                new String(reversal.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8),
+                "$.trail[1].entryId");
         UUID otherGroup = idOf(post("/v1/groups", ana.id(), """
                 {"name": "Trip"}"""));
         UUID invite = idOf(post("/v1/groups/" + ana.group() + "/invites", ana.id(), null));
-        return new Fixture(ana, bea, rita, group, groupAccount, groupEntry, otherGroup, invite);
+        return new Fixture(
+                ana, bea, rita, group, groupAccount, groupExpense, UUID.fromString(reversalId), otherGroup, invite);
+    }
+
+    /** An expense that {@code owner} paid for themselves in {@code groupId}, recorded through the API. */
+    private UUID expenseIn(Person owner, UUID groupId) {
+        return idOf(post("/v1/groups/" + groupId + "/expenses", owner.id(), groupExpense(owner.id(), owner.id())));
+    }
+
+    private MvcTestResult reverseGroupExpense(Fixture f, Person by, String replacement) {
+        return post(
+                expenses(f) + "/" + f.groupExpense() + "/reverse", by.id(), "{\"replacement\": " + replacement + "}");
+    }
+
+    private static String expenses(Fixture f) {
+        return "/v1/groups/" + f.group() + "/expenses";
+    }
+
+    /** 10.00 paid by {@code paidBy}, all of it {@code member}'s. */
+    private static String groupExpense(UUID paidBy, UUID member) {
+        return """
+                {"amount": {"amountMinor": 1000, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner",
+                 "paidBy": "%s", "split": {"method": "EQUALLY", "members": [{"userId": "%s"}]}}""".formatted(today(), paidBy, member);
     }
 
     /** A user with a personal ledger, two accounts, an expense category, one expense and a group. */

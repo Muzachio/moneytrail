@@ -31,6 +31,10 @@ tags:
     description: The signed-in user's expenses, income and transfers between their accounts.
   - name: reports
     description: Sums of the signed-in user's income and spending, for the dashboard.
+  - name: group-expenses
+    description: |
+      What the members of a group paid, and how each expense is split among them
+      (docs/adr/0012-groups-on-the-ledger.md).
   - name: groups
     description: The groups the signed-in user belongs to, where friends share expenses, and their members.
   - name: invites
@@ -582,6 +586,167 @@ paths:
           $ref: '#/components/responses/GroupNotFound'
         '409':
           $ref: '#/components/responses/GroupNotSettled'
+  /v1/groups/{id}/expenses:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: listGroupExpenses
+      tags: [group-expenses]
+      summary: List a group's expenses, newest first
+      description: |
+        The current version of each of the group's expenses, newest first: by `occurredOn`, then by
+        when they were recorded. Reversed expenses and old versions of edited ones are left out, and
+        so are reversals; an edited expense shows its current version with `edited: true`.
+
+        A page holds at most `limit` expenses; when there are more, `nextCursor` is set, and sending
+        it back as `cursor` gives the next page. The cursor marks the last expense of the page
+        (keyset pagination on `occurredOn` and the id, never an offset), so an expense recorded while
+        paging is neither repeated nor skipped because of it. Anyone who is not a member gets `404`.
+      parameters:
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 100
+        - name: limit
+          in: query
+          description: How many expenses a page holds at most.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: A page of the group's expenses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupExpensePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+    post:
+      operationId: createGroupExpense
+      tags: [group-expenses]
+      summary: Record an expense that one member paid, split among members
+      description: |
+        Records the expense as one balanced journal entry of the group's ledger
+        (docs/adr/0012-groups-on-the-ledger.md): the member who paid is owed the total (`+total`),
+        and each person in the split owes their share (`−share`). The payer does not have to be in
+        the split. Who paid and everyone in the split must be members now: someone who left the
+        group answers like an unknown member.
+
+        The shares always add up to the total. Splitting equally, by shares or by percentages
+        divides it by the largest-remainder method: everyone gets their whole part of the cents, and
+        the few cents left over go one each to the largest remainders, ties to the member id that
+        comes first as text. Exact amounts are used as they are and must add up to the total. A
+        share of zero, such as two cents split three ways, is kept in the split but posts nothing.
+
+        An archived group takes no new expenses. It moves money, so it takes an `Idempotency-Key`: a
+        retry gets the first response again and records nothing twice.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGroupExpense'
+      responses:
+        '201':
+          description: The recorded expense.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupExpense'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/GroupExpenseConflict'
+        '422':
+          $ref: '#/components/responses/GroupExpenseRefused'
+  /v1/groups/{id}/expenses/{expenseId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/ExpenseId'
+    get:
+      operationId: getGroupExpense
+      tags: [group-expenses]
+      summary: Get an expense with its split and its trail
+      description: |
+        The expense, how it is split among the members, and its trail: every version of it and every
+        reversal, oldest first, each with the member who made it. An old version of an edited
+        expense can be read too; it says that it was reversed and which version is the current one.
+      responses:
+        '200':
+          description: The expense.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupExpenseDetail'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupExpenseNotFound'
+  /v1/groups/{id}/expenses/{expenseId}/reverse:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/ExpenseId'
+    post:
+      operationId: reverseGroupExpense
+      tags: [group-expenses]
+      summary: Reverse an expense, or edit it by reversing it and recording its correction
+      description: |
+        Nothing in the ledger is ever changed or deleted. Reversing posts the exact opposite of the
+        expense's entry, dated the same day and linked to it, so every member's balance goes back to
+        what it would have been without it. With a `replacement`, the corrected expense is recorded
+        in the same database transaction: this is how an expense is edited, and the replacement
+        follows the rules of a new one.
+
+        Any member can reverse or edit any expense of the group, not only who recorded it; the trail
+        shows who made each version. An expense is reversed at most once, so reversing it again, or
+        an old version of an edited one, answers `409`. So does an expense that moves the balance of
+        someone who left the group, since changing it would change the balance of a person who is not
+        in it any more, and any expense of an archived group.
+
+        It moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupExpenseReversal'
+      responses:
+        '200':
+          description: |
+            The correction when a `replacement` was sent, otherwise the reversed expense; both with
+            their trail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupExpenseDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupExpenseNotFound'
+        '409':
+          $ref: '#/components/responses/GroupExpenseConflict'
+        '422':
+          $ref: '#/components/responses/GroupExpenseRefused'
   /v1/groups/{id}/leave:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -757,6 +922,14 @@ components:
       name: id
       in: path
       required: true
+      schema:
+        type: string
+        format: uuid
+    ExpenseId:
+      name: expenseId
+      in: path
+      required: true
+      description: The id of a version of an expense of the group in the path.
       schema:
         type: string
         format: uuid
@@ -940,6 +1113,61 @@ components:
             status: 400
             detail: The period ends on 2026-05-31, before it starts on 2026-06-01.
             code: invalid_period
+    GroupExpenseNotFound:
+      description: |
+        `group_not_found`: the user is not a member of a group with this id (see `GroupNotFound`).
+        `group_expense_not_found`: the group has no expense with this id. An expense of another
+        group answers the same, even one of the user's other groups, and so does an entry that is
+        not an expense, such as a reversal, which belongs to the trail of the expense it cancels.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no expense with this id in the group.
+            code: group_expense_not_found
+    GroupExpenseConflict:
+      description: |
+        - `group_archived`: an archived group takes no new expenses and no corrections until it is
+          restored.
+        - `group_expense_already_reversed`: the expense was already reversed, by itself or by an
+          edit; only the current version of an edited expense can be reversed or edited.
+        - `group_expense_member_left`: the expense moves the balance of someone who has left the
+          group, who paid it or has a share above zero in it, so it can no longer be reversed or
+          edited.
+        - `idempotency_key_in_use`: see `IdempotencyKeyInUse`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: This expense was already reversed.
+            code: group_expense_already_reversed
+    GroupExpenseRefused:
+      description: |
+        The request is well formed, but the expense cannot be recorded. `code` says why:
+
+        - `member_not_found`: who paid, or someone in the split, is not a member of the group now.
+          Someone who left, or who was never in the group, answers the same as an unknown id.
+        - `currency_mismatch`: the amount is not in the group's currency.
+        - `split_member_twice`: the same member is in the split twice.
+        - `split_percentages_not_100`: the percentages do not add up to 10 000 basis points.
+        - `split_amounts_not_total`: the exact amounts do not add up to the expense's total.
+        - `split_too_many_parts`: the shares add up to more than 10 000.
+        - `idempotency_key_reused`: see `IdempotencyKeyReused`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: The percentages do not add up to 100 %.
+            code: split_percentages_not_100
     GroupNotFound:
       description: |
         The user is not a member of a group with this id: there is none, it belongs to other people,
@@ -1559,6 +1787,193 @@ components:
         net:
           $ref: '#/components/schemas/Money'
           description: '`income` minus `spending`: negative when more was spent than received.'
+    SplitMethod:
+      type: string
+      enum: [EQUALLY, SHARES, PERCENTAGES, EXACT_AMOUNTS]
+      description: |
+        How an expense is divided among the people in it (docs/adr/0012-groups-on-the-ledger.md):
+        `EQUALLY`; by `SHARES`, whole numbers such as 2 for a couple and 1 for someone alone; by
+        `PERCENTAGES`, in basis points that add up to 10 000 (33.33 % is 3 333); or by
+        `EXACT_AMOUNTS` in minor units, which add up to the total.
+    NewSplitMember:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: A member of the group now.
+        value:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+          description: |
+            Left out when splitting `EQUALLY`, and required otherwise: the member's shares, their
+            percentage in basis points, or their exact amount in minor units.
+          example: 3333
+    NewSplit:
+      type: object
+      required: [method, members]
+      properties:
+        method:
+          $ref: '#/components/schemas/SplitMethod'
+        members:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Everyone who takes part in the expense, each once.
+          items:
+            $ref: '#/components/schemas/NewSplitMember'
+    NewGroupExpense:
+      type: object
+      required: [amount, occurredOn, description, paidBy, split]
+      properties:
+        amount:
+          $ref: '#/components/schemas/PositiveMoney'
+          description: The total, in the group's currency.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the money was spent, which can be in the past.
+          example: '2026-11-14'
+        description:
+          $ref: '#/components/schemas/TransactionDescription'
+        paidBy:
+          type: string
+          format: uuid
+          description: The member who paid the whole amount. They do not have to be in the split.
+        split:
+          $ref: '#/components/schemas/NewSplit'
+    GroupExpenseReversal:
+      type: object
+      description: Send no body, or no `replacement`, to reverse the expense without correcting it.
+      properties:
+        replacement:
+          $ref: '#/components/schemas/NewGroupExpense'
+          description: The corrected expense, recorded together with the reversal.
+    ExpenseShare:
+      type: object
+      required: [userId, value, share]
+      description: One person's part of an expense.
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: A member of the group, or someone who was one when the expense was recorded.
+        value:
+          type: integer
+          format: int64
+          description: What they were given in the split, as in `NewSplitMember`; 1 when splitting `EQUALLY`.
+        share:
+          $ref: '#/components/schemas/Money'
+          description: What they owe of the total, zero or more. The shares add up to the total.
+    ExpenseSplit:
+      type: object
+      required: [method, members]
+      properties:
+        method:
+          $ref: '#/components/schemas/SplitMethod'
+        members:
+          type: array
+          description: Everyone in the split, in the order of their ids as text.
+          items:
+            $ref: '#/components/schemas/ExpenseShare'
+    GroupExpense:
+      type: object
+      required: [id, amount, occurredOn, description, paidBy, split, recordedBy, recordedAt, edited, reversed]
+      description: |
+        One version of an expense: a journal entry of the group's ledger. Look the user ids up in the
+        group's members.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The id of the journal entry.
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: The total, above zero.
+        occurredOn:
+          type: string
+          format: date
+        description:
+          type: string
+        paidBy:
+          type: string
+          format: uuid
+          description: The member who paid the total.
+        split:
+          $ref: '#/components/schemas/ExpenseSplit'
+        recordedBy:
+          type: string
+          format: uuid
+          description: The member who recorded this version, who may be someone other than the payer.
+        recordedAt:
+          type: string
+          format: date-time
+          description: When this version was recorded.
+        edited:
+          type: boolean
+          description: This version is the correction of an earlier one.
+        reversed:
+          type: boolean
+          description: |
+            A later entry cancelled this version, on its own or as part of an edit. Only old versions
+            are reversed: the current version of an expense never is.
+    GroupExpenseTrailStep:
+      type: object
+      required: [entryId, action, amount, recordedBy, recordedAt]
+      properties:
+        entryId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/TrailAction'
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: The total of the version, or of the version a reversal cancels.
+        recordedBy:
+          type: string
+          format: uuid
+          description: The member who recorded the version, or who reversed it.
+        recordedAt:
+          type: string
+          format: date-time
+        reversesEntryId:
+          type: string
+          format: uuid
+          description: Only on `REVERSED` steps, the entry they cancel.
+    GroupExpenseDetail:
+      type: object
+      required: [expense, trail]
+      properties:
+        expense:
+          $ref: '#/components/schemas/GroupExpense'
+        trail:
+          type: array
+          description: |
+            Every version of the expense and every reversal, oldest first. An expense that was never
+            edited or reversed has one step.
+          items:
+            $ref: '#/components/schemas/GroupExpenseTrailStep'
+        currentId:
+          type: string
+          format: uuid
+          description: |
+            The version in effect, which may be this one. Absent when the last version was reversed
+            without a correction.
+    GroupExpensePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: The current version of each expense, newest first.
+          items:
+            $ref: '#/components/schemas/GroupExpense'
+        nextCursor:
+          type: string
+          description: Send it as `cursor` for the next page. Absent on the last page.
     ReportGrouping:
       type: string
       enum: [category, month]

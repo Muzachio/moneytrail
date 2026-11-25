@@ -109,10 +109,17 @@ final class OpenApiIdInputs {
             if (Boolean.TRUE.equals(resolve(propertySchema).get("readOnly"))) {
                 return;
             }
+            String location = prefix + "." + name;
+            Map<String, Object> items = map(resolve(propertySchema).get("items"));
+            if (!items.isEmpty()) {
+                // An array, such as the members of a split: each of its elements carries the id.
+                propertySchema = items;
+                location += "[]";
+            }
             if (isUuid(propertySchema)) {
-                ids.add(prefix + "." + name);
+                ids.add(location);
             } else {
-                ids.addAll(bodyIds(propertySchema, prefix + "." + name, new HashSet<>(seen)));
+                ids.addAll(bodyIds(propertySchema, location, new HashSet<>(seen)));
             }
         });
         return ids;
