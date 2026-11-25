@@ -242,7 +242,15 @@ zero and posts only to the group's own accounts, so the member balances of a gro
 to zero. The split (method, and each person's input and share) is kept by `groups` in
 `expense_splits`. Any member can edit or reverse an expense or a payment, through a reversal and a
 correction as for personal transactions, and the trail shows who made each version. A member
-leaves only with a balance of zero.
+leaves only with a balance of zero, and an expense that moves the balance of someone who left can
+no longer be edited or reversed. Who pays and who is in a split must be members now: anyone else
+answers like an unknown member (`member_not_found`).
+
+An expense's id is its entry's, and each edit gives the expense a new one, as for personal
+transactions. The group's list asks the ledger for the entries in effect of the group's ledger,
+newest first by `(occurred_on, id)`, with no period. Each change to an expense publishes
+`GroupExpenseAdded`, `GroupExpenseEdited` or `GroupExpenseReversed` in its transaction, with what
+the activity feed shows and no email.
 
 Only members reach a group: anyone else, someone who left included, gets `404`. Members see each
 other by name and photo, through `identity`'s `UserProfiles`, never by email. Two checks must not
@@ -306,8 +314,8 @@ group_members    (group_id, user_id, account_id fk accounts, joined_at, left_at,
                   pk(group_id, user_id))
 group_invites    (id uuid pk, group_id, token_hash bytea unique, created_by, created_at,
                   expires_at, revoked_at)
-expense_splits   (entry_id fk, user_id, method text, input bigint, share_minor bigint,
-                  pk(entry_id, user_id))  -- input: 1, the shares, basis points or the amount
+expense_splits   (entry_id fk, user_id, method text, input_value bigint, share_minor bigint,
+                  pk(entry_id, user_id))  -- input_value: 1, the shares, basis points or the amount
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
