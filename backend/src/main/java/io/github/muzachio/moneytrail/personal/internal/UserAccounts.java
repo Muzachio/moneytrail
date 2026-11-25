@@ -6,6 +6,7 @@ import io.github.muzachio.moneytrail.ledger.NewAccount;
 import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.Money;
+import io.github.muzachio.moneytrail.shared.TypedText;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
@@ -125,9 +126,9 @@ class UserAccounts {
         return LocalDate.now(PersonalLedgers.TIME_ZONE);
     }
 
-    // The schema refuses blank names, but its pattern only knows ASCII spaces; strip() knows all.
+    // The schema refuses blank names, but Java's validator reads its \s as ASCII spaces only.
     private static String clean(String name) {
-        String stripped = name.strip();
+        String stripped = TypedText.strip(name);
         if (stripped.isEmpty()) {
             throw AccountException.badRequest("An account needs a name.");
         }

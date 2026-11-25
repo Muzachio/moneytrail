@@ -1,5 +1,7 @@
 package io.github.muzachio.moneytrail.personal.internal;
 
+import io.github.muzachio.moneytrail.shared.TypedText;
+
 /** What a category is called: a name the app knows and translates, or one the person typed. */
 sealed interface Naming {
 
@@ -18,9 +20,9 @@ sealed interface Naming {
 
     record Typed(String text) implements Naming {
 
-        // The schema refuses blank names, but its pattern only knows ASCII spaces; strip() knows all.
+        // The schema refuses blank names, but Java's validator reads its \s as ASCII spaces only.
         public Typed {
-            text = text.strip();
+            text = TypedText.strip(text);
             if (text.isEmpty()) {
                 throw CategoryException.badRequest("A category needs a name.");
             }

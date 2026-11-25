@@ -13,6 +13,7 @@ import io.github.muzachio.moneytrail.ledger.LedgerOwner;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
 import io.github.muzachio.moneytrail.ledger.NewAccount;
 import io.github.muzachio.moneytrail.shared.Money;
+import io.github.muzachio.moneytrail.shared.TypedText;
 import java.time.Instant;
 import java.util.Currency;
 import java.util.List;
@@ -150,9 +151,9 @@ class Groups {
                         .toList());
     }
 
-    // The schema refuses blank names, but its pattern only knows ASCII spaces; strip() knows all.
+    // The schema refuses blank names, but Java's validator reads its \s as ASCII spaces only.
     private static String clean(String name) {
-        String stripped = name.strip();
+        String stripped = TypedText.strip(name);
         if (stripped.isEmpty()) {
             throw GroupException.badRequest("A group needs a name.");
         }

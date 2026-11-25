@@ -155,6 +155,16 @@ class CategoriesApiTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void stripsNoBreakSpacesAroundANameAndKeepsTheOnesInside() {
+        assertThat(post(ana, """
+                        {"kind": "EXPENSE", "name": "\\u00a0Pet\\u00a0food\\u202f"}"""))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.name")
+                .isEqualTo("Pet\u00a0food");
+    }
+
+    @Test
     void createsACategoryCalledByAKnownNameKeptInEnglish() {
         MvcTestResult created = post(ana, """
                 {"kind": "EXPENSE", "key": "gym", "icon": "dumbbell"}""");
@@ -554,6 +564,8 @@ class CategoriesApiTests extends PostgresIntegrationTest {
                 "{\"kind\": \"EXPENSE\", \"name\": \"\"}",
                 "{\"kind\": \"EXPENSE\", \"name\": \"   \"}",
                 "{\"kind\": \"EXPENSE\", \"name\": \" \"}",
+                "{\"kind\": \"EXPENSE\", \"name\": \"\\u00a0\"}",
+                "{\"kind\": \"EXPENSE\", \"name\": \"\\u202f\"}",
                 "{\"kind\": \"EXPENSE\", \"name\": \"123456789012345678901234567890123456789012345678901\"}",
                 "{\"kind\": \"EXPENSE\"}",
                 "{\"name\": \"Pets\"}",
@@ -569,6 +581,8 @@ class CategoriesApiTests extends PostgresIntegrationTest {
             strings = {
                 "{}",
                 "{\"name\": \" \"}",
+                "{\"name\": \"\\u00a0\"}",
+                "{\"name\": \"\\u202f\"}",
                 "{\"archived\": null}",
                 "{\"icon\": null}",
                 "{\"key\": null}",

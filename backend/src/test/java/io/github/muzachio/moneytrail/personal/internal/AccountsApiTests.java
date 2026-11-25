@@ -328,12 +328,24 @@ class AccountsApiTests extends PostgresIntegrationTest {
         assertThat(ledger.accounts(ledgerOf(ana))).noneMatch(Account::archived);
     }
 
+    @Test
+    void stripsNoBreakSpacesAroundANameAndKeepsTheOnesInside() {
+        assertThat(post(ana, newKey(), """
+                        {"name": "\\u00a0Joint\\u00a0account\\u202f", "type": "CHECKING", "currency": "EUR"}"""))
+                .hasStatus(HttpStatus.CREATED)
+                .bodyJson()
+                .extractingPath("$.name")
+                .isEqualTo("Joint\u00a0account");
+    }
+
     @ParameterizedTest
     @ValueSource(
             strings = {
                 "{\"name\": \"\", \"type\": \"CHECKING\", \"currency\": \"EUR\"}",
                 "{\"name\": \"   \", \"type\": \"CHECKING\", \"currency\": \"EUR\"}",
                 "{\"name\": \"\\u2003\", \"type\": \"CHECKING\", \"currency\": \"EUR\"}",
+                "{\"name\": \"\\u00a0\", \"type\": \"CHECKING\", \"currency\": \"EUR\"}",
+                "{\"name\": \"\\u202f\", \"type\": \"CHECKING\", \"currency\": \"EUR\"}",
                 "{\"name\": \"123456789012345678901234567890123456789012345678901\", \"type\": \"CHECKING\","
                         + " \"currency\": \"EUR\"}",
                 "{\"type\": \"CHECKING\", \"currency\": \"EUR\"}",
@@ -363,7 +375,15 @@ class AccountsApiTests extends PostgresIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "{\"name\": \" \"}", "{\"name\": \"\\u2003\"}", "{\"archived\": null}"})
+    @ValueSource(
+            strings = {
+                "{}",
+                "{\"name\": \" \"}",
+                "{\"name\": \"\\u2003\"}",
+                "{\"name\": \"\\u00a0\"}",
+                "{\"name\": \"\\u202f\"}",
+                "{\"archived\": null}"
+            })
     void refusesAnInvalidUpdate(String body) {
         assertBadRequest(patch(ana, create(ana, "CASH", "Wallet", null), body));
     }
