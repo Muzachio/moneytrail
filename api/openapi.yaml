@@ -33,6 +33,8 @@ tags:
     description: Sums of the signed-in user's income and spending, for the dashboard.
   - name: groups
     description: The groups the signed-in user belongs to, where friends share expenses, and their members.
+  - name: invites
+    description: Invite links that let people join a group (docs/adr/0013-group-invites.md).
 security:
   - sessionCookie: []
 paths:
@@ -602,6 +604,127 @@ paths:
           $ref: '#/components/responses/GroupNotFound'
         '409':
           $ref: '#/components/responses/GroupNotSettled'
+  /v1/groups/{id}/invites:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: listInvites
+      tags: [invites]
+      summary: List a group's active invite links
+      description: |
+        The group's links that still work, neither revoked nor expired, newest first, with who made
+        each and when it expires. Never a token: only its SHA-256 is kept, so it cannot be shown again.
+      responses:
+        '200':
+          description: The group's active links.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+    post:
+      operationId: createInvite
+      tags: [invites]
+      summary: Make an invite link to the group
+      description: |
+        Any member can make a link. It works for 7 days, for any number of people, until it is
+        revoked. The token is in this response only: the database keeps its SHA-256. The app puts it
+        after the `#` of its join link (`/join#<token>`), so it never reaches a URL a server sees.
+
+        It moves no money and takes no `Idempotency-Key`: a retry makes another link, which the list
+        shows and any member can revoke.
+      responses:
+        '201':
+          description: The new link, with its token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewInviteLink'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/GroupArchived'
+  /v1/groups/{id}/invites/{inviteId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/InviteId'
+    delete:
+      operationId: revokeInvite
+      tags: [invites]
+      summary: Revoke an invite link
+      description: |
+        Any member can revoke one of the group's links. From then on its token gets the same answer as
+        a token that never existed. Revoking it again answers `404`, like a link that expired.
+      responses:
+        '204':
+          description: The link no longer works.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/InviteNotFound'
+  /v1/invites/lookup:
+    post:
+      operationId: lookUpInvite
+      tags: [invites]
+      summary: See which group an invite link is for
+      description: |
+        What the join page shows before the person joins: the group, who invited them and how many
+        members it has. The token goes in the body, never in a URL, and the person must be signed in,
+        so a forwarded link tells someone the app does not let in nothing at all. It is a `POST`
+        because the token must not be in the URL, but it changes nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteToken'
+      responses:
+        '200':
+          description: The group the link is for.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitePreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/InviteNotValid'
+  /v1/invites/accept:
+    post:
+      operationId: acceptInvite
+      tags: [invites]
+      summary: Join a group through an invite link
+      description: |
+        Makes the signed-in person a member, with a member account in the group's ledger
+        (docs/adr/0012-groups-on-the-ledger.md). Someone who left gets their old account back.
+        Accepting again, or as a member, changes nothing and answers the same, so it takes no
+        `Idempotency-Key`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteToken'
+      responses:
+        '200':
+          description: The group the person is now a member of.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/InviteNotValid'
 components:
   securitySchemes:
     sessionCookie:
@@ -639,6 +762,13 @@ components:
         format: uuid
     GroupId:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InviteId:
+      name: inviteId
       in: path
       required: true
       schema:
@@ -836,6 +966,45 @@ components:
             status: 409
             detail: Your balance in this group is not zero.
             code: member_not_settled
+    GroupArchived:
+      description: An archived group takes no new members, so no new invite links, until it is restored.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: This group is archived.
+            code: group_archived
+    InviteNotFound:
+      description: |
+        `group_not_found`: as for the group's other operations. `invite_not_found`: the group has no
+        active link with this id: there is none, it belongs to another group, it was revoked or it
+        expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: This group has no active invite link with this id.
+            code: invite_not_found
+    InviteNotValid:
+      description: |
+        The token opens no group: no link has it, or its link was revoked, expired, or belongs to a
+        group that was archived. All of them answer the same, so trying tokens teaches nothing about
+        which ones exist.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: This invite link no longer works.
+            code: invite_not_found
   schemas:
     Health:
       type: object
@@ -1571,6 +1740,94 @@ components:
         joinedAt:
           type: string
           format: date-time
+    Profile:
+      type: object
+      required: [userId, name]
+      description: Someone as other people see them, by name and photo. Never their email.
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Rita
+        avatarUrl:
+          type: string
+          format: uri
+          description: Profile picture from the identity provider, when it has one.
+    InviteToken:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          # 32 random bytes in base64url without padding.
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The token from the link's fragment, after `#`.
+          example: mTq4b9Vx2KcR7sLwE1pZ0yH5nJ3aG8fUoQ6dWtXiB_c
+    NewInviteLink:
+      type: object
+      required: [id, token, createdAt, expiresAt]
+      description: A link just made. The token is shown here only.
+      properties:
+        id:
+          type: string
+          format: uuid
+        token:
+          type: string
+          description: 32 random bytes in base64url (43 characters), to put after `#` in the join link.
+          example: mTq4b9Vx2KcR7sLwE1pZ0yH5nJ3aG8fUoQ6dWtXiB_c
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          description: 7 days after `createdAt`.
+    InviteLink:
+      type: object
+      required: [id, createdBy, createdAt, expiresAt]
+      description: An active link of the group, without its token, which is not kept.
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdBy:
+          $ref: '#/components/schemas/Profile'
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    InviteList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InviteLink'
+    InvitePreview:
+      type: object
+      required: [groupName, currency, memberCount, invitedBy, alreadyMember]
+      description: What a valid link leads to, for the join page.
+      properties:
+        groupName:
+          type: string
+          example: Porto weekend
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        memberCount:
+          type: integer
+          format: int32
+          minimum: 1
+        invitedBy:
+          $ref: '#/components/schemas/Profile'
+          description: The member who made the link.
+        alreadyMember:
+          type: boolean
+          description: The signed-in person is a member already; accepting changes nothing.
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.

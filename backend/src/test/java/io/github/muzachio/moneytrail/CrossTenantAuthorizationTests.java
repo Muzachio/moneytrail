@@ -65,7 +65,8 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         ACCOUNT,
         CATEGORY,
         TRANSACTION,
-        GROUP
+        GROUP,
+        INVITE
     }
 
     /** One request carrying {@code id} where the case says, sent by {@code by}, whose own data fills the rest. */
@@ -101,16 +102,24 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         MvcTestResult send(Person by, UUID groupId, UUID childId);
     }
 
-    record Person(UUID id, UUID account, UUID otherAccount, UUID category, UUID transaction) {}
+    /** Everyone has data of their own, a group of their own included, to fill what a case does not test. */
+    record Person(UUID id, UUID account, UUID otherAccount, UUID category, UUID transaction, UUID group) {}
 
     /**
      * Ana owns everything. Bea is another user, a stranger to Ana's group. Rita was a member of the
      * group and left. Ana's account in the group's ledger and an entry of that ledger are ids of the
      * wrong ledger for her personal requests. Ana is in a second group too, whose children must not
-     * be reached under the first group's path.
+     * be reached under the first group's path. {@code invite} is a link to Ana's own group.
      */
     record Fixture(
-            Person ana, Person bea, Person rita, UUID group, UUID groupAccount, UUID groupEntry, UUID otherGroup) {}
+            Person ana,
+            Person bea,
+            Person rita,
+            UUID group,
+            UUID groupAccount,
+            UUID groupEntry,
+            UUID otherGroup,
+            UUID invite) {}
 
     record Attempt(String who, Person by, UUID id) {}
 
@@ -183,7 +192,29 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                     {"name": "Taken", "archived": true}"""))),
             entry(
                     "leaveGroup path.id",
-                    new Case(Kind.GROUP, (by, id) -> post("/v1/groups/" + id + "/leave", by.id(), null))));
+                    new Case(Kind.GROUP, (by, id) -> post("/v1/groups/" + id + "/leave", by.id(), null))),
+            entry(
+                    "createInvite path.id",
+                    new Case(Kind.GROUP, (by, id) -> post("/v1/groups/" + id + "/invites", by.id(), null))),
+            entry(
+                    "listInvites path.id",
+                    new Case(Kind.GROUP, (by, id) -> get("/v1/groups/" + id + "/invites", by.id()))),
+            // The group is what is tried here, so any link id will do: a member gets invite_not_found.
+            entry(
+                    "revokeInvite path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (by, id) -> delete("/v1/groups/" + id + "/invites/" + UUID.randomUUID(), by.id()))),
+            entry(
+                    "revokeInvite path.inviteId",
+                    new Case(
+                            Kind.INVITE,
+                            (by, id) -> delete("/v1/groups/" + by.group() + "/invites/" + id, by.id()),
+                            new MixedParents(
+                                    (owner, groupId) ->
+                                            idOf(post("/v1/groups/" + groupId + "/invites", owner.id(), null)),
+                                    (by, groupId, inviteId) ->
+                                            delete("/v1/groups/" + groupId + "/invites/" + inviteId, by.id())))));
 
     @Test
     void everyIdARequestCanCarryHasACase() throws IOException {
@@ -315,6 +346,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                                 "the owner using a personal account as a group",
                                 f.ana(),
                                 f.ana().account()));
+            case INVITE -> List.of(new Attempt("another user's link, under a group of their own", f.bea(), f.invite()));
         };
     }
 
@@ -324,6 +356,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             case CATEGORY -> f.ana().category();
             case TRANSACTION -> f.ana().transaction();
             case GROUP -> f.group();
+            case INVITE -> f.invite();
         };
     }
 
@@ -358,6 +391,8 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                              FROM category_icons),
                             (SELECT string_agg(category_id::text || ':' || key, ',' ORDER BY category_id)
                              FROM category_keys),
+                            (SELECT string_agg(id::text || ':' || coalesce(revoked_at::text, ''), ',' ORDER BY id)
+                             FROM group_invites),
                             (SELECT count(*) FROM idempotency_keys))""").query(String.class).single();
     }
 
@@ -390,10 +425,11 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                 .id();
         UUID otherGroup = idOf(post("/v1/groups", ana.id(), """
                 {"name": "Trip"}"""));
-        return new Fixture(ana, bea, rita, group, groupAccount, groupEntry, otherGroup);
+        UUID invite = idOf(post("/v1/groups/" + ana.group() + "/invites", ana.id(), null));
+        return new Fixture(ana, bea, rita, group, groupAccount, groupEntry, otherGroup, invite);
     }
 
-    /** A user with a personal ledger, two accounts, an expense category and one expense. */
+    /** A user with a personal ledger, two accounts, an expense category, one expense and a group. */
     private Person person(String name) {
         UUID id = signedInUser(name);
         UUID account = idOf(post("/v1/accounts", id, """
@@ -406,7 +442,9 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         List<String> expenseCategories = JsonPath.read(categories, "$.items[?(@.kind == 'EXPENSE')].id");
         UUID category = UUID.fromString(expenseCategories.getFirst());
         UUID transaction = idOf(post("/v1/transactions", id, expense(category, account)));
-        return new Person(id, account, otherAccount, category, transaction);
+        UUID group = idOf(post("/v1/groups", id, """
+                {"name": "Own"}"""));
+        return new Person(id, account, otherAccount, category, transaction, group);
     }
 
     private UUID signedInUser(String name) {
@@ -485,6 +523,10 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             request.contentType(MediaType.APPLICATION_JSON).content(body);
         }
         return request.exchange();
+    }
+
+    private MvcTestResult delete(String uri, UUID userId) {
+        return mvc.delete().uri(uri).with(user(userId.toString())).with(csrf()).exchange();
     }
 
     private MvcTestResult patch(String uri, UUID userId, String body) {

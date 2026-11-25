@@ -36,7 +36,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 
 ## M2 — Groups (v0.2)
 - [x] Design: groups on the ledger (ADR-0012) and group invites (ADR-0013)
-- [ ] Groups, members, invite links (hashed tokens, expiry)
+- [x] Groups, members, invite links (hashed tokens, expiry)
 - [ ] Shared expense with equal / exact / percentage / shares splits, largest-remainder rounding
 - [ ] Group balances and settle-up suggestions (greedy, at most n − 1 payments)
 - [ ] Settlements

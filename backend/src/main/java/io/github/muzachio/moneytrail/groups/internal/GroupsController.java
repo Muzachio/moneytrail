@@ -75,7 +75,7 @@ class GroupsController implements GroupsApi {
         return ResponseEntity.noContent().build();
     }
 
-    private static Group toApi(Groups.Detail detail) {
+    static Group toApi(Groups.Detail detail) {
         Row group = detail.group();
         Group body = new Group(
                 group.id(),
@@ -100,11 +100,11 @@ class GroupsController implements GroupsApi {
         return body;
     }
 
-    private static CurrencyCode toApi(Currency currency) {
+    static CurrencyCode toApi(Currency currency) {
         return CurrencyCode.fromValue(currency.getCurrencyCode());
     }
 
-    private static OffsetDateTime utc(Instant instant) {
+    static OffsetDateTime utc(Instant instant) {
         return instant.atOffset(ZoneOffset.UTC);
     }
 }
