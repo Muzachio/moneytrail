@@ -33,6 +33,14 @@ class GroupStore {
 
     record Member(UUID userId, UUID accountId, Instant joinedAt) {}
 
+    /** Someone's row in a group, whether they are a member now or left it. */
+    record Membership(UUID accountId, @Nullable Instant leftAt) {
+
+        boolean current() {
+            return leftAt == null;
+        }
+    }
+
     /**
      * How a read of a group locks its row. Archiving takes {@link #UPDATE} while it checks that every
      * balance is zero; an expense or a payment (#88, #89) takes {@link #SHARE} before posting, so
@@ -77,12 +85,63 @@ class GroupStore {
                 .single();
     }
 
-    void addMember(UUID groupId, UUID userId, UUID accountId) {
-        jdbc.sql("INSERT INTO group_members (group_id, user_id, account_id) VALUES (:groupId, :userId, :accountId)")
+    /** Adds a member with their account, and returns when they joined. */
+    Instant addMember(UUID groupId, UUID userId, UUID accountId) {
+        return jdbc.sql("""
+                        INSERT INTO group_members (group_id, user_id, account_id)
+                        VALUES (:groupId, :userId, :accountId)
+                        RETURNING joined_at""")
                 .param("groupId", groupId)
                 .param("userId", userId)
                 .param("accountId", accountId)
-                .update();
+                .query(OffsetDateTime.class)
+                .single()
+                .toInstant();
+    }
+
+    /**
+     * Someone who left joins again with the account they had (ADR-0012), so their part in past
+     * expenses stays theirs.
+     *
+     * @return when they joined again
+     */
+    Instant rejoin(UUID groupId, UUID userId) {
+        return jdbc.sql("""
+                        UPDATE group_members SET left_at = NULL, joined_at = now()
+                        WHERE group_id = :groupId AND user_id = :userId AND left_at IS NOT NULL
+                        RETURNING joined_at""")
+                .param("groupId", groupId)
+                .param("userId", userId)
+                .query(OffsetDateTime.class)
+                .single()
+                .toInstant();
+    }
+
+    Optional<Membership> membership(UUID groupId, UUID userId) {
+        return jdbc.sql("SELECT account_id, left_at FROM group_members WHERE group_id = :groupId AND user_id = :userId")
+                .param("groupId", groupId)
+                .param("userId", userId)
+                .query((rs, rowNum) -> {
+                    OffsetDateTime leftAt = rs.getObject("left_at", OffsetDateTime.class);
+                    return new Membership(
+                            rs.getObject("account_id", UUID.class), leftAt == null ? null : leftAt.toInstant());
+                })
+                .optional();
+    }
+
+    /** The group, whoever asks: joining it through an invite needs no membership yet. */
+    Optional<Row> find(UUID groupId, Lock lock) {
+        return jdbc.sql("SELECT %s FROM groups g WHERE g.id = :groupId%s".formatted(COLUMNS, lock.clause))
+                .param("groupId", groupId)
+                .query(GroupStore::row)
+                .optional();
+    }
+
+    int memberCount(UUID groupId) {
+        return jdbc.sql("SELECT count(*) FROM group_members WHERE group_id = :groupId AND left_at IS NULL")
+                .param("groupId", groupId)
+                .query(Integer.class)
+                .single();
     }
 
     /** The group, if {@code userId} is a member of it now: not for someone who left, nor for anyone else. */
