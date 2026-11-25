@@ -42,7 +42,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [ ] Settlements
 - [ ] Optional mirror of my share into my personal ledger
 - [ ] `GroupExpenseAdded` event → in-app activity feed
-- [ ] Cross-tenant authorization test suite
+- [x] Cross-tenant authorization test suite
 - [ ] Groups UI: groups list, invite and join, group page with expenses and the split dialog,
   balances, settle-up and activity, on desktop and phone
 - [ ] First 3 friends using it, and their feedback as issues (#99)
