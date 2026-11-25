@@ -31,6 +31,8 @@ tags:
     description: The signed-in user's expenses, income and transfers between their accounts.
   - name: reports
     description: Sums of the signed-in user's income and spending, for the dashboard.
+  - name: groups
+    description: The groups the signed-in user belongs to, where friends share expenses, and their members.
 security:
   - sessionCookie: []
 paths:
@@ -475,6 +477,131 @@ paths:
           $ref: '#/components/responses/BadReportQuery'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+  /v1/groups:
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: List the user's groups
+      description: |
+        Every group the signed-in user is a member of, archived ones included, in the order they
+        were created. A group the user left is not listed.
+      responses:
+        '200':
+          description: The user's groups.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create a group, with the user as its first member
+      description: |
+        Creates a group in one currency, which never changes (docs/adr/0012-groups-on-the-ledger.md).
+        The group's ledger and the user's member account are opened in the same transaction, so a
+        group never exists without them. Other people join through invite links.
+
+        It takes an `Idempotency-Key` although it moves no money: groups may share a name, so a retry
+        after a lost response would otherwise leave a second, empty group behind, with its own
+        ledger.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewGroup'
+      responses:
+        '201':
+          description: The new group, with the user as its only member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/IdempotencyKeyInUse'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
+  /v1/groups/{id}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: getGroup
+      tags: [groups]
+      summary: Get a group and its members
+      description: |
+        The group and its current members, each by name and photo. Members never see each other's
+        email. Anyone who is not a member, someone who left included, gets `404`.
+      responses:
+        '200':
+          description: The group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+    patch:
+      operationId: updateGroup
+      tags: [groups]
+      summary: Rename, archive or restore a group
+      description: |
+        Any member may change the properties sent; the others stay as they are. A group can be
+        archived only when every member's balance is zero. An archived group keeps its history and
+        its members but takes no new expenses or payments until it is restored. This moves no money,
+        so it takes no `Idempotency-Key`: sending the same change again gives the same result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupUpdate'
+      responses:
+        '200':
+          description: The group after the change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/GroupNotSettled'
+  /v1/groups/{id}/leave:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    post:
+      operationId: leaveGroup
+      tags: [groups]
+      summary: Leave a group
+      description: |
+        The user stops being a member, which they can only do with a balance of zero, so leaving
+        never takes money out of the group. Their account and their part in past expenses stay, and
+        they get the same account back if they join again. From then on the group answers `404` to
+        them, as to anyone outside it, so leaving a second time answers `404` too. This moves no
+        money, so it takes no `Idempotency-Key`.
+      responses:
+        '204':
+          description: The user is no longer a member.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/GroupNotSettled'
 components:
   securitySchemes:
     sessionCookie:
@@ -504,6 +631,13 @@ components:
         maxLength: 255
       example: 3f2b8c1e-7d4a-4b9e-9f0c-5a6d7e8f9a0b
     TransactionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GroupId:
       name: id
       in: path
       required: true
@@ -676,6 +810,32 @@ components:
             status: 400
             detail: The period ends on 2026-05-31, before it starts on 2026-06-01.
             code: invalid_period
+    GroupNotFound:
+      description: |
+        The user is not a member of a group with this id: there is none, it belongs to other people,
+        or the user left it. All of them answer the same, so whether a group exists is not revealed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no group with this id.
+            code: group_not_found
+    GroupNotSettled:
+      description: |
+        `group_not_settled`: a group can be archived only when every member's balance is zero.
+        `member_not_settled`: a member can leave only with a balance of zero.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: Your balance in this group is not zero.
+            code: member_not_settled
   schemas:
     Health:
       type: object
@@ -724,7 +884,7 @@ components:
     CurrencyCode:
       type: string
       enum: [EUR]
-      description: The currency of an account. Only EUR for now; more currencies come later.
+      description: The currency of an account or a group. Only EUR for now; more currencies come later.
     AccountType:
       type: string
       enum: [CHECKING, SAVINGS, CASH, CREDIT_CARD]
@@ -1303,6 +1463,114 @@ components:
         spending:
           $ref: '#/components/schemas/Money'
           description: What was spent in the expense categories in the month's days of the period.
+    GroupName:
+      type: string
+      minLength: 1
+      maxLength: 50
+      # The same rule as AccountName: at least one character that is not a space.
+      pattern: '^\s*\S[\s\S]*$'
+      description: Spaces around the name are removed. Two groups may have the same name.
+      example: Porto weekend
+    NewGroup:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: '#/components/schemas/GroupName'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+          description: The currency of every amount in the group, EUR when left out. It never changes.
+    GroupUpdate:
+      type: object
+      minProperties: 1
+      description: The properties to change, at least one.
+      properties:
+        name:
+          $ref: '#/components/schemas/GroupName'
+        archived:
+          type: boolean
+          description: '`true` archives the group, which needs every balance at zero; `false` restores it.'
+    GroupSummary:
+      type: object
+      required: [id, name, currency, memberCount, archived]
+      description: A group in the list of the user's groups.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Porto weekend
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        memberCount:
+          type: integer
+          format: int32
+          minimum: 1
+          description: How many people are members now, the user included.
+        archived:
+          type: boolean
+        archivedAt:
+          type: string
+          format: date-time
+          description: When the group was archived; only on archived groups.
+    GroupList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupSummary'
+    Group:
+      type: object
+      required: [id, name, currency, archived, createdAt, members]
+      description: |
+        A group and its current members (docs/adr/0012-groups-on-the-ledger.md). Every amount in it is
+        in `currency`.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Porto weekend
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        archived:
+          type: boolean
+          description: An archived group keeps its history but takes no new expenses or payments.
+        archivedAt:
+          type: string
+          format: date-time
+          description: When the group was archived; only on archived groups.
+        createdAt:
+          type: string
+          format: date-time
+        members:
+          type: array
+          description: The current members, in the order they joined. Someone who left is not listed.
+          items:
+            $ref: '#/components/schemas/GroupMember'
+    GroupMember:
+      type: object
+      required: [userId, name, joinedAt]
+      description: A member as the other members see them, by name and photo. Never their email.
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: The name from the member's Google account.
+          example: Ana
+        avatarUrl:
+          type: string
+          format: uri
+          description: Profile picture from the identity provider, when it has one.
+        joinedAt:
+          type: string
+          format: date-time
     Problem:
       type: object
       description: RFC 9457 problem details, plus a stable `code` that clients can rely on.
