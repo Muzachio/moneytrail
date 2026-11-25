@@ -1,19 +1,19 @@
 [versions]
-spring-boot = "4.1.2"
+spring-boot = "4.2.0"
 spring-dependency-management = "1.1.7"
-spring-modulith = "2.1.2"
-spotless = "8.11.0"
+spring-modulith = "2.2.0"
+spotless = "8.12.0"
 palantir-java-format = "2.102.0"
 errorprone-plugin = "5.2.0"
-errorprone = "2.52.0"
-nullaway = "0.14.3"
+errorprone = "2.53.0"
+nullaway = "0.14.4"
 jspecify = "1.0.1"
 openapi-generator = "7.27.0"
 jqwik = "1.10.2"
 shedlock = "7.11.0"
-# Must be built for the OpenTelemetry version Spring Boot manages (1.62.0 in Boot 4.1.2);
-# 2.28.x is, newer releases target newer APIs. Update it together with Spring Boot.
-opentelemetry-logback-appender = "2.28.1-alpha"
+# Must be built for the OpenTelemetry version Spring Boot manages (1.68.0 in Boot 4.2.0);
+# 2.34.x is, newer releases target newer APIs. Update it together with Spring Boot.
+opentelemetry-logback-appender = "2.34.0-alpha"
 
 [libraries]
 # Versions of Spring Boot starters come from the Spring Boot BOM.

@@ -4,7 +4,7 @@
 #   docker build -f backend/Dockerfile -t moneytrail-backend .
 # Base images are pinned by digest; Renovate keeps the digests current.
 
-FROM eclipse-temurin:25-jdk-noble@sha256:95e350ad1eb738f943e141640f7e3d797e483359a3b33c3864255bfd1ad71f8a AS build
+FROM eclipse-temurin:25-jdk-noble@sha256:4ddc1a8bdaf283421df5487411aff10b797ccf1e06a339041005114c8f489b5c AS build
 WORKDIR /workspace
 COPY api/ api/
 COPY backend/ backend/
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 # often), so an update only rebuilds and uploads the layers that changed.
 RUN java -Djarmode=tools -jar build/libs/moneytrail.jar extract --layers --destination /workspace/extracted
 
-FROM eclipse-temurin:25-jre-noble@sha256:a98128a57de944a72bd31fbc79b898edd5a5864d3652071d5bbd2160ab7d7dce
+FROM eclipse-temurin:25-jre-noble@sha256:f3dd0838e69b881cc382237d5901e74ae3705b1056ad964b2e0e523b174fef99
 # Ubuntu security fixes released after the base image was built: the CI scan fails on fixable
 # HIGH and CRITICAL vulnerabilities, and the base image is only rebuilt every few weeks.
 RUN apt-get update \

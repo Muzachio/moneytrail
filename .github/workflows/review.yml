@@ -47,7 +47,7 @@ jobs:
       # Pinned by commit to a release at least three days old, like Renovate's
       # minimumReleaseAge: the major tag moves with every release.
       - name: Review the pull request
-        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
+        uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |

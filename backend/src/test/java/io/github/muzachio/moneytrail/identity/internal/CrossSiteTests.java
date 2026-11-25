@@ -19,6 +19,11 @@ import org.springframework.web.util.UriComponentsBuilder;
  * The production layout (ADR-0007): the app on https://app.example.com, the API on
  * https://api.example.com behind Fly.io's HTTPS proxy. The properties are the ones
  * application-prod.yml fills from MONEYTRAIL_APP_URL and MONEYTRAIL_COOKIE_DOMAIN.
+ *
+ * <p>Redirects here are 303 See Other, not the 302 that SignInTests sees: with the framework
+ * forward-headers strategy, Spring Boot (since 4.2, server.tomcat.servlet.use-relative-redirects)
+ * makes ForwardedHeaderFilter send relative redirects, which use 303. Browsers follow both with a
+ * GET to the same Location.
  */
 @AutoConfigureMockMvc
 @TestPropertySource(
@@ -73,7 +78,7 @@ class CrossSiteTests extends PostgresIntegrationTest {
                 .header("X-Forwarded-Proto", "https")
                 .exchange();
 
-        assertThat(result).hasStatus(HttpStatus.FOUND);
+        assertThat(result).hasStatus(HttpStatus.SEE_OTHER);
         String location = Objects.requireNonNull(result.getResponse().getHeader(HttpHeaders.LOCATION));
         assertThat(UriComponentsBuilder.fromUriString(location)
                         .build()
@@ -91,7 +96,7 @@ class CrossSiteTests extends PostgresIntegrationTest {
                 .header("X-Forwarded-Proto", "https")
                 .exchange();
 
-        assertThat(result).hasStatus(HttpStatus.FOUND);
+        assertThat(result).hasStatus(HttpStatus.SEE_OTHER);
         assertThat(result.getResponse().getHeader(HttpHeaders.LOCATION)).isEqualTo(APP + "/?sign-in=failed");
     }
 
