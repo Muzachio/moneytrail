@@ -33,6 +33,13 @@ spring:
     hibernate:
       # Flyway owns the schema; Hibernate only checks at startup that the entities match it.
       ddl-auto: validate
+  modulith:
+    moments:
+      # Moments comes with spring-modulith-starter-core and is on unless this says otherwise. It would
+      # turn Spring's scheduler on in every process, the migrate run included, only to publish
+      # hourly and daily events that nothing here listens to. Off, scheduling is on only where
+      # moneytrail.jobs.enabled is (shared.scheduling).
+      enabled: false
 
 management:
   endpoints:
