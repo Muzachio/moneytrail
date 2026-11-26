@@ -24,4 +24,5 @@ record Expense(
         UUID recordedBy,
         Instant recordedAt,
         boolean edited,
-        boolean reversed) {}
+        boolean reversed)
+        implements Movement {}

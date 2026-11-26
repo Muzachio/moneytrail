@@ -6,6 +6,7 @@ import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Currency;
 import java.util.HashMap;
 import java.util.List;
@@ -73,6 +74,21 @@ class AccountBalances {
                         FROM account_balances balance JOIN accounts account ON account.id = balance.account_id
                         WHERE account.ledger_id = :ledgerId""")
                 .param("ledgerId", ledgerId)
+                .query((rs, rowNum) -> Map.entry(rs.getObject("account_id", UUID.class), balanceOf(rs)))
+                .stream()
+                .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    Map<UUID, Money> findByAccounts(Collection<UUID> accountIds) {
+        if (accountIds.isEmpty()) {
+            return Map.of();
+        }
+        return jdbc
+                .sql("""
+                        SELECT balance.account_id, balance.balance_minor, account.currency
+                        FROM account_balances balance JOIN accounts account ON account.id = balance.account_id
+                        WHERE balance.account_id = ANY(:ids)""")
+                .param("ids", accountIds.toArray(UUID[]::new))
                 .query((rs, rowNum) -> Map.entry(rs.getObject("account_id", UUID.class), balanceOf(rs)))
                 .stream()
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));

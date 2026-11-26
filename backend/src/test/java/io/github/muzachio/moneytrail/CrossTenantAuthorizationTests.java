@@ -64,10 +64,15 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         TRANSACTION,
         GROUP,
         INVITE,
-        /** A user named as a member of Ana's group, who paid an expense or is in its split. */
+        /**
+         * A user named as a member of Ana's group: who paid an expense or is in its split, who paid a
+         * settlement or was paid.
+         */
         MEMBER,
         /** An expense under the path of Ana's group. */
-        EXPENSE
+        EXPENSE,
+        /** A settlement under the path of Ana's group. */
+        SETTLEMENT
     }
 
     /**
@@ -113,16 +118,20 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
      * Ana owns everything. Bea is another user, a stranger to Ana's group. Rita was a member of the
      * group and left. Ana's account in the group's ledger and an expense of the group are ids of the
      * wrong ledger for her personal requests, and the reversal of another expense is an entry of the
-     * group that is not an expense. Ana is in a second group too, whose children must not be reached
-     * under the first group's path. {@code invite} is a link to Ana's own group.
+     * group that is neither an expense nor a settlement. João is the other member of the group; Ana
+     * paid him back part of what he paid for her, in {@code groupSettlement}. Ana is in a second group
+     * too, whose children must not be reached under the first group's path. {@code invite} is a link to
+     * Ana's own group.
      */
     record Fixture(
             Person ana,
             Person bea,
             Person rita,
+            UUID joao,
             UUID group,
             UUID groupAccount,
             UUID groupExpense,
+            UUID groupSettlement,
             UUID groupReversal,
             UUID otherGroup,
             UUID invite) {}
@@ -278,7 +287,67 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                     new Case(Kind.MEMBER, (f, by, id) -> reverseGroupExpense(f, by, groupExpense(id, by.id())))),
             entry(
                     "reverseGroupExpense body.replacement.split.members[].userId",
-                    new Case(Kind.MEMBER, (f, by, id) -> reverseGroupExpense(f, by, groupExpense(by.id(), id)))));
+                    new Case(Kind.MEMBER, (f, by, id) -> reverseGroupExpense(f, by, groupExpense(by.id(), id)))),
+            entry(
+                    "getGroupBalances path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/balances", by.id()))),
+            entry(
+                    "getSettleUp path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/settle-up", by.id()))),
+            // Paying someone who is in no group: a member of the group in the path gets member_not_found.
+            entry(
+                    "createSettlement path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) -> post(
+                                    "/v1/groups/" + id + "/settlements",
+                                    by.id(),
+                                    settlement(by.id(), UUID.randomUUID())))),
+            entry(
+                    "createSettlement body.from",
+                    new Case(Kind.MEMBER, (f, by, id) -> post(settlements(f), by.id(), settlement(id, f.joao())))),
+            entry(
+                    "createSettlement body.to",
+                    new Case(Kind.MEMBER, (f, by, id) -> post(settlements(f), by.id(), settlement(f.joao(), id)))),
+            entry(
+                    "getSettlement path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) -> get("/v1/groups/" + id + "/settlements/" + f.groupSettlement(), by.id()))),
+            entry(
+                    "getSettlement path.settlementId",
+                    new Case(
+                            Kind.SETTLEMENT,
+                            (f, by, id) -> get(settlements(f) + "/" + id, by.id()),
+                            new MixedParents(
+                                    this::settlementIn,
+                                    (by, groupId, childId) ->
+                                            get("/v1/groups/" + groupId + "/settlements/" + childId, by.id())))),
+            entry(
+                    "reverseSettlement path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) -> post(
+                                    "/v1/groups/" + id + "/settlements/" + f.groupSettlement() + "/reverse",
+                                    by.id(),
+                                    "{}"))),
+            entry(
+                    "reverseSettlement path.settlementId",
+                    new Case(
+                            Kind.SETTLEMENT,
+                            (f, by, id) -> post(settlements(f) + "/" + id + "/reverse", by.id(), "{}"),
+                            new MixedParents(
+                                    this::settlementIn,
+                                    (by, groupId, childId) -> post(
+                                            "/v1/groups/" + groupId + "/settlements/" + childId + "/reverse",
+                                            by.id(),
+                                            "{}")))),
+            entry(
+                    "reverseSettlement body.replacement.from",
+                    new Case(Kind.MEMBER, (f, by, id) -> reverseSettlement(f, by, settlement(id, f.joao())))),
+            entry(
+                    "reverseSettlement body.replacement.to",
+                    new Case(Kind.MEMBER, (f, by, id) -> reverseSettlement(f, by, settlement(f.joao(), id)))));
 
     @Test
     void everyIdARequestCanCarryHasACase() throws IOException {
@@ -430,7 +499,18 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                                 "a member using a personal transaction as an expense",
                                 f.ana(),
                                 f.ana().transaction()),
+                        new Attempt("a member using a settlement as an expense", f.ana(), f.groupSettlement()),
                         new Attempt("a member using a reversal as an expense", f.ana(), f.groupReversal()));
+            case SETTLEMENT ->
+                List.of(
+                        new Attempt("someone outside the group", f.bea(), f.groupSettlement()),
+                        new Attempt("a former member", f.rita(), f.groupSettlement()),
+                        new Attempt(
+                                "a member using a personal transaction as a settlement",
+                                f.ana(),
+                                f.ana().transaction()),
+                        new Attempt("a member using an expense as a settlement", f.ana(), f.groupExpense()),
+                        new Attempt("a member using a reversal as a settlement", f.ana(), f.groupReversal()));
         };
     }
 
@@ -443,6 +523,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             case INVITE -> f.invite();
             case MEMBER -> f.ana().id();
             case EXPENSE -> f.groupExpense();
+            case SETTLEMENT -> f.groupSettlement();
         };
     }
 
@@ -480,6 +561,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                             (SELECT string_agg(id::text || ':' || coalesce(revoked_at::text, ''), ',' ORDER BY id)
                              FROM group_invites),
                             (SELECT count(*) FROM expense_splits),
+                            (SELECT count(*) FROM settlements),
                             (SELECT count(*) FROM idempotency_keys))""").query(String.class).single();
     }
 
@@ -511,16 +593,58 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         String reversalId = JsonPath.read(
                 new String(reversal.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8),
                 "$.trail[1].entryId");
+        // Ana paid João back 4.00 of the 10.00.
+        UUID groupSettlement = idOf(post("/v1/groups/" + group + "/settlements", ana.id(), settlement(ana.id(), joao)));
         UUID otherGroup = idOf(post("/v1/groups", ana.id(), """
                 {"name": "Trip"}"""));
         UUID invite = idOf(post("/v1/groups/" + ana.group() + "/invites", ana.id(), null));
         return new Fixture(
-                ana, bea, rita, group, groupAccount, groupExpense, UUID.fromString(reversalId), otherGroup, invite);
+                ana,
+                bea,
+                rita,
+                joao,
+                group,
+                groupAccount,
+                groupExpense,
+                groupSettlement,
+                UUID.fromString(reversalId),
+                otherGroup,
+                invite);
     }
 
     /** An expense that {@code owner} paid for themselves in {@code groupId}, recorded through the API. */
     private UUID expenseIn(Person owner, UUID groupId) {
         return idOf(post("/v1/groups/" + groupId + "/expenses", owner.id(), groupExpense(owner.id(), owner.id())));
+    }
+
+    /**
+     * A settlement from {@code owner} to someone who joins {@code groupId} for it, recorded through the
+     * API: a settlement needs two members.
+     */
+    private UUID settlementIn(Person owner, UUID groupId) {
+        UUID payee = signedInUser("Payee");
+        addMember(
+                groupId,
+                ledger.findLedger(LedgerOwner.group(groupId)).orElseThrow().id(),
+                payee);
+        return idOf(post("/v1/groups/" + groupId + "/settlements", owner.id(), settlement(owner.id(), payee)));
+    }
+
+    private MvcTestResult reverseSettlement(Fixture f, Person by, String replacement) {
+        return post(
+                settlements(f) + "/" + f.groupSettlement() + "/reverse",
+                by.id(),
+                "{\"replacement\": " + replacement + "}");
+    }
+
+    private static String settlements(Fixture f) {
+        return "/v1/groups/" + f.group() + "/settlements";
+    }
+
+    /** 4.00 that {@code from} paid {@code to}. */
+    private static String settlement(UUID from, UUID to) {
+        return """
+                {"amount": {"amountMinor": 400, "currency": "EUR"}, "occurredOn": "%s", "from": "%s", "to": "%s"}""".formatted(today(), from, to);
     }
 
     private MvcTestResult reverseGroupExpense(Fixture f, Person by, String replacement) {

@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.Currency;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,6 +43,9 @@ class Groups {
 
     record MemberProfile(UUID userId, String name, @Nullable String avatarUrl, Instant joinedAt) {}
 
+    /** A group in the user's list, with what the group owes the user (see {@link Balances.MemberBalance}). */
+    record Summary(Row group, int memberCount, Money myBalance) {}
+
     private final GroupStore store;
     private final LedgerService ledger;
     private final UserProfiles profiles;
@@ -54,8 +58,20 @@ class Groups {
         this.events = events;
     }
 
-    List<GroupStore.Listed> list(UUID userId) {
-        return store.listForUser(userId);
+    /** The balances come from the ledger in one read for all the groups. */
+    @Transactional(readOnly = true)
+    List<Summary> list(UUID userId) {
+        List<GroupStore.Listed> listed = store.listForUser(userId);
+        Map<UUID, Money> balances = ledger.balancesOf(
+                listed.stream().map(GroupStore.Listed::accountId).toList());
+        return listed.stream()
+                .map(group -> new Summary(
+                        group.group(),
+                        group.memberCount(),
+                        Objects.requireNonNull(
+                                balances.get(group.accountId()),
+                                () -> "Member account " + group.accountId() + " has no balance")))
+                .toList();
     }
 
     /**

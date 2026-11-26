@@ -6,11 +6,13 @@ import io.github.muzachio.moneytrail.shared.Money;
 import io.github.muzachio.moneytrail.shared.api.GroupExpensesApi;
 import io.github.muzachio.moneytrail.shared.api.model.ExpenseShare;
 import io.github.muzachio.moneytrail.shared.api.model.ExpenseSplit;
+import io.github.muzachio.moneytrail.shared.api.model.GroupEntry;
+import io.github.muzachio.moneytrail.shared.api.model.GroupEntryPage;
+import io.github.muzachio.moneytrail.shared.api.model.GroupEntryType;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpense;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseDetail;
-import io.github.muzachio.moneytrail.shared.api.model.GroupExpensePage;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseReversal;
-import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseTrailStep;
+import io.github.muzachio.moneytrail.shared.api.model.GroupTrailStep;
 import io.github.muzachio.moneytrail.shared.api.model.NewGroupExpense;
 import io.github.muzachio.moneytrail.shared.api.model.NewSplitMember;
 import io.github.muzachio.moneytrail.shared.api.model.PositiveMoney;
@@ -46,12 +48,15 @@ class GroupExpensesController implements GroupExpensesApi {
         return ResponseEntity.status(HttpStatus.CREATED).body(toApi(recorded));
     }
 
-    /** The schema has already checked the cursor's length and the limit's range. */
+    /**
+     * The group's list, settlements included. The schema has already checked the cursor's length and
+     * the limit's range.
+     */
     @Override
-    public ResponseEntity<GroupExpensePage> listGroupExpenses(UUID id, @Nullable String cursor, Integer limit) {
-        ExpensePage page = expenses.list(SignedIn.userId(), id, cursor, limit);
-        GroupExpensePage body = new GroupExpensePage(
-                page.items().stream().map(GroupExpensesController::toApi).toList());
+    public ResponseEntity<GroupEntryPage> listGroupExpenses(UUID id, @Nullable String cursor, Integer limit) {
+        MovementPage page = expenses.list(SignedIn.userId(), id, cursor, limit);
+        GroupEntryPage body = new GroupEntryPage(
+                page.items().stream().map(GroupExpensesController::toEntry).toList());
         String nextCursor = page.nextCursor();
         if (nextCursor != null) {
             body.nextCursor(nextCursor);
@@ -147,8 +152,9 @@ class GroupExpensesController implements GroupExpensesApi {
         return body;
     }
 
-    private static GroupExpenseTrailStep toApi(ExpenseHistory.Step step) {
-        GroupExpenseTrailStep body = new GroupExpenseTrailStep(
+    /** Also for the trail of a settlement. */
+    static GroupTrailStep toApi(TrailStep step) {
+        GroupTrailStep body = new GroupTrailStep(
                 step.entryId(),
                 switch (step.action()) {
                     case RECORDED -> TrailAction.RECORDED;
@@ -163,6 +169,14 @@ class GroupExpensesController implements GroupExpensesApi {
             body.reversesEntryId(reversesEntryId);
         }
         return body;
+    }
+
+    private static GroupEntry toEntry(Movement movement) {
+        return switch (movement) {
+            case Expense expense -> new GroupEntry(GroupEntryType.EXPENSE).expense(toApi(expense));
+            case Settlement settlement ->
+                new GroupEntry(GroupEntryType.SETTLEMENT).settlement(SettlementsController.toApi(settlement));
+        };
     }
 
     private static GroupExpense toApi(Expense expense) {
@@ -187,7 +201,7 @@ class GroupExpensesController implements GroupExpensesApi {
         return new ExpenseShare(share.memberId(), share.input(), toApi(share.share()));
     }
 
-    private static io.github.muzachio.moneytrail.shared.api.model.Money toApi(Money money) {
+    static io.github.muzachio.moneytrail.shared.api.model.Money toApi(Money money) {
         return new io.github.muzachio.moneytrail.shared.api.model.Money(
                 money.minor(), money.currency().getCurrencyCode());
     }

@@ -4,13 +4,13 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A page of a group's expenses, newest first.
+ * A page of a group's list, expenses and settlements together, newest first.
  *
  * @param nextCursor the cursor of the next page, or null on the last page
  */
-record ExpensePage(List<Expense> items, @Nullable String nextCursor) {
+record MovementPage(List<Movement> items, @Nullable String nextCursor) {
 
-    ExpensePage {
+    MovementPage {
         items = List.copyOf(items);
     }
 }

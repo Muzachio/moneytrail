@@ -39,7 +39,12 @@ class GroupsController implements GroupsApi {
                 .map(listed -> {
                     Row group = listed.group();
                     GroupSummary summary = new GroupSummary(
-                            group.id(), group.name(), toApi(group.currency()), listed.memberCount(), group.archived());
+                            group.id(),
+                            group.name(),
+                            toApi(group.currency()),
+                            listed.memberCount(),
+                            GroupExpensesController.toApi(listed.myBalance()),
+                            group.archived());
                     Instant archivedAt = group.archivedAt();
                     if (archivedAt != null) {
                         summary.archivedAt(utc(archivedAt));

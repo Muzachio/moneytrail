@@ -109,6 +109,18 @@ class AccountBalancesTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void balancesOfReadsTheAccountsAskedForInAnyLedgerAndSkipsUnknownIds() {
+        post(posting(food, 1250), posting(checking, -1250));
+        Ledger someoneElses = ledger.openLedger(LedgerOwner.user(LedgerTestUsers.create(jdbc)));
+        Account theirChecking =
+                ledger.openAccount(new NewAccount(someoneElses.id(), AccountKind.ASSET, null, "Checking", EUR));
+
+        assertThat(ledger.balancesOf(List.of(food.id(), theirChecking.id(), UUID.randomUUID())))
+                .containsExactlyInAnyOrderEntriesOf(Map.of(food.id(), eur(1250), theirChecking.id(), eur(0)));
+        assertThat(ledger.balancesOf(List.of())).isEmpty();
+    }
+
+    @Test
     void changesSumTheEntriesOfTheDaysAskedForLeavingOutEquity() {
         Account openingBalances = open(AccountKind.EQUITY, "Opening balances");
         LocalDate first = LocalDate.of(2026, 11, 1);

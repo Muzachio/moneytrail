@@ -633,7 +633,8 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
     }
 
     private static List<Object> listedIds(MvcTestResult result) {
-        return JsonPath.read(body(result), "$.items[*].id");
+        assertThat(JsonPath.<List<String>>read(body(result), "$.items[*].type")).allMatch("EXPENSE"::equals);
+        return JsonPath.read(body(result), "$.items[*].expense.id");
     }
 
     private static UUID idOf(MvcTestResult result) {

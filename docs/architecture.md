@@ -246,11 +246,22 @@ leaves only with a balance of zero, and an expense that moves the balance of som
 no longer be edited or reversed. Who pays and who is in a split must be members now: anyone else
 answers like an unknown member (`member_not_found`).
 
-An expense's id is its entry's, and each edit gives the expense a new one, as for personal
+A settlement posts exactly what an expense that one member paid for one other member posts, so the
+postings cannot tell the two apart: an expense has its split, and a settlement has a row of its own
+in `settlements`. Who paid and who was paid are read back from the postings, as who paid an expense
+is.
+
+An expense's or a settlement's id is its entry's, and each edit gives it a new one, as for personal
 transactions. The group's list asks the ledger for the entries in effect of the group's ledger,
-newest first by `(occurred_on, id)`, with no period. Each change to an expense publishes
-`GroupExpenseAdded`, `GroupExpenseEdited` or `GroupExpenseReversed` in its transaction, with what
+newest first by `(occurred_on, id)`, with no period, and shows each as an expense or a settlement.
+Each change publishes an event in its transaction (`GroupExpenseAdded`, `GroupExpenseEdited`,
+`GroupExpenseReversed`, `SettlementRecorded`, `SettlementEdited`, `SettlementReversed`), with what
 the activity feed shows and no email.
+
+A group's balances are its members' accounts in `account_balances`, read through `LedgerService`;
+the settle-up suggestions are worked out from them on each request and never stored
+([ADR-0012](adr/0012-groups-on-the-ledger.md)). The list of a user's groups reads the user's
+balance in each of them with one `balancesOf` call.
 
 Only members reach a group: anyone else, someone who left included, gets `404`. Members see each
 other by name and photo, through `identity`'s `UserProfiles`, never by email. Two checks must not
@@ -316,6 +327,7 @@ group_invites    (id uuid pk, group_id, token_hash bytea unique, created_by, cre
                   expires_at, revoked_at)
 expense_splits   (entry_id fk, user_id, method text, input_value bigint, share_minor bigint,
                   pk(entry_id, user_id))  -- input_value: 1, the shares, basis points or the amount
+settlements      (entry_id pk fk journal_entries)  -- which entries of a group are settlements
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
@@ -358,11 +370,13 @@ GET              /v1/reports/spending?from=&to=&groupBy=category|month
 GET|POST         /v1/groups             GET|PATCH /v1/groups/{id}   POST /v1/groups/{id}/leave
 GET|POST         /v1/groups/{id}/invites        DELETE /v1/groups/{id}/invites/{inviteId}
 POST             /v1/invites/lookup · POST /v1/invites/accept   (token in the body, never the URL)
-GET|POST         /v1/groups/{id}/expenses       GET /v1/groups/{id}/expenses/{expenseId}
+GET|POST         /v1/groups/{id}/expenses       (the list: expenses and settlements)
+GET              /v1/groups/{id}/expenses/{expenseId}
 POST             /v1/groups/{id}/expenses/{expenseId}/reverse
 GET              /v1/groups/{id}/balances
 GET              /v1/groups/{id}/settle-up      (suggestions)
-POST             /v1/groups/{id}/settlements    POST /v1/groups/{id}/settlements/{settlementId}/reverse
+POST             /v1/groups/{id}/settlements    GET /v1/groups/{id}/settlements/{settlementId}
+POST             /v1/groups/{id}/settlements/{settlementId}/reverse
 
 POST             /v1/invoices/parse     (raw QR string → prefilled transaction draft)
 POST             /v1/imports            (CSV upload → 202 + import id) · GET /v1/imports/{id}
