@@ -1,7 +1,5 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
-import static java.util.stream.Collectors.toSet;
-
 import io.github.muzachio.moneytrail.groups.GroupExpenseAdded;
 import io.github.muzachio.moneytrail.groups.GroupExpenseEdited;
 import io.github.muzachio.moneytrail.groups.GroupExpenseReversed;
@@ -18,7 +16,6 @@ import io.github.muzachio.moneytrail.ledger.Posting;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,11 +29,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The expenses of a group (ADR-0012). Each version of an expense is one journal entry of the group's
- * ledger: the member who paid {@code +total}, each person in the split {@code −share}. Its split is
- * stored next to it. Like a personal transaction, an expense is never changed: editing reverses its
- * entry and posts the correction, so each edit adds a version to its history. Any member may record,
- * edit or reverse any expense, and each version keeps who made it.
+ * The expenses of a group (ADR-0012), and the group's list, where its settlements show next to them.
+ * Each version of an expense is one journal entry of the group's ledger: the member who paid {@code
+ * +total}, each person in the split {@code −share}. Its split is stored next to it. Like a personal
+ * transaction, an expense is never changed: editing reverses its entry and posts the correction, so
+ * each edit adds a version to its history. Any member may record, edit or reverse any expense, and
+ * each version keeps who made it.
  */
 @Service
 @Transactional
@@ -53,6 +51,7 @@ class GroupExpenses {
     private final Groups groups;
     private final GroupStore groupStore;
     private final ExpenseStore store;
+    private final SettlementStore settlementStore;
     private final LedgerService ledger;
     private final ApplicationEventPublisher events;
 
@@ -60,11 +59,13 @@ class GroupExpenses {
             Groups groups,
             GroupStore groupStore,
             ExpenseStore store,
+            SettlementStore settlementStore,
             LedgerService ledger,
             ApplicationEventPublisher events) {
         this.groups = groups;
         this.groupStore = groupStore;
         this.store = store;
+        this.settlementStore = settlementStore;
         this.ledger = ledger;
         this.events = events;
     }
@@ -106,25 +107,34 @@ class GroupExpenses {
         return historyOf(member(userId, groupId), expenseId);
     }
 
-    /** The current version of each expense, newest first. */
+    /**
+     * The group's list: the current version of each expense and each settlement, newest first. Every
+     * entry in effect in a group's ledger is one of the two: an expense has its split, a settlement
+     * its row in {@code settlements}.
+     */
     @Transactional(readOnly = true)
-    ExpensePage list(UUID userId, UUID groupId, @Nullable String cursor, int limit) {
+    MovementPage list(UUID userId, UUID groupId, @Nullable String cursor, int limit) {
         Row group = member(userId, groupId);
         EntryFilter inEffect = new EntryFilter(group.ledgerId(), FIRST_DAY, LAST_DAY, Set.of(), null, Set.of(), null);
         EntryPage page = ledger.entries(inEffect, cursor == null ? null : ExpenseCursors.decode(cursor), limit);
         List<UUID> ids = page.entries().stream().map(JournalEntry::id).toList();
         Map<UUID, Split> splits = store.splitsOf(ids, group.currency());
-        Map<UUID, UUID> owners = store.accountOwners(group.id());
-        List<Expense> items = new ArrayList<>();
+        Set<UUID> settlements = settlementStore.settlementsAmong(ids);
+        Map<UUID, UUID> owners = groupStore.accountOwners(group.id());
+        List<Movement> items = new ArrayList<>();
         for (JournalEntry entry : page.entries()) {
-            // Every entry in effect in a group's ledger is an expense for now; payments come with #89.
             Split split = splits.get(entry.id());
             if (split != null) {
                 items.add(expenseOf(entry, split, owners, false));
+            } else if (settlements.contains(entry.id())) {
+                items.add(Settlements.settlementOf(entry, owners, false));
+            } else {
+                throw new IllegalStateException(
+                        "Journal entry " + entry.id() + " of a group is neither an expense nor a settlement");
             }
         }
         EntryPosition next = page.next();
-        return new ExpensePage(items, next == null ? null : ExpenseCursors.encode(next));
+        return new MovementPage(items, next == null ? null : ExpenseCursors.encode(next));
     }
 
     /**
@@ -207,7 +217,7 @@ class GroupExpenses {
             Row group, Set<UUID> posting, Set<UUID> reversing, @Nullable UUID reversedExpenseId) {
         Set<UUID> everyone = new LinkedHashSet<>(reversing);
         everyone.addAll(posting);
-        Map<UUID, UUID> accounts = store.lockCurrentMembers(group.id(), everyone);
+        Map<UUID, UUID> accounts = groupStore.lockCurrentMembers(group.id(), everyone);
         if (reversedExpenseId != null && !accounts.keySet().containsAll(reversing)) {
             throw GroupExpenseException.memberLeft(reversedExpenseId);
         }
@@ -238,7 +248,7 @@ class GroupExpenses {
         return new NewJournalEntry(group.ledgerId(), expense.occurredOn(), expense.description(), recordedBy, postings);
     }
 
-    private static UUID accountOf(Map<UUID, UUID> accounts, UUID userId) {
+    static UUID accountOf(Map<UUID, UUID> accounts, UUID userId) {
         return Objects.requireNonNull(
                 accounts.get(userId), () -> "Member " + userId + " was locked without an account");
     }
@@ -264,7 +274,8 @@ class GroupExpenses {
 
     /**
      * The version {@code expenseId} of an expense of this group, with every version and reversal of
-     * it. An id of another ledger, or of an entry that is not an expense, is not found.
+     * it. An id of another ledger, or of an entry that is not an expense, such as a settlement or a
+     * reversal, is not found.
      */
     private ExpenseHistory historyOf(Row group, UUID expenseId) {
         List<JournalEntry> entries = ledger.history(expenseId);
@@ -274,55 +285,19 @@ class GroupExpenses {
                         && !found.isReversal())
                 .findFirst()
                 .orElseThrow(() -> GroupExpenseException.notFound(expenseId));
-        Map<UUID, Split> splits =
-                store.splitsOf(entries.stream().map(JournalEntry::id).toList(), group.currency());
-        Split split = splits.get(expenseId);
+        Split split = store.splitsOf(List.of(expenseId), group.currency()).get(expenseId);
         if (split == null) {
             throw GroupExpenseException.notFound(expenseId);
         }
-        Set<UUID> reversedIds = entries.stream()
-                .map(JournalEntry::reversesEntryId)
-                .filter(Objects::nonNull)
-                .collect(toSet());
-        Map<UUID, UUID> owners = store.accountOwners(group.id());
-        Expense expense = expenseOf(entry, split, owners, reversedIds.contains(expenseId));
-
-        Map<UUID, ExpenseHistory.Step> steps = new HashMap<>();
-        List<ExpenseHistory.Step> trail = new ArrayList<>();
-        for (JournalEntry version : entries) {
-            ExpenseHistory.Step step = stepOf(version, steps);
-            steps.put(version.id(), step);
-            trail.add(step);
-        }
-        JournalEntry last = entries.getLast();
-        return new ExpenseHistory(expense, trail, last.isReversal() ? null : last.id());
-    }
-
-    private static ExpenseHistory.Step stepOf(JournalEntry entry, Map<UUID, ExpenseHistory.Step> earlierSteps) {
-        UUID reversed = entry.reversesEntryId();
-        if (reversed != null) {
-            ExpenseHistory.Step cancelled = Objects.requireNonNull(
-                    earlierSteps.get(reversed), () -> "The history lists " + reversed + " after its reversal");
-            return new ExpenseHistory.Step(
-                    entry.id(),
-                    ExpenseHistory.Action.REVERSED,
-                    cancelled.amount(),
-                    entry.createdBy(),
-                    entry.createdAt(),
-                    reversed);
-        }
-        return new ExpenseHistory.Step(
-                entry.id(),
-                entry.replacesEntryId() == null ? ExpenseHistory.Action.RECORDED : ExpenseHistory.Action.CORRECTED,
-                paid(entry).amount(),
-                entry.createdBy(),
-                entry.createdAt(),
-                null);
+        Map<UUID, UUID> owners = groupStore.accountOwners(group.id());
+        Expense expense =
+                expenseOf(entry, split, owners, Trails.reversed(entries).contains(expenseId));
+        return new ExpenseHistory(expense, Trails.of(entries), Trails.current(entries));
     }
 
     /** Reads the entry back: the one posting above zero is who paid, and its amount the total. */
     private static Expense expenseOf(JournalEntry entry, Split split, Map<UUID, UUID> owners, boolean reversed) {
-        Posting paid = paid(entry);
+        Posting paid = Trails.paid(entry);
         UUID paidBy = Objects.requireNonNull(
                 owners.get(paid.accountId()), () -> "Account " + paid.accountId() + " is no member's");
         return new Expense(
@@ -336,15 +311,5 @@ class GroupExpenses {
                 entry.createdAt(),
                 entry.replacesEntryId() != null,
                 reversed);
-    }
-
-    private static Posting paid(JournalEntry entry) {
-        List<Posting> paid = entry.postings().stream()
-                .filter(posting -> posting.amount().minor() > 0)
-                .toList();
-        if (paid.size() != 1) {
-            throw new IllegalStateException("Journal entry " + entry.id() + " does not read back as an expense");
-        }
-        return paid.getFirst();
     }
 }

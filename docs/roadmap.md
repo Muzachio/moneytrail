@@ -38,8 +38,8 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Design: groups on the ledger (ADR-0012) and group invites (ADR-0013)
 - [x] Groups, members, invite links (hashed tokens, expiry)
 - [x] Shared expense with equal / exact / percentage / shares splits, largest-remainder rounding
-- [ ] Group balances and settle-up suggestions (greedy, at most n − 1 payments)
-- [ ] Settlements
+- [x] Group balances and settle-up suggestions (greedy, at most n − 1 payments)
+- [x] Settlements
 - [ ] Optional mirror of my share into my personal ledger
 - [ ] `GroupExpenseAdded` event → in-app activity feed
 - [x] Cross-tenant authorization test suite

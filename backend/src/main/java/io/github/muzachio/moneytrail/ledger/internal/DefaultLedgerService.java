@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -260,6 +261,12 @@ class DefaultLedgerService implements LedgerService {
     @Transactional(readOnly = true)
     public Map<UUID, Money> balances(UUID ledgerId) {
         return balances.findByLedger(ledgerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Money> balancesOf(Collection<UUID> accountIds) {
+        return balances.findByAccounts(accountIds);
     }
 
     @Override

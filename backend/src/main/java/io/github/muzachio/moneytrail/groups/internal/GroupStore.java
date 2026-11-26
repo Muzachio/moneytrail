@@ -4,8 +4,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.Currency;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -29,7 +32,8 @@ class GroupStore {
         }
     }
 
-    record Listed(Row group, int memberCount) {}
+    /** A group in a user's list, with the user's member account in it. */
+    record Listed(Row group, int memberCount, UUID accountId) {}
 
     record Member(UUID userId, UUID accountId, Instant joinedAt) {}
 
@@ -177,7 +181,7 @@ class GroupStore {
     /** The user's groups, in the order they were created: ids are UUIDv7. */
     List<Listed> listForUser(UUID userId) {
         return jdbc.sql("""
-                        SELECT %s,
+                        SELECT %s, m.account_id,
                                (SELECT count(*) FROM group_members c
                                 WHERE c.group_id = g.id AND c.left_at IS NULL) AS member_count
                         FROM groups g
@@ -185,8 +189,46 @@ class GroupStore {
                         WHERE m.user_id = :userId AND m.left_at IS NULL
                         ORDER BY g.id""".formatted(COLUMNS))
                 .param("userId", userId)
-                .query((rs, rowNum) -> new Listed(row(rs, rowNum), rs.getInt("member_count")))
+                .query((rs, rowNum) ->
+                        new Listed(row(rs, rowNum), rs.getInt("member_count"), rs.getObject("account_id", UUID.class)))
                 .list();
+    }
+
+    /**
+     * The owner of every member account of the group, by account: members who left included, since
+     * their account and their part in past expenses and settlements stay (ADR-0012).
+     */
+    Map<UUID, UUID> accountOwners(UUID groupId) {
+        Map<UUID, UUID> owners = new HashMap<>();
+        jdbc.sql("SELECT account_id, user_id FROM group_members WHERE group_id = :groupId")
+                .param("groupId", groupId)
+                .query(rs -> {
+                    owners.put(rs.getObject("account_id", UUID.class), rs.getObject("user_id", UUID.class));
+                });
+        return owners;
+    }
+
+    /**
+     * The member account of each of {@code userIds} who is a member of the group now, by user; the
+     * others are not in the map. Their rows stay locked {@code FOR SHARE} until the transaction ends,
+     * so none of them leaves while an expense or a settlement changes their balance: leaving locks its
+     * row {@code FOR UPDATE} and checks the balance (see {@link #lockMembership}). In the order of the
+     * ids, like every lock taken here.
+     */
+    Map<UUID, UUID> lockCurrentMembers(UUID groupId, Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, UUID> accounts = new HashMap<>();
+        jdbc.sql("""
+                        SELECT user_id, account_id
+                        FROM group_members
+                        WHERE group_id = :groupId AND user_id IN (:userIds) AND left_at IS NULL
+                        ORDER BY user_id
+                        FOR SHARE""").param("groupId", groupId).param("userIds", userIds).query(rs -> {
+            accounts.put(rs.getObject("user_id", UUID.class), rs.getObject("account_id", UUID.class));
+        });
+        return accounts;
     }
 
     /** The current members, in the order they joined. */

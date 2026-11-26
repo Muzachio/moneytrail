@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.ledger;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -150,6 +151,12 @@ public interface LedgerService {
 
     /** The balance of every account of a ledger, archived ones included, read as {@link #balance} is. */
     Map<UUID, Money> balances(UUID ledgerId);
+
+    /**
+     * The balance of each of these accounts, whatever their ledgers, in one read: a person's account
+     * in each of their groups, for instance. An id that names no account is not in the map.
+     */
+    Map<UUID, Money> balancesOf(Collection<UUID> accountIds);
 
     /**
      * How much each account of a ledger changed from one day to another, both included: the sum of

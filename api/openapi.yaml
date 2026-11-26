@@ -35,6 +35,10 @@ tags:
     description: |
       What the members of a group paid, and how each expense is split among them
       (docs/adr/0012-groups-on-the-ledger.md).
+  - name: group-settlements
+    description: |
+      Who owes whom in a group, the payments that would clear it, and the payments members record
+      to settle up (docs/adr/0012-groups-on-the-ledger.md).
   - name: groups
     description: The groups the signed-in user belongs to, where friends share expenses, and their members.
   - name: invites
@@ -592,16 +596,17 @@ paths:
     get:
       operationId: listGroupExpenses
       tags: [group-expenses]
-      summary: List a group's expenses, newest first
+      summary: List a group's expenses and settlements, newest first
       description: |
-        The current version of each of the group's expenses, newest first: by `occurredOn`, then by
-        when they were recorded. Reversed expenses and old versions of edited ones are left out, and
-        so are reversals; an edited expense shows its current version with `edited: true`.
+        The group's list: the current version of each expense and of each settlement (a payment
+        between two members), newest first: by `occurredOn`, then by when they were recorded. Each
+        item says which of the two it is. Reversed ones and old versions of edited ones are left out,
+        and so are reversals; an edited one shows its current version with `edited: true`.
 
-        A page holds at most `limit` expenses; when there are more, `nextCursor` is set, and sending
-        it back as `cursor` gives the next page. The cursor marks the last expense of the page
-        (keyset pagination on `occurredOn` and the id, never an offset), so an expense recorded while
-        paging is neither repeated nor skipped because of it. Anyone who is not a member gets `404`.
+        A page holds at most `limit` items; when there are more, `nextCursor` is set, and sending it
+        back as `cursor` gives the next page. The cursor marks the last item of the page (keyset
+        pagination on `occurredOn` and the id, never an offset), so an item recorded while paging is
+        neither repeated nor skipped because of it. Anyone who is not a member gets `404`.
       parameters:
         - name: cursor
           in: query
@@ -611,7 +616,7 @@ paths:
             maxLength: 100
         - name: limit
           in: query
-          description: How many expenses a page holds at most.
+          description: How many items a page holds at most.
           schema:
             type: integer
             format: int32
@@ -620,11 +625,11 @@ paths:
             default: 50
       responses:
         '200':
-          description: A page of the group's expenses.
+          description: A page of the group's expenses and settlements.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupExpensePage'
+                $ref: '#/components/schemas/GroupEntryPage'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -747,6 +752,169 @@ paths:
           $ref: '#/components/responses/GroupExpenseConflict'
         '422':
           $ref: '#/components/responses/GroupExpenseRefused'
+  /v1/groups/{id}/balances:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: getGroupBalances
+      tags: [group-settlements]
+      summary: Get every member's balance in a group
+      description: |
+        What the group owes each current member (docs/adr/0012-groups-on-the-ledger.md): positive,
+        the others owe them; negative, they owe the others. The balances always add up to zero.
+        Someone who left is not listed: they could only leave with a balance of zero.
+      responses:
+        '200':
+          description: The members' balances.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBalances'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+  /v1/groups/{id}/settle-up:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: getSettleUp
+      tags: [group-settlements]
+      summary: Suggest the payments that would settle a group up
+      description: |
+        Payments that would bring every balance to zero, worked out from the balances on each request
+        and never stored (docs/adr/0012-groups-on-the-ledger.md). The member who owes the most pays
+        the member who is owed the most, as much as clears one of them, until nobody owes anything.
+        Ties go to the member whose id comes first as text, so the same balances always give the
+        same suggestions.
+
+        There are at most `n − 1` payments for `n` members with a balance, though not always the
+        fewest possible. Only someone who owes pays, only someone who is owed receives, and nobody
+        receives more than they are owed. Recording a suggestion is a settlement like any other. A
+        settled group gets an empty list.
+      responses:
+        '200':
+          description: The suggested payments, in the order they were worked out.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettleUp'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+  /v1/groups/{id}/settlements:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    post:
+      operationId: createSettlement
+      tags: [group-settlements]
+      summary: Record a payment from one member to another
+      description: |
+        Records that `from` paid `to` the amount, outside the app, as one balanced journal entry of
+        the group's ledger (docs/adr/0012-groups-on-the-ledger.md): `from` owes that much less
+        (`+amount`) and `to` is owed that much less (`−amount`). Any amount above zero can be
+        recorded, a suggested one or not, and any member can record it, not only `from` or `to`.
+        Both must be members now, and two different ones: someone who left the group answers like
+        an unknown member.
+
+        An archived group takes no new settlements. It moves money, so it takes an
+        `Idempotency-Key`: a retry gets the first response again and records nothing twice.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewSettlement'
+      responses:
+        '201':
+          description: The recorded settlement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/SettlementConflict'
+        '422':
+          $ref: '#/components/responses/SettlementRefused'
+  /v1/groups/{id}/settlements/{settlementId}:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/SettlementId'
+    get:
+      operationId: getSettlement
+      tags: [group-settlements]
+      summary: Get a settlement with its trail
+      description: |
+        The settlement and its trail: every version of it and every reversal, oldest first, each with
+        the member who made it. An old version of an edited settlement can be read too; it says that
+        it was reversed and which version is the current one.
+      responses:
+        '200':
+          description: The settlement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementDetail'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/SettlementNotFound'
+  /v1/groups/{id}/settlements/{settlementId}/reverse:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+      - $ref: '#/components/parameters/SettlementId'
+    post:
+      operationId: reverseSettlement
+      tags: [group-settlements]
+      summary: Reverse a settlement, or edit it by reversing it and recording its correction
+      description: |
+        Works like reversing an expense. Reversing posts the exact opposite of the settlement's
+        entry, dated the same day and linked to it, so both balances go back to what they were
+        without it. With a `replacement`, the corrected settlement is recorded in the same database
+        transaction, and follows the rules of a new one.
+
+        Any member can reverse or edit any settlement of the group; the trail shows who made each
+        version. A settlement is reversed at most once, so reversing it again, or an old version of
+        an edited one, answers `409`. So does a settlement from or to someone who left the group, and
+        any settlement of an archived group.
+
+        It moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlementReversal'
+      responses:
+        '200':
+          description: |
+            The correction when a `replacement` was sent, otherwise the reversed settlement; both with
+            their trail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/SettlementNotFound'
+        '409':
+          $ref: '#/components/responses/SettlementConflict'
+        '422':
+          $ref: '#/components/responses/SettlementRefused'
   /v1/groups/{id}/leave:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -930,6 +1098,14 @@ components:
       in: path
       required: true
       description: The id of a version of an expense of the group in the path.
+      schema:
+        type: string
+        format: uuid
+    SettlementId:
+      name: settlementId
+      in: path
+      required: true
+      description: The id of a version of a settlement of the group in the path.
       schema:
         type: string
         format: uuid
@@ -1118,7 +1294,8 @@ components:
         `group_not_found`: the user is not a member of a group with this id (see `GroupNotFound`).
         `group_expense_not_found`: the group has no expense with this id. An expense of another
         group answers the same, even one of the user's other groups, and so does an entry that is
-        not an expense, such as a reversal, which belongs to the trail of the expense it cancels.
+        not an expense: a settlement, or a reversal, which belongs to the trail of the expense it
+        cancels.
       content:
         application/problem+json:
           schema:
@@ -1168,6 +1345,57 @@ components:
             status: 422
             detail: The percentages do not add up to 100 %.
             code: split_percentages_not_100
+    SettlementNotFound:
+      description: |
+        `group_not_found`: the user is not a member of a group with this id (see `GroupNotFound`).
+        `group_settlement_not_found`: the group has no settlement with this id. A settlement of
+        another group answers the same, even one of the user's other groups, and so does an entry
+        that is not a settlement, such as an expense or a reversal.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Not Found
+            status: 404
+            detail: There is no settlement with this id in the group.
+            code: group_settlement_not_found
+    SettlementConflict:
+      description: |
+        - `group_archived`: an archived group takes no new settlements and no corrections until it
+          is restored.
+        - `group_settlement_already_reversed`: the settlement was already reversed, by itself or by
+          an edit; only the current version of an edited settlement can be reversed or edited.
+        - `group_settlement_member_left`: the settlement is from or to someone who has left the
+          group, so it can no longer be reversed or edited.
+        - `idempotency_key_in_use`: see `IdempotencyKeyInUse`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Conflict
+            status: 409
+            detail: This settlement was already reversed.
+            code: group_settlement_already_reversed
+    SettlementRefused:
+      description: |
+        The request is well formed, but the settlement cannot be recorded. `code` says why:
+
+        - `member_not_found`: `from` or `to` is not a member of the group now. Someone who left, or
+          who was never in the group, answers the same as an unknown id.
+        - `group_settlement_to_self`: `from` and `to` are the same member.
+        - `currency_mismatch`: the amount is not in the group's currency.
+        - `idempotency_key_reused`: see `IdempotencyKeyReused`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: A member cannot pay themselves.
+            code: group_settlement_to_self
     GroupNotFound:
       description: |
         The user is not a member of a group with this id: there is none, it belongs to other people,
@@ -1920,9 +2148,10 @@ components:
           description: |
             A later entry cancelled this version, on its own or as part of an edit. Only old versions
             are reversed: the current version of an expense never is.
-    GroupExpenseTrailStep:
+    GroupTrailStep:
       type: object
       required: [entryId, action, amount, recordedBy, recordedAt]
+      description: One step in the trail of an expense or a settlement.
       properties:
         entryId:
           type: string
@@ -1931,7 +2160,7 @@ components:
           $ref: '#/components/schemas/TrailAction'
         amount:
           $ref: '#/components/schemas/Money'
-          description: The total of the version, or of the version a reversal cancels.
+          description: The amount of the version, or of the version a reversal cancels.
         recordedBy:
           type: string
           format: uuid
@@ -1955,25 +2184,185 @@ components:
             Every version of the expense and every reversal, oldest first. An expense that was never
             edited or reversed has one step.
           items:
-            $ref: '#/components/schemas/GroupExpenseTrailStep'
+            $ref: '#/components/schemas/GroupTrailStep'
         currentId:
           type: string
           format: uuid
           description: |
             The version in effect, which may be this one. Absent when the last version was reversed
             without a correction.
-    GroupExpensePage:
+    NewSettlement:
+      type: object
+      required: [amount, occurredOn, from, to]
+      description: |
+        A payment between two members to settle up: `from` gave `to` the amount, outside the app.
+        Any amount above zero, not only a suggested one.
+      properties:
+        amount:
+          $ref: '#/components/schemas/PositiveMoney'
+          description: How much was paid, in the group's currency.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the money was paid, which can be in the past.
+          example: '2026-11-16'
+        from:
+          type: string
+          format: uuid
+          description: The member who paid, a member of the group now.
+        to:
+          type: string
+          format: uuid
+          description: The member who was paid, another member of the group now.
+    SettlementReversal:
+      type: object
+      description: Send no body, or no `replacement`, to reverse the settlement without correcting it.
+      properties:
+        replacement:
+          $ref: '#/components/schemas/NewSettlement'
+          description: The corrected settlement, recorded together with the reversal.
+    Settlement:
+      type: object
+      required: [id, amount, occurredOn, from, to, recordedBy, recordedAt, edited, reversed]
+      description: |
+        One version of a payment between two members: a journal entry of the group's ledger, `from`
+        `+amount` and `to` `−amount`. Look the user ids up in the group's members.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The id of the journal entry.
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: How much was paid, above zero.
+        occurredOn:
+          type: string
+          format: date
+        from:
+          type: string
+          format: uuid
+          description: The member who paid.
+        to:
+          type: string
+          format: uuid
+          description: The member who was paid.
+        recordedBy:
+          type: string
+          format: uuid
+          description: The member who recorded this version, who may be neither `from` nor `to`.
+        recordedAt:
+          type: string
+          format: date-time
+          description: When this version was recorded.
+        edited:
+          type: boolean
+          description: This version is the correction of an earlier one.
+        reversed:
+          type: boolean
+          description: |
+            A later entry cancelled this version, on its own or as part of an edit. Only old versions
+            are reversed: the current version of a settlement never is.
+    SettlementDetail:
+      type: object
+      required: [settlement, trail]
+      properties:
+        settlement:
+          $ref: '#/components/schemas/Settlement'
+        trail:
+          type: array
+          description: |
+            Every version of the settlement and every reversal, oldest first. A settlement that was
+            never edited or reversed has one step.
+          items:
+            $ref: '#/components/schemas/GroupTrailStep'
+        currentId:
+          type: string
+          format: uuid
+          description: |
+            The version in effect, which may be this one. Absent when the last version was reversed
+            without a correction.
+    GroupEntryType:
+      type: string
+      enum: [EXPENSE, SETTLEMENT]
+      description: |
+        What an item of a group's list is: an `EXPENSE` that a member paid and the group shares, or a
+        `SETTLEMENT`, a payment from one member to another.
+    GroupEntry:
+      type: object
+      required: [type]
+      description: |
+        One item of a group's list, a journal entry of the group's ledger. It holds `expense` when
+        `type` is `EXPENSE`, and `settlement` when it is `SETTLEMENT`.
+      properties:
+        type:
+          $ref: '#/components/schemas/GroupEntryType'
+        expense:
+          $ref: '#/components/schemas/GroupExpense'
+        settlement:
+          $ref: '#/components/schemas/Settlement'
+    GroupEntryPage:
       type: object
       required: [items]
       properties:
         items:
           type: array
-          description: The current version of each expense, newest first.
+          description: The current version of each expense and settlement, newest first.
           items:
-            $ref: '#/components/schemas/GroupExpense'
+            $ref: '#/components/schemas/GroupEntry'
         nextCursor:
           type: string
           description: Send it as `cursor` for the next page. Absent on the last page.
+    MemberBalance:
+      type: object
+      required: [userId, balance]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: A member of the group now.
+        balance:
+          $ref: '#/components/schemas/Money'
+          description: |
+            What the group owes the member: positive, the others owe them; negative, they owe the
+            others; zero, they are settled.
+    GroupBalances:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: Every current member, in the order they joined. The balances add up to zero.
+          items:
+            $ref: '#/components/schemas/MemberBalance'
+    SuggestedPayment:
+      type: object
+      required: [from, to, amount]
+      description: |
+        A payment that would help settle the group up. It has the properties a `NewSettlement` needs
+        but its day, so recording it means sending it with `occurredOn`.
+      properties:
+        from:
+          type: string
+          format: uuid
+          description: A member who owes.
+        to:
+          type: string
+          format: uuid
+          description: A member who is owed.
+        amount:
+          $ref: '#/components/schemas/Money'
+          description: Above zero, and never more than `from` owes or `to` is owed.
+    SettleUp:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: |
+            The suggested payments, in the order they were worked out: at most one fewer than the
+            members with a balance. Empty when every balance is zero.
+          items:
+            $ref: '#/components/schemas/SuggestedPayment'
     ReportGrouping:
       type: string
       enum: [category, month]
@@ -2076,7 +2465,7 @@ components:
           description: '`true` archives the group, which needs every balance at zero; `false` restores it.'
     GroupSummary:
       type: object
-      required: [id, name, currency, memberCount, archived]
+      required: [id, name, currency, memberCount, myBalance, archived]
       description: A group in the list of the user's groups.
       properties:
         id:
@@ -2092,6 +2481,11 @@ components:
           format: int32
           minimum: 1
           description: How many people are members now, the user included.
+        myBalance:
+          $ref: '#/components/schemas/Money'
+          description: |
+            What the group owes the user, as in `MemberBalance`: positive, the others owe them;
+            negative, they owe the others.
         archived:
           type: boolean
         archivedAt:
