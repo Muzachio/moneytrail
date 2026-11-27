@@ -2,6 +2,7 @@ package io.github.muzachio.moneytrail.groups.internal;
 
 import static java.util.stream.Collectors.toSet;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.ledger.JournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
 import java.util.ArrayList;
@@ -21,12 +22,20 @@ final class Trails {
 
     private Trails() {}
 
-    /** Every version and every reversal of the history, oldest first, as the trail shows them. */
+    /** A settlement's trail: every version and every reversal of the history, oldest first. */
     static List<TrailStep> of(List<JournalEntry> history) {
+        return of(history, Map.of());
+    }
+
+    /**
+     * An expense's trail, with the category of each version from {@code categories}; a reversal shows
+     * the category of the version it cancels, as it shows its amount.
+     */
+    static List<TrailStep> of(List<JournalEntry> history, Map<UUID, ExpenseCategory> categories) {
         Map<UUID, TrailStep> steps = new HashMap<>();
         List<TrailStep> trail = new ArrayList<>();
         for (JournalEntry version : history) {
-            TrailStep step = stepOf(version, steps);
+            TrailStep step = stepOf(version, steps, categories);
             steps.put(version.id(), step);
             trail.add(step);
         }
@@ -61,7 +70,8 @@ final class Trails {
         return paid.getFirst();
     }
 
-    private static TrailStep stepOf(JournalEntry entry, Map<UUID, TrailStep> earlierSteps) {
+    private static TrailStep stepOf(
+            JournalEntry entry, Map<UUID, TrailStep> earlierSteps, Map<UUID, ExpenseCategory> categories) {
         UUID reversed = entry.reversesEntryId();
         if (reversed != null) {
             TrailStep cancelled = Objects.requireNonNull(
@@ -70,6 +80,7 @@ final class Trails {
                     entry.id(),
                     TrailStep.Action.REVERSED,
                     cancelled.amount(),
+                    cancelled.category(),
                     entry.createdBy(),
                     entry.createdAt(),
                     reversed);
@@ -78,6 +89,7 @@ final class Trails {
                 entry.id(),
                 entry.replacesEntryId() == null ? TrailStep.Action.RECORDED : TrailStep.Action.CORRECTED,
                 paid(entry).amount(),
+                categories.get(entry.id()),
                 entry.createdBy(),
                 entry.createdAt(),
                 null);

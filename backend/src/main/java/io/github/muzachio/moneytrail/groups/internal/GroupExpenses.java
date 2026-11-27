@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.GroupExpenseAdded;
 import io.github.muzachio.moneytrail.groups.GroupExpenseEdited;
 import io.github.muzachio.moneytrail.groups.GroupExpenseReversed;
@@ -80,10 +81,12 @@ class GroupExpenses {
         Map<UUID, UUID> accounts = lockMembers(group, people(expense, split), Set.of(), null);
         JournalEntry entry = ledger.post(entryOf(group, expense, split, accounts, userId));
         store.insertSplit(entry.id(), split);
+        store.insertCategory(entry.id(), expense.category());
         events.publishEvent(new GroupExpenseAdded(
                 group.id(),
                 entry.id(),
                 entry.description(),
+                expense.category(),
                 expense.amount(),
                 entry.occurredOn(),
                 expense.paidBy(),
@@ -94,6 +97,7 @@ class GroupExpenses {
                 expense.amount(),
                 entry.occurredOn(),
                 entry.description(),
+                expense.category(),
                 expense.paidBy(),
                 split,
                 userId,
@@ -119,13 +123,14 @@ class GroupExpenses {
         EntryPage page = ledger.entries(inEffect, cursor == null ? null : ExpenseCursors.decode(cursor), limit);
         List<UUID> ids = page.entries().stream().map(JournalEntry::id).toList();
         Map<UUID, Split> splits = store.splitsOf(ids, group.currency());
+        Map<UUID, ExpenseCategory> categories = store.categoriesOf(ids);
         Set<UUID> settlements = settlementStore.settlementsAmong(ids);
         Map<UUID, UUID> owners = groupStore.accountOwners(group.id());
         List<Movement> items = new ArrayList<>();
         for (JournalEntry entry : page.entries()) {
             Split split = splits.get(entry.id());
             if (split != null) {
-                items.add(expenseOf(entry, split, owners, false));
+                items.add(expenseOf(entry, split, categoryOf(categories, entry.id()), owners, false));
             } else if (settlements.contains(entry.id())) {
                 items.add(Settlements.settlementOf(entry, owners, false));
             } else {
@@ -157,7 +162,13 @@ class GroupExpenses {
             lockMembers(group, Set.of(), moved, expenseId);
             JournalEntry reversal = reversing(expenseId, () -> ledger.reverse(expenseId, userId));
             events.publishEvent(new GroupExpenseReversed(
-                    group.id(), expenseId, reversed.description(), reversed.amount(), userId, reversal.createdAt()));
+                    group.id(),
+                    expenseId,
+                    reversed.description(),
+                    reversed.category(),
+                    reversed.amount(),
+                    userId,
+                    reversal.createdAt()));
             return historyOf(group, expenseId);
         }
         Split split = splitOf(replacement, group);
@@ -165,15 +176,18 @@ class GroupExpenses {
         JournalEntry correction = reversing(
                 expenseId, () -> ledger.replace(expenseId, entryOf(group, replacement, split, accounts, userId)));
         store.insertSplit(correction.id(), split);
+        store.insertCategory(correction.id(), replacement.category());
         events.publishEvent(new GroupExpenseEdited(
                 group.id(),
                 correction.id(),
                 expenseId,
                 correction.description(),
+                replacement.category(),
                 replacement.amount(),
                 correction.occurredOn(),
                 replacement.paidBy(),
                 reversed.description(),
+                reversed.category(),
                 reversed.amount(),
                 userId,
                 correction.createdAt()));
@@ -289,14 +303,26 @@ class GroupExpenses {
         if (split == null) {
             throw GroupExpenseException.notFound(expenseId);
         }
+        Map<UUID, ExpenseCategory> categories =
+                store.categoriesOf(entries.stream().map(JournalEntry::id).toList());
         Map<UUID, UUID> owners = groupStore.accountOwners(group.id());
-        Expense expense =
-                expenseOf(entry, split, owners, Trails.reversed(entries).contains(expenseId));
-        return new ExpenseHistory(expense, Trails.of(entries), Trails.current(entries));
+        Expense expense = expenseOf(
+                entry,
+                split,
+                categoryOf(categories, expenseId),
+                owners,
+                Trails.reversed(entries).contains(expenseId));
+        return new ExpenseHistory(expense, Trails.of(entries, categories), Trails.current(entries));
+    }
+
+    /** Every expense has one: V18 gave {@code other} to those recorded before categories existed. */
+    private static ExpenseCategory categoryOf(Map<UUID, ExpenseCategory> categories, UUID expenseId) {
+        return Objects.requireNonNull(categories.get(expenseId), () -> "Expense " + expenseId + " has no category");
     }
 
     /** Reads the entry back: the one posting above zero is who paid, and its amount the total. */
-    private static Expense expenseOf(JournalEntry entry, Split split, Map<UUID, UUID> owners, boolean reversed) {
+    private static Expense expenseOf(
+            JournalEntry entry, Split split, ExpenseCategory category, Map<UUID, UUID> owners, boolean reversed) {
         Posting paid = Trails.paid(entry);
         UUID paidBy = Objects.requireNonNull(
                 owners.get(paid.accountId()), () -> "Account " + paid.accountId() + " is no member's");
@@ -305,6 +331,7 @@ class GroupExpenses {
                 paid.amount(),
                 entry.occurredOn(),
                 entry.description(),
+                category,
                 paidBy,
                 split,
                 entry.createdBy(),

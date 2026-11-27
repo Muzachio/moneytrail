@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.internal.Split.MemberShare;
 import io.github.muzachio.moneytrail.identity.SignedIn;
 import io.github.muzachio.moneytrail.shared.Money;
@@ -10,6 +11,7 @@ import io.github.muzachio.moneytrail.shared.api.model.GroupEntry;
 import io.github.muzachio.moneytrail.shared.api.model.GroupEntryPage;
 import io.github.muzachio.moneytrail.shared.api.model.GroupEntryType;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpense;
+import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseCategory;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseDetail;
 import io.github.muzachio.moneytrail.shared.api.model.GroupExpenseReversal;
 import io.github.muzachio.moneytrail.shared.api.model.GroupTrailStep;
@@ -91,6 +93,7 @@ class GroupExpensesController implements GroupExpensesApi {
                 toMoney(body.getAmount()),
                 body.getOccurredOn(),
                 body.getDescription(),
+                ExpenseCategory.ofKey(body.getCategory().getValue()),
                 body.getPaidBy(),
                 method,
                 inputs);
@@ -164,6 +167,10 @@ class GroupExpensesController implements GroupExpensesApi {
                 toApi(step.amount()),
                 step.recordedBy(),
                 utc(step.recordedAt()));
+        ExpenseCategory category = step.category();
+        if (category != null) {
+            body.category(toApi(category));
+        }
         UUID reversesEntryId = step.reversesEntryId();
         if (reversesEntryId != null) {
             body.reversesEntryId(reversesEntryId);
@@ -185,6 +192,7 @@ class GroupExpensesController implements GroupExpensesApi {
                 toApi(expense.amount()),
                 expense.occurredOn(),
                 expense.description(),
+                toApi(expense.category()),
                 expense.paidBy(),
                 new ExpenseSplit(
                         toApi(expense.split().method()),
@@ -195,6 +203,10 @@ class GroupExpensesController implements GroupExpensesApi {
                 utc(expense.recordedAt()),
                 expense.edited(),
                 expense.reversed());
+    }
+
+    private static GroupExpenseCategory toApi(ExpenseCategory category) {
+        return GroupExpenseCategory.fromValue(category.key());
     }
 
     private static ExpenseShare toApi(MemberShare share) {

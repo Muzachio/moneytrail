@@ -11,12 +11,14 @@ import java.util.UUID;
  * and only if the expense exists. It carries what such a listener shows, and no email.
  *
  * @param expenseId the id of the expense, which is its journal entry's
+ * @param category what it was for, so a listener can show its icon
  * @param recordedBy who recorded it, who may be someone other than {@code paidBy}
  */
 public record GroupExpenseAdded(
         UUID groupId,
         UUID expenseId,
         String description,
+        ExpenseCategory category,
         Money amount,
         LocalDate occurredOn,
         UUID paidBy,

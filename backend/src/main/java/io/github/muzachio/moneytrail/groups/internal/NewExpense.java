@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.shared.Money;
 import io.github.muzachio.moneytrail.shared.TypedText;
 import java.time.LocalDate;
@@ -7,13 +8,15 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * An expense a member records, or the correction of one: the total that {@code paidBy} paid, and how
- * it is split. {@link GroupExpenses} checks it against the group: its currency and its members.
+ * An expense a member records, or the correction of one: the total that {@code paidBy} paid, what it
+ * was for, and how it is split. {@link GroupExpenses} checks it against the group: its currency and
+ * its members.
  */
 record NewExpense(
         Money amount,
         LocalDate occurredOn,
         String description,
+        ExpenseCategory category,
         UUID paidBy,
         SplitMethod method,
         List<SplitInput> inputs) {

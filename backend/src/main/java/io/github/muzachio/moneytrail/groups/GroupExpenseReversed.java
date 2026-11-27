@@ -10,7 +10,13 @@ import java.util.UUID;
  * GroupExpenseEdited} instead.
  *
  * @param expenseId the version that was reversed
- * @param description and {@code amount}: those of that version
+ * @param description with {@code category} and {@code amount}: those of that version
  */
 public record GroupExpenseReversed(
-        UUID groupId, UUID expenseId, String description, Money amount, UUID reversedBy, Instant reversedAt) {}
+        UUID groupId,
+        UUID expenseId,
+        String description,
+        ExpenseCategory category,
+        Money amount,
+        UUID reversedBy,
+        Instant reversedAt) {}

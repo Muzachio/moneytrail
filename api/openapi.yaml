@@ -2053,9 +2053,18 @@ components:
           description: Everyone who takes part in the expense, each once.
           items:
             $ref: '#/components/schemas/NewSplitMember'
+    GroupExpenseCategory:
+      type: string
+      # The default expense categories' keys, the first eight of CategoryKey, so the app shows a group
+      # expense with the same names and icons as a person's own categories. A new key needs a
+      # migration too: the database checks the list (V18).
+      enum: [housing, food, transport, bills, shopping, leisure, health, other]
+      description: |
+        What a group expense was for. A label kept with the expense, not a ledger account: a group's
+        ledger has only its members' accounts (docs/adr/0012-groups-on-the-ledger.md).
     NewGroupExpense:
       type: object
-      required: [amount, occurredOn, description, paidBy, split]
+      required: [amount, occurredOn, description, category, paidBy, split]
       properties:
         amount:
           $ref: '#/components/schemas/PositiveMoney'
@@ -2067,6 +2076,8 @@ components:
           example: '2026-11-14'
         description:
           $ref: '#/components/schemas/TransactionDescription'
+        category:
+          $ref: '#/components/schemas/GroupExpenseCategory'
         paidBy:
           type: string
           format: uuid
@@ -2109,7 +2120,7 @@ components:
             $ref: '#/components/schemas/ExpenseShare'
     GroupExpense:
       type: object
-      required: [id, amount, occurredOn, description, paidBy, split, recordedBy, recordedAt, edited, reversed]
+      required: [id, amount, occurredOn, description, category, paidBy, split, recordedBy, recordedAt, edited, reversed]
       description: |
         One version of an expense: a journal entry of the group's ledger. Look the user ids up in the
         group's members.
@@ -2126,6 +2137,8 @@ components:
           format: date
         description:
           type: string
+        category:
+          $ref: '#/components/schemas/GroupExpenseCategory'
         paidBy:
           type: string
           format: uuid
@@ -2161,6 +2174,11 @@ components:
         amount:
           $ref: '#/components/schemas/Money'
           description: The amount of the version, or of the version a reversal cancels.
+        category:
+          $ref: '#/components/schemas/GroupExpenseCategory'
+          description: |
+            On the steps of an expense: the category of the version, or of the version a reversal
+            cancels, so an edit that changes it shows. Absent on the steps of a settlement.
         recordedBy:
           type: string
           format: uuid

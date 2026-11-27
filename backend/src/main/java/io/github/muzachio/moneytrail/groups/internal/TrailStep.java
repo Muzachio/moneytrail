@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,6 +11,8 @@ import org.jspecify.annotations.Nullable;
  * the member who made it (ADR-0012: any member may correct either, and the trail shows who).
  *
  * @param amount the amount of the version, or of the version a reversal cancels
+ * @param category on an expense's steps, the category of the version, or of the version a reversal
+ *     cancels; null on a settlement's
  * @param recordedBy who recorded the version, or reversed it
  * @param reversesEntryId the version a reversal cancels; null on the other steps
  */
@@ -17,6 +20,7 @@ record TrailStep(
         UUID entryId,
         Action action,
         Money amount,
+        @Nullable ExpenseCategory category,
         UUID recordedBy,
         Instant recordedAt,
         @Nullable UUID reversesEntryId) {

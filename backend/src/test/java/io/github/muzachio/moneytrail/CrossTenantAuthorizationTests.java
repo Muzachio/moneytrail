@@ -659,7 +659,7 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
     /** 10.00 paid by {@code paidBy}, all of it {@code member}'s. */
     private static String groupExpense(UUID paidBy, UUID member) {
         return """
-                {"amount": {"amountMinor": 1000, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner",
+                {"amount": {"amountMinor": 1000, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner", "category": "food",
                  "paidBy": "%s", "split": {"method": "EQUALLY", "members": [{"userId": "%s"}]}}""".formatted(today(), paidBy, member);
     }
 
