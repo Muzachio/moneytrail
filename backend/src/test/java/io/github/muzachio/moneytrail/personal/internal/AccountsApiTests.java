@@ -80,6 +80,7 @@ class AccountsApiTests extends PostgresIntegrationTest {
         "CHECKING, ASSET, checking",
         "SAVINGS, ASSET, savings",
         "CASH, ASSET, cash",
+        "INVESTMENT, ASSET, investment",
         "CREDIT_CARD, LIABILITY, credit-card"
     })
     void createsAnAccountOfEachTypeAsAnAssetOrALiability(String type, AccountKind kind, String key) {
@@ -268,6 +269,59 @@ class AccountsApiTests extends PostgresIntegrationTest {
     }
 
     @Test
+    void anAssetCanBecomeAnotherAssetAndKeepsItsHistoryAndBalance() {
+        UUID checking = create(ana, "CHECKING", "Everyday checking", 100000L);
+        UUID savings = create(ana, "SAVINGS", "Index funds", null);
+        postOn(today(), savings, checking, 55700);
+        List<Line> postingsBefore = postingsOf(ana);
+
+        var retyped = assertThat(patch(ana, savings, """
+                        {"type": "INVESTMENT"}""")).hasStatusOk().bodyJson();
+        retyped.extractingPath("$.type").isEqualTo("INVESTMENT");
+        retyped.extractingPath("$.name").isEqualTo("Index funds");
+        retyped.extractingPath("$.balance.amountMinor").isEqualTo(55700);
+        retyped.extractingPath("$.changeThisMonth.amountMinor").isEqualTo(55700);
+        assertThat(ledger.findAccount(savings)).hasValueSatisfying(account -> {
+            assertThat(account.kind()).isEqualTo(AccountKind.ASSET);
+            assertThat(account.subtype()).isEqualTo("investment");
+        });
+        assertThat(postingsOf(ana)).as("a new type moves no money").isEqualTo(postingsBefore);
+        assertThat(get(ana)).bodyJson().extractingPath("$.items[1].type").isEqualTo("INVESTMENT");
+
+        var both = assertThat(patch(ana, savings, """
+                        {"name": "Savings", "type": "SAVINGS"}""")).hasStatusOk().bodyJson();
+        both.extractingPath("$.name").isEqualTo("Savings");
+        both.extractingPath("$.type").isEqualTo("SAVINGS");
+        assertThat(patch(ana, savings, """
+                        {"type": "SAVINGS"}"""))
+                .as("the same type again changes nothing")
+                .hasStatusOk();
+        assertThat(patch(ana, checking, """
+                        {"type": "CASH"}"""))
+                .bodyJson()
+                .extractingPath("$.type")
+                .isEqualTo("CASH");
+    }
+
+    @Test
+    void aCreditCardKeepsItsTypeAndNoOtherAccountBecomesOne() {
+        UUID card = create(ana, "CREDIT_CARD", "Credit card", -31240L);
+        UUID checking = create(ana, "CHECKING", "Everyday checking", 100000L);
+
+        assertProblem(patch(ana, card, """
+                        {"name": "Savings now", "type": "SAVINGS"}"""), HttpStatus.UNPROCESSABLE_CONTENT, "account_type_change_refused");
+        assertProblem(patch(ana, checking, """
+                        {"type": "CREDIT_CARD"}"""), HttpStatus.UNPROCESSABLE_CONTENT, "account_type_change_refused");
+
+        assertThat(ledger.findAccount(card)).hasValueSatisfying(account -> {
+            assertThat(account.subtype()).isEqualTo("credit-card");
+            assertThat(account.name()).as("nothing of a refused change is kept").isEqualTo("Credit card");
+        });
+        assertThat(ledger.findAccount(checking))
+                .hasValueSatisfying(account -> assertThat(account.subtype()).isEqualTo("checking"));
+    }
+
+    @Test
     void listsEachAccountsBalanceAndHowMuchItChangedThisMonth() {
         UUID checking = create(ana, "CHECKING", "Everyday checking", 100000L);
         UUID card = create(ana, "CREDIT_CARD", "Credit card", -31240L);
@@ -307,6 +361,8 @@ class AccountsApiTests extends PostgresIntegrationTest {
                 {"name": "Mine now"}"""));
         assertNotFound(patch(rui, anasChecking, """
                 {"archived": true}"""));
+        assertNotFound(patch(rui, anasChecking, """
+                {"type": "INVESTMENT"}"""));
         assertThat(get(rui))
                 .bodyJson()
                 .extractingPath("$.items")
@@ -382,7 +438,9 @@ class AccountsApiTests extends PostgresIntegrationTest {
                 "{\"name\": \"\\u2003\"}",
                 "{\"name\": \"\\u00a0\"}",
                 "{\"name\": \"\\u202f\"}",
-                "{\"archived\": null}"
+                "{\"archived\": null}",
+                "{\"type\": null}",
+                "{\"type\": \"LOAN\"}"
             })
     void refusesAnInvalidUpdate(String body) {
         assertBadRequest(patch(ana, create(ana, "CASH", "Wallet", null), body));

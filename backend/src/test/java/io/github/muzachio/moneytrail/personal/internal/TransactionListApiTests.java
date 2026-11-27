@@ -260,6 +260,30 @@ class TransactionListApiTests extends PostgresIntegrationTest {
                 .isEqualTo(Map.of("count", 1, "income", eur(0), "spending", eur(1290), "net", eur(-1290)));
     }
 
+    /** Investing moves money from one asset to another: the person still has it (#121). */
+    @Test
+    void movingMoneyToOrFromAnInvestmentAccountIsNeitherIncomeNorSpending() {
+        UUID investments = createAccount(ana, "INVESTMENT", "Index funds", 0);
+        record(income(salary, checking, 200000, "October salary", "2026-10-01"));
+        record(transfer(checking, savings, 55700, "Savings", "2026-10-02"));
+        record(transfer(savings, investments, 55700, "Index fund", "2026-10-03"));
+        record(transfer(investments, checking, 10000, "Sold some units", "2026-10-20"));
+        record(expense(food, checking, 100000, "Groceries", "2026-10-21"));
+
+        assertThat(list(ana, "month=2026-10"))
+                .bodyJson()
+                .extractingPath("$.summary")
+                .isEqualTo(Map.of(
+                        "count", 5,
+                        "income", eur(200000),
+                        "spending", eur(100000),
+                        "net", eur(200000 - 100000)));
+        assertThat(list(ana, "month=2026-10&accountId=" + investments))
+                .bodyJson()
+                .extractingPath("$.summary")
+                .isEqualTo(Map.of("count", 2, "income", eur(0), "spending", eur(0), "net", eur(0)));
+    }
+
     @Test
     void anEmptyMonthHasNoItemsNoCursorAndZeroTotals() {
         var body = assertThat(list(ana, "month=2026-03")).hasStatusOk().bodyJson();

@@ -16,13 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { AccountTypePicker } from '@/components/accounts/AccountTypePicker'
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-  FieldLegend,
-  FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -30,12 +29,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group'
-import {
-  accountTypeIcons,
-  accountTypes,
-  CURRENCY,
-  isLiability,
-} from '@/lib/accounts'
+import { accountTypes, CURRENCY, isLiability } from '@/lib/accounts'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage, moneyInputMessage, nameSchema } from '@/lib/forms'
 import { parseMoneyInput } from '@/lib/money'
@@ -164,30 +158,7 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
         )}
       />
 
-      <FieldSet className="gap-0">
-        <FieldLegend variant="label">{t('accounts.form.type')}</FieldLegend>
-        <div className="grid grid-cols-2 gap-2">
-          {accountTypes.map((type) => {
-            const Icon = accountTypeIcons[type]
-            return (
-              <label
-                key={type}
-                // At least as tall as the design's 44px; taller when a long name wraps on a phone.
-                className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[10px] border bg-background px-3 py-2 leading-tight font-medium transition-colors hover:bg-muted/50 has-checked:border-primary has-checked:bg-muted/50 has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
-              >
-                <input
-                  type="radio"
-                  value={type}
-                  className="sr-only"
-                  {...form.register('type')}
-                />
-                <Icon aria-hidden className="size-4 flex-none" />
-                <span>{t(`accounts.types.${type}`)}</span>
-              </label>
-            )
-          })}
-        </div>
-      </FieldSet>
+      <AccountTypePicker types={accountTypes} field={form.register('type')} />
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">

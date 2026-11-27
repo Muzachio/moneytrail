@@ -2,7 +2,12 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Account } from '@/api/accounts'
 import { RowMenu } from '@/components/RowMenu'
-import { accountKind, accountTypeIcons, balanceOf } from '@/lib/accounts'
+import {
+  accountKind,
+  accountTypeIcons,
+  balanceOf,
+  isLiability,
+} from '@/lib/accounts'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
@@ -114,6 +119,8 @@ function AccountRow({
       </span>
       <RowMenu
         label={t('rowMenu.label', { name: account.name })}
+        // An asset's dialog also changes its type; a credit card's only its name.
+        renameLabel={isLiability(account.type) ? undefined : t('rowMenu.edit')}
         archiveHint={t('accounts.archiveHint')}
         onRename={onRename}
         onArchive={onArchive}

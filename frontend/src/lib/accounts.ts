@@ -4,6 +4,7 @@ import {
   Landmark,
   type LucideIcon,
   PiggyBank,
+  TrendingUp,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { Account, AccountType } from '@/api/accounts'
@@ -12,20 +13,31 @@ import { type Money, sumMoney } from '@/lib/money'
 /** The only currency in M1 (`CurrencyCode` in the spec). */
 export const CURRENCY = 'EUR'
 
-/** In the order the add-account dialog offers them, as in the design canvas. */
+/**
+ * In the order the add-account dialog offers them: the design canvas' four, then investments
+ * (#121), which came later.
+ */
 export const accountTypes = [
   'CHECKING',
   'SAVINGS',
   'CREDIT_CARD',
   'CASH',
+  'INVESTMENT',
 ] as const satisfies readonly AccountType[]
 
-/** The design canvas' icon for each type of account. */
+/**
+ * The types an account holding money the person has can change to: one asset can become another,
+ * but a credit card keeps its type, since the same balance would then mean money owed.
+ */
+export const assetTypes = accountTypes.filter((type) => !isLiability(type))
+
+/** The design canvas' icon for each type of account, and a rising line for investments. */
 export const accountTypeIcons: Record<AccountType, LucideIcon> = {
   CHECKING: Landmark,
   SAVINGS: PiggyBank,
   CREDIT_CARD: CreditCard,
   CASH: Coins,
+  INVESTMENT: TrendingUp,
 }
 
 /**

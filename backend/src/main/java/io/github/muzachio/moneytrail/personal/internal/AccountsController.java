@@ -52,7 +52,9 @@ class AccountsController implements AccountsApi {
 
     @Override
     public ResponseEntity<Account> updateAccount(UUID id, AccountUpdate update) {
-        return ResponseEntity.ok(toApi(accounts.update(SignedIn.userId(), id, update.getName(), update.getArchived())));
+        AccountType type = update.getType();
+        return ResponseEntity.ok(toApi(accounts.update(
+                SignedIn.userId(), id, update.getName(), type == null ? null : toType(type), update.getArchived())));
     }
 
     /**
@@ -96,6 +98,7 @@ class AccountsController implements AccountsApi {
             case CHECKING -> UserAccount.Type.CHECKING;
             case SAVINGS -> UserAccount.Type.SAVINGS;
             case CASH -> UserAccount.Type.CASH;
+            case INVESTMENT -> UserAccount.Type.INVESTMENT;
             case CREDIT_CARD -> UserAccount.Type.CREDIT_CARD;
         };
     }
@@ -105,6 +108,7 @@ class AccountsController implements AccountsApi {
             case CHECKING -> AccountType.CHECKING;
             case SAVINGS -> AccountType.SAVINGS;
             case CASH -> AccountType.CASH;
+            case INVESTMENT -> AccountType.INVESTMENT;
             case CREDIT_CARD -> AccountType.CREDIT_CARD;
         };
     }

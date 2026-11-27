@@ -213,9 +213,9 @@ describe('AccountsPage', () => {
     renderApp('/accounts')
     await screen.findByText('Wallet')
 
-    await chooseFromMenu('More actions for Wallet', /Rename/)
+    await chooseFromMenu('More actions for Wallet', /Edit/)
     const dialog = await screen.findByRole('dialog', {
-      name: 'Rename account',
+      name: 'Edit account',
     })
     const name = within(dialog).getByLabelText('Name')
     expect(name).toHaveValue('Wallet')
@@ -234,14 +234,48 @@ describe('AccountsPage', () => {
     })
   })
 
+  it('changes an asset into another asset, and a credit card only gets a new name', async () => {
+    const { patch } = mockApi({ accounts: designAccounts() })
+    renderApp('/accounts')
+    await screen.findByText('Trip savings')
+
+    await chooseFromMenu('More actions for Trip savings', /Edit/)
+    const dialog = await screen.findByRole('dialog', { name: 'Edit account' })
+    expect(
+      within(dialog)
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('value')),
+    ).toEqual(['CHECKING', 'SAVINGS', 'CASH', 'INVESTMENT'])
+    expect(within(dialog).getByRole('radio', { name: 'Savings' })).toBeChecked()
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Investments' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    const investments = await screen.findByRole('region', {
+      name: 'Investments',
+    })
+    expect(within(investments).getByText('Trip savings')).toBeInTheDocument()
+    expect(row('Trip savings')).toHaveTextContent('Investments')
+    expect(row('Trip savings')).toHaveTextContent('Balance: €1,200.00')
+    expect(patch).toHaveBeenCalledExactlyOnceWith('/v1/accounts/{id}', {
+      params: { path: { id: expect.any(String) } },
+      body: { type: 'INVESTMENT' },
+    })
+
+    await chooseFromMenu('More actions for Credit card', /Rename/)
+    const rename = await screen.findByRole('dialog', {
+      name: 'Rename account',
+    })
+    expect(within(rename).queryByRole('radio')).toBeNull()
+  })
+
   it('does not send a rename that changes nothing, and refuses an empty name', async () => {
     const { patch } = mockApi({ accounts: designAccounts() })
     renderApp('/accounts')
     await screen.findByText('Wallet')
 
-    await chooseFromMenu('More actions for Wallet', /Rename/)
+    await chooseFromMenu('More actions for Wallet', /Edit/)
     const dialog = await screen.findByRole('dialog', {
-      name: 'Rename account',
+      name: 'Edit account',
     })
     const name = within(dialog).getByLabelText('Name')
     fireEvent.change(name, { target: { value: '   ' } })

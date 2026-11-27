@@ -156,12 +156,20 @@ ledger: its accounts know nothing about how the app names or draws a category.
 
 | Account kind | Examples | Normal balance |
 |---|---|---|
-| `ASSET` | Checking, Savings, Cash | debit (+) |
+| `ASSET` | Checking, Savings, Cash, Investments | debit (+) |
 | `LIABILITY` | Credit card | credit (−) |
 | `INCOME` | Salary, Refunds | credit (−) |
 | `EXPENSE` | Food, Transport | debit (+) |
 | `EQUITY` | Opening balances | credit (−) |
 | `GROUP_MEMBER` | Pedro @ Lisbon trip | + is owed by the group, − owes the group |
+
+A person's accounts keep their type (checking, savings, cash, investment, credit card) in the
+account's `subtype`. Investing is not spending: buying units of a fund trades one asset for
+another, so money moved into an investment account is a transfer, and the reports never count it.
+Its balance is what went in minus what came out; holdings and market value are out of scope. One
+asset type can become another (a savings account used for investing becomes an investment account),
+which changes the `subtype` and nothing else, but a credit card keeps its type: the same balance
+would then mean money owed instead of money had.
 
 ### Examples
 
@@ -379,7 +387,7 @@ Main resources:
 GET    /v1/me
 GET    /oauth2/authorization/google · POST /logout          (Spring Security)
 
-GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/archive/restore only)
+GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/retype/archive/restore only)
 GET|POST         /v1/categories         PATCH /v1/categories/{id} (rename/archive only)
 GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse

@@ -164,7 +164,10 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
     /** The accounts' opening balances were posted today, when signInAnaWithThreeAccounts created them. */
     @Test
     void transfersAndOpeningBalancesNeverCount() {
+        UUID investments = createAccount(ana, "INVESTMENT", "Index funds", 0);
         record(ana, transfer(checking, savings, 20000, "Emergency fund top-up", "2026-10-23"));
+        record(ana, transfer(savings, investments, 15000, "Index fund", "2026-10-24"));
+        record(ana, transfer(investments, checking, 5000, "Sold some units", "2026-10-26"));
         record(ana, transfer(checking, card, 31240, "Card payment", "2026-10-25"));
         record(ana, expense(food, card, 980, "Lunch", "2026-10-20"));
         LocalDate today = LocalDate.now(ZoneId.of("Europe/Lisbon"));

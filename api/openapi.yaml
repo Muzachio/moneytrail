@@ -144,11 +144,14 @@ paths:
     patch:
       operationId: updateAccount
       tags: [accounts]
-      summary: Rename, archive or restore an account
+      summary: Rename, retype, archive or restore an account
       description: |
         Changes the properties sent and leaves the others as they are. An archived account keeps its
-        history and its balance, but new transactions cannot use it. This moves no money, so it
-        takes no `Idempotency-Key`: sending the same change again gives the same result.
+        history and its balance, but new transactions cannot use it. A new type keeps the history and
+        the balance too: checking, savings, cash and investment accounts all hold money the user has,
+        so one can become another, but a credit card holds money owed and keeps its type. This moves
+        no money, so it takes no `Idempotency-Key`: sending the same change again gives the same
+        result.
       requestBody:
         required: true
         content:
@@ -168,6 +171,8 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '404':
           $ref: '#/components/responses/AccountNotFound'
+        '422':
+          $ref: '#/components/responses/AccountTypeChangeRefused'
   /v1/categories:
     get:
       operationId: listCategories
@@ -1210,6 +1215,19 @@ components:
             status: 404
             detail: There is no account with this id.
             code: account_not_found
+    AccountTypeChangeRefused:
+      description: |
+        A credit card holds money the user owes and the other accounts money they have, so neither
+        can take the other's type: the balance would change meaning without any money moving.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: A credit card keeps its type, and no other account can become one.
+            code: account_type_change_refused
     CategoryNotFound:
       description: |
         The user has no category with this id. Another user's category answers the same, so whether
@@ -1567,10 +1585,12 @@ components:
       description: The currency of an account or a group. Only EUR for now; more currencies come later.
     AccountType:
       type: string
-      enum: [CHECKING, SAVINGS, CASH, CREDIT_CARD]
+      enum: [CHECKING, SAVINGS, CASH, INVESTMENT, CREDIT_CARD]
       description: |
-        What the account is. Checking, savings and cash accounts hold money the user has (assets in
-        the ledger); a credit card holds money the user owes (a liability).
+        What the account is. Checking, savings, cash and investment accounts hold money the user has
+        (assets in the ledger); a credit card holds money the user owes (a liability). Money moved
+        into an investment account is a transfer, not spending; its balance is what was put in minus
+        what was taken out, not a market value.
     AccountName:
       type: string
       minLength: 1
@@ -1646,6 +1666,11 @@ components:
         archived:
           type: boolean
           description: '`true` archives the account, `false` restores it.'
+        type:
+          $ref: '#/components/schemas/AccountType'
+          description: |
+            The account's new type, among checking, savings, cash and investment. A credit card keeps
+            its type, and no other account can become one (`422 account_type_change_refused`).
     CategoryKind:
       type: string
       enum: [EXPENSE, INCOME]
