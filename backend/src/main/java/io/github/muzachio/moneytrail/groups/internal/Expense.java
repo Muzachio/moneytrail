@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -7,7 +8,7 @@ import java.util.UUID;
 
 /**
  * One version of a group expense as the API shows it: a journal entry of the group's ledger, read
- * back with its split.
+ * back with its category and its split.
  *
  * @param id the journal entry's id
  * @param recordedBy who recorded this version, who may be someone other than {@code paidBy}
@@ -19,6 +20,7 @@ record Expense(
         Money amount,
         LocalDate occurredOn,
         String description,
+        ExpenseCategory category,
         UUID paidBy,
         Split split,
         UUID recordedBy,

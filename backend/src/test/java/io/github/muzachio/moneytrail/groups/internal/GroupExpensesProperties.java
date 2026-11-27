@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.groups.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.muzachio.moneytrail.PostgresIntegrationTest;
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.internal.Balances.MemberBalance;
 import io.github.muzachio.moneytrail.groups.internal.Split.MemberShare;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
@@ -250,7 +251,14 @@ class GroupExpensesProperties extends PostgresIntegrationTest {
         if (plan.method() == SplitMethod.EXACT_AMOUNTS) {
             total = inputs.stream().mapToLong(SplitInput::value).sum();
         }
-        return new NewExpense(new Money(total, EUR), DAY, "Expense", people.get(plan.payer()), plan.method(), inputs);
+        return new NewExpense(
+                new Money(total, EUR),
+                DAY,
+                "Expense",
+                ExpenseCategory.OTHER,
+                people.get(plan.payer()),
+                plan.method(),
+                inputs);
     }
 
     private NewSettlement settlementOf(Payment payment) {

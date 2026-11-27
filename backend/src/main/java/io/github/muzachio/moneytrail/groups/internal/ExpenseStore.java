@@ -1,5 +1,6 @@
 package io.github.muzachio.moneytrail.groups.internal;
 
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.internal.Split.MemberShare;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.util.ArrayList;
@@ -14,7 +15,10 @@ import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** The splits of a group's expenses ({@code expense_splits}, V16), which only this module writes. */
+/**
+ * What the ledger does not keep of a group's expenses, and only this module writes: their splits
+ * ({@code expense_splits}, V16) and their categories ({@code expense_categories}, V18).
+ */
 @Repository
 class ExpenseStore {
 
@@ -22,6 +26,30 @@ class ExpenseStore {
 
     ExpenseStore(JdbcClient jdbc) {
         this.jdbc = jdbc;
+    }
+
+    /** Stores what the expense posted as {@code entryId} was for. */
+    void insertCategory(UUID entryId, ExpenseCategory category) {
+        jdbc.sql("INSERT INTO expense_categories (entry_id, category) VALUES (:entryId, :category)")
+                .param("entryId", entryId)
+                .param("category", category.key())
+                .update();
+    }
+
+    /** The categories of the entries that are expenses; an entry with none, such as a reversal, is not in the map. */
+    Map<UUID, ExpenseCategory> categoriesOf(Collection<UUID> entryIds) {
+        if (entryIds.isEmpty()) {
+            return Map.of();
+        }
+        record Row(UUID entryId, ExpenseCategory category) {}
+        Map<UUID, ExpenseCategory> categories = new HashMap<>();
+        jdbc.sql("SELECT entry_id, category FROM expense_categories WHERE entry_id IN (:entryIds)")
+                .param("entryIds", entryIds)
+                .query((rs, rowNum) ->
+                        new Row(rs.getObject("entry_id", UUID.class), ExpenseCategory.ofKey(rs.getString("category"))))
+                .list()
+                .forEach(row -> categories.put(row.entryId(), row.category()));
+        return categories;
     }
 
     /** Stores the split of the expense posted as {@code entryId}, a share of zero included. */

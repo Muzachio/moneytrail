@@ -257,6 +257,9 @@ class SettlementsApiTests extends PostgresIntegrationTest {
                 .containsExactly(ana.toString(), pedro.toString());
         reversed.extractingPath("$.trail[1].reversesEntryId").isEqualTo(settlement.toString());
         reversed.extractingPath("$.trail[1].amount.amountMinor").isEqualTo(400);
+        // A category is an expense's: a payment's steps have none.
+        reversed.doesNotHavePath("$.trail[0].category");
+        reversed.doesNotHavePath("$.trail[1].category");
         assertThat(balance(ana)).isZero();
         assertThat(balance(joao)).isZero();
         assertProblem(reverse(ana, settlement, null), HttpStatus.CONFLICT, "group_settlement_already_reversed");
@@ -438,7 +441,7 @@ class SettlementsApiTests extends PostgresIntegrationTest {
                 .header("Idempotency-Key", newKey())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"amount": {"amountMinor": %d, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner",
+                        {"amount": {"amountMinor": %d, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner", "category": "food",
                          "paidBy": "%s", "split": {"method": "EQUALLY", "members": [%s]}}""".formatted(amountMinor, DAY, paidBy, String.join(", ", split)))
                 .exchange();
         assertThat(recorded).hasStatus(HttpStatus.CREATED);

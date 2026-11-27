@@ -246,6 +246,16 @@ leaves only with a balance of zero, and an expense that moves the balance of som
 no longer be edited or reversed. Who pays and who is in a split must be members now: anyone else
 answers like an unknown member (`member_not_found`).
 
+Each expense also says what it was for: one of the eight default expense categories' keys
+(`housing`, `food`, `transport`, `bills`, `shopping`, `leisure`, `health`, `other`), so the app
+shows it with the same name and icon as a person's own category. It is a label that `groups` keeps
+in `expense_categories`, one row per version like the split, and not a ledger account: an
+`EXPENSE` account in a group's ledger would break the rule that its entries post only to members'
+accounts, which is what keeps their balances adding up to zero. `groups` writes the eight keys out
+itself (`ExpenseCategory`, in its API because the expense events carry it) rather than reading
+`personal`'s categories, which it must not depend on. An edit can change the category, and the
+trail shows each version's.
+
 A settlement posts exactly what an expense that one member paid for one other member posts, so the
 postings cannot tell the two apart: an expense has its split, and a settlement has a row of its own
 in `settlements`. Who paid and who was paid are read back from the postings, as who paid an expense
@@ -327,6 +337,7 @@ group_invites    (id uuid pk, group_id, token_hash bytea unique, created_by, cre
                   expires_at, revoked_at)
 expense_splits   (entry_id fk, user_id, method text, input_value bigint, share_minor bigint,
                   pk(entry_id, user_id))  -- input_value: 1, the shares, basis points or the amount
+expense_categories (entry_id pk fk journal_entries, category text check in the 8 default expense keys)
 settlements      (entry_id pk fk journal_entries)  -- which entries of a group are settlements
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)

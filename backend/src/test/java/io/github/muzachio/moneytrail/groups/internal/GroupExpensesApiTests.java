@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import com.jayway.jsonpath.JsonPath;
 import io.github.muzachio.moneytrail.PostgresIntegrationTest;
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.GroupExpenseAdded;
 import io.github.muzachio.moneytrail.groups.GroupExpenseEdited;
 import io.github.muzachio.moneytrail.groups.GroupExpenseReversed;
@@ -95,6 +96,7 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
         body.extractingPath("$.amount.currency").isEqualTo("EUR");
         body.extractingPath("$.occurredOn").isEqualTo(DAY.toString());
         body.extractingPath("$.description").isEqualTo("Dinner");
+        body.extractingPath("$.category").isEqualTo("food");
         body.extractingPath("$.paidBy").isEqualTo(ana.toString());
         body.extractingPath("$.recordedBy").isEqualTo(ana.toString());
         body.extractingPath("$.edited").isEqualTo(false);
@@ -228,8 +230,27 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
         assertBadRequest(record(ana, expense(1000, ana, "EQUALLY")));
         assertBadRequest(record(ana, """
                 {"amount": {"amountMinor": 1000, "currency": "EUR"}, "occurredOn": "%s", "description": "\\u00a0 ",
+                 "category": "food", "paidBy": "%s", "split": {"method": "EQUALLY", "members": [{"userId": "%s"}]}}""".formatted(DAY, ana, ana)));
+        // No category, a person's category key that groups do not use, and one that does not exist.
+        assertBadRequest(record(ana, """
+                {"amount": {"amountMinor": 1000, "currency": "EUR"}, "occurredOn": "%s", "description": "Dinner",
                  "paidBy": "%s", "split": {"method": "EQUALLY", "members": [{"userId": "%s"}]}}""".formatted(DAY, ana, ana)));
+        assertBadRequest(record(ana, expenseFor("Dinner", "travel", 1000, ana, "EQUALLY", member(ana))));
+        assertBadRequest(record(ana, expenseFor("Dinner", "Food", 1000, ana, "EQUALLY", member(ana))));
         assertThat(entriesInGroup()).isZero();
+    }
+
+    @Test
+    void keepsEachOfTheEightCategories() {
+        for (ExpenseCategory category : ExpenseCategory.values()) {
+            MvcTestResult recorded =
+                    record(ana, expenseFor("Something", category.key(), 100, ana, "EQUALLY", member(ana)));
+
+            assertThat(recorded).hasStatus(HttpStatus.CREATED);
+            assertThat(JsonPath.<String>read(body(recorded), "$.category")).isEqualTo(category.key());
+            assertThat(JsonPath.<String>read(body(get(joao, idOf(recorded))), "$.expense.category"))
+                    .isEqualTo(category.key());
+        }
     }
 
     @Test
@@ -298,6 +319,10 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
                 .containsExactly(ana.toString(), joao.toString());
         reversed.extractingPath("$.trail[1].reversesEntryId").isEqualTo(expense.toString());
         reversed.extractingPath("$.trail[1].amount.amountMinor").isEqualTo(1000);
+        // A reversal shows what it cancels, its category included.
+        reversed.extractingPath("$.trail[*].category")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsExactly("food", "food");
         assertThat(balance(ana)).isZero();
         assertThat(balance(joao)).isZero();
         assertThat(listedIds(list(ana, null))).isEmpty();
@@ -312,11 +337,17 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
         MvcTestResult result = reverse(
                 pedro,
                 expense,
-                "{\"replacement\": " + expense(1200, joao, "EXACT_AMOUNTS", member(ana, 200), member(pedro, 1000))
+                "{\"replacement\": "
+                        + expenseFor(
+                                "Taxi", "transport", 1200, joao, "EXACT_AMOUNTS", member(ana, 200), member(pedro, 1000))
                         + "}");
 
         var edited = assertThat(result).hasStatusOk().bodyJson();
         UUID correction = UUID.fromString(JsonPath.read(body(result), "$.expense.id"));
+        edited.extractingPath("$.expense.category").isEqualTo("transport");
+        edited.extractingPath("$.trail[*].category")
+                .asInstanceOf(InstanceOfAssertFactories.LIST)
+                .containsExactly("food", "food", "transport");
         edited.extractingPath("$.expense.edited").isEqualTo(true);
         edited.extractingPath("$.expense.reversed").isEqualTo(false);
         edited.extractingPath("$.expense.recordedBy").isEqualTo(pedro.toString());
@@ -337,8 +368,12 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
 
         var old = assertThat(get(ana, expense)).hasStatusOk().bodyJson();
         old.extractingPath("$.expense.reversed").isEqualTo(true);
+        old.extractingPath("$.expense.category").isEqualTo("food");
         old.extractingPath("$.currentId").isEqualTo(correction.toString());
-        assertThat(listedIds(list(ana, null))).containsExactly(correction.toString());
+        MvcTestResult listed = list(ana, null);
+        assertThat(listedIds(listed)).containsExactly(correction.toString());
+        assertThat(JsonPath.<String>read(body(listed), "$.items[0].expense.category"))
+                .isEqualTo("transport");
         assertProblem(reverse(ana, expense, null), HttpStatus.CONFLICT, "group_expense_already_reversed");
     }
 
@@ -420,7 +455,8 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
             assertThat(event.groupId()).isEqualTo(group);
             assertThat(event.paidBy()).isEqualTo(joao);
             assertThat(event.recordedBy()).isEqualTo(ana);
-            seen.add("added " + event.description() + " " + event.amount().minor() + ", entry visible: "
+            seen.add("added " + event.description() + " " + event.category().key() + " "
+                    + event.amount().minor() + ", entry visible: "
                     + (count("SELECT count(*) FROM expense_splits WHERE entry_id = :id", event.expenseId()) > 0));
         });
         ApplicationListener<?> onEdited = ApplicationListener.forPayload((GroupExpenseEdited event) -> {
@@ -428,14 +464,16 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
                     .isTrue();
             assertThat(event.editedBy()).isEqualTo(pedro);
             seen.add("edited " + event.previousDescription() + " "
+                    + event.previousCategory().key() + " "
                     + event.previousAmount().minor() + " → " + event.description() + " "
-                    + event.amount().minor());
+                    + event.category().key() + " " + event.amount().minor());
         });
         ApplicationListener<?> onReversed = ApplicationListener.forPayload((GroupExpenseReversed event) -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive())
                     .isTrue();
             assertThat(event.reversedBy()).isEqualTo(joao);
-            seen.add("reversed " + event.description() + " " + event.amount().minor());
+            seen.add("reversed " + event.description() + " " + event.category().key() + " "
+                    + event.amount().minor());
         });
         context.addApplicationListener(onAdded);
         context.addApplicationListener(onEdited);
@@ -445,7 +483,7 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
             MvcTestResult edited = reverse(
                     pedro,
                     expense,
-                    "{\"replacement\": " + expenseFor("Lunch", 1500, joao, "EQUALLY", member(ana)) + "}");
+                    "{\"replacement\": " + expenseFor("Lunch", "leisure", 1500, joao, "EQUALLY", member(ana)) + "}");
             UUID correction = UUID.fromString(JsonPath.read(body(edited), "$.expense.id"));
             assertThat(reverse(joao, correction, null)).hasStatusOk();
         } finally {
@@ -456,9 +494,9 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
 
         assertThat(seen)
                 .containsExactly(
-                        "added Dinner 1000, entry visible: true",
-                        "edited Dinner 1000 → Lunch 1500",
-                        "reversed Lunch 1500");
+                        "added Dinner food 1000, entry visible: true",
+                        "edited Dinner food 1000 → Lunch leisure 1500",
+                        "reversed Lunch leisure 1500");
     }
 
     private MvcTestResult record(UUID userId, String body) {
@@ -519,20 +557,20 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
     }
 
     private static String expense(long amountMinor, UUID paidBy, String method, String... members) {
-        return expense(amountMinor, "EUR", DAY, "Dinner", paidBy, method, members);
+        return expense(amountMinor, "EUR", DAY, "Dinner", "food", paidBy, method, members);
     }
 
     private static String expenseIn(String currency, long amountMinor, UUID paidBy, String method, String... members) {
-        return expense(amountMinor, currency, DAY, "Dinner", paidBy, method, members);
+        return expense(amountMinor, currency, DAY, "Dinner", "food", paidBy, method, members);
     }
 
     private static String expenseOn(LocalDate day, long amountMinor, UUID paidBy, String method, String... members) {
-        return expense(amountMinor, "EUR", day, "Dinner", paidBy, method, members);
+        return expense(amountMinor, "EUR", day, "Dinner", "food", paidBy, method, members);
     }
 
     private static String expenseFor(
-            String description, long amountMinor, UUID paidBy, String method, String... members) {
-        return expense(amountMinor, "EUR", DAY, description, paidBy, method, members);
+            String description, String category, long amountMinor, UUID paidBy, String method, String... members) {
+        return expense(amountMinor, "EUR", DAY, description, category, paidBy, method, members);
     }
 
     private static String expense(
@@ -540,12 +578,14 @@ class GroupExpensesApiTests extends PostgresIntegrationTest {
             String currency,
             LocalDate day,
             String description,
+            String category,
             UUID paidBy,
             String method,
             String... members) {
         return """
                 {"amount": {"amountMinor": %d, "currency": "%s"}, "occurredOn": "%s", "description": "%s",
-                 "paidBy": "%s", "split": {"method": "%s", "members": [%s]}}""".formatted(amountMinor, currency, day, description, paidBy, method, String.join(", ", members));
+                 "category": "%s", "paidBy": "%s", "split": {"method": "%s", "members": [%s]}}""".formatted(
+                        amountMinor, currency, day, description, category, paidBy, method, String.join(", ", members));
     }
 
     private static String member(UUID userId) {

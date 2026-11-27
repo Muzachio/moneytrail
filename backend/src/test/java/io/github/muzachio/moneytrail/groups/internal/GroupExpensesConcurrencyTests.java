@@ -3,6 +3,7 @@ package io.github.muzachio.moneytrail.groups.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.muzachio.moneytrail.PostgresIntegrationTest;
+import io.github.muzachio.moneytrail.groups.ExpenseCategory;
 import io.github.muzachio.moneytrail.groups.internal.Split.MemberShare;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
 import io.github.muzachio.moneytrail.ledger.LedgerOwner;
@@ -81,6 +82,7 @@ class GroupExpensesConcurrencyTests extends PostgresIntegrationTest {
                                         new Money(base + i, EUR),
                                         LocalDate.of(2026, 11, 14),
                                         "Groceries",
+                                        ExpenseCategory.FOOD,
                                         payer,
                                         SplitMethod.EQUALLY,
                                         people.stream()
