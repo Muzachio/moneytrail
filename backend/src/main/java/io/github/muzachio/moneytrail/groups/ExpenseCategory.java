@@ -11,7 +11,7 @@ import java.util.Arrays;
  * <p>The list is written out here, not taken from {@code personal}: {@code groups} must not depend on
  * {@code personal}'s internals, and the mirror will make {@code personal} depend on {@code groups}. The
  * same eight keys are api/openapi.yaml's {@code GroupExpenseCategory}, the first eight of its {@code
- * CategoryKey}, and the database's check (V18); a test keeps the three equal.
+ * CategoryKey}, and the database's checks (V18, and the activity feed's in V20); tests keep them equal.
  *
  * <p>A label kept by {@code groups} next to the expense, never a ledger account: a group's ledger has
  * only its members' accounts, which is why their balances always add up to zero (ADR-0012).

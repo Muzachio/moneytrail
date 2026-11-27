@@ -26,8 +26,8 @@ flowchart LR
 
 | Component | Responsibility |
 |---|---|
-| App, profile `api` | REST API (`/v1`), authentication, validation, ledger writes, event publication |
-| App, profile `worker` | Event listeners and scheduled jobs: recurring transactions, CSV imports, budget alerts, FX rates, nightly ledger invariant check, idempotency key cleanup |
+| App, profile `api` | REST API (`/v1`), authentication, validation, ledger writes, event publication, and the listeners of the events it publishes (below) |
+| App, profile `worker` | Scheduled jobs: recurring transactions, CSV imports, budget alerts, FX rates, nightly ledger invariant check, idempotency key cleanup, resubmitting event publications |
 | App, profile `migrate` | Fly.io's release command on every deploy: applies the Flyway migrations, then exits ([ADR-0009](adr/0009-migrations-as-release-command.md)) |
 | PostgreSQL | System of record, plus the sessions table, the event publication registry (outbox) and ShedLock locks. No Kafka or Redis to run or pay for |
 | Frontend | Vite SPA. Talks to the API through a TypeScript client generated from the OpenAPI spec |
@@ -88,6 +88,7 @@ io.github.muzachio.moneytrail
 ├── ledger/      # core: accounts, journal entries, postings, balances. Exposes LedgerService only.
 ├── personal/    # use cases: expense / income / transfer → ledger entries
 ├── groups/      # groups, members, invites, splits, settlements → ledger entries
+├── activity/    # each group's feed, from the events of groups (ADR-0014)
 ├── budgets/
 ├── invoices/    # ATCUD QR parsing + merchant memory
 ├── imports/     # CSV statement import
@@ -114,7 +115,8 @@ Rules:
     `@Transactional(propagation = MANDATORY)`, so it refuses to run outside a transaction.
   - **`@ApplicationModuleListener`: asynchronous, after commit, through the outbox** (below).
     For work that may happen a little later and must neither slow down nor fail the request:
-    budget alerts, imports, notifications. This is the default.
+    the activity feed of groups, budget alerts, imports, notifications. This is the default. It
+    runs in the process that published the event, in a thread of its own.
 
   Either way, listeners are idempotent: an outbox event can be delivered twice, and
   `UserSignedIn` comes with every sign-in, not only the first.
@@ -339,6 +341,11 @@ expense_splits   (entry_id fk, user_id, method text, input_value bigint, share_m
                   pk(entry_id, user_id))  -- input_value: 1, the shares, basis points or the amount
 expense_categories (entry_id pk fk journal_entries, category text check in the 8 default expense keys)
 settlements      (entry_id pk fk journal_entries)  -- which entries of a group are settlements
+activity_items   (id uuid pk, group_id fk, kind, actor_id fk users, occurred_at, subject_id,
+                  what the item shows: group_name, description, category, amount_minor, currency,
+                  previous_description, previous_category, previous_amount_minor, paid_by,
+                  from_user_id, to_user_id, occurred_on;
+                  unique(group_id, kind, subject_id, occurred_at))  -- activity's
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
@@ -347,7 +354,7 @@ merchants        (user_id, tax_id, display_name, default_account_id, pk(user_id,
 idempotency_keys (user_id fk, key, request_hash bytea, response_status, response_headers jsonb,
                   response_body bytea, created_at, pk(user_id, key))
 audit_log        (id bigserial, actor_id, action, target_type, target_id, data jsonb, at)
-event_publication -- managed by Spring Modulith (outbox)
+event_publication -- Spring Modulith's outbox, created by Flyway (V19) with Spring Modulith 2.2's columns
 shedlock          -- managed by ShedLock
 ```
 
@@ -388,6 +395,7 @@ GET              /v1/groups/{id}/balances
 GET              /v1/groups/{id}/settle-up      (suggestions)
 POST             /v1/groups/{id}/settlements    GET /v1/groups/{id}/settlements/{settlementId}
 POST             /v1/groups/{id}/settlements/{settlementId}/reverse
+GET              /v1/groups/{id}/activity       (the feed, newest first)
 
 POST             /v1/invoices/parse     (raw QR string → prefilled transaction draft)
 POST             /v1/imports            (CSV upload → 202 + import id) · GET /v1/imports/{id}
@@ -434,8 +442,22 @@ Domain events (`ExpenseRecorded`, `GroupExpenseAdded`, `ImportUploaded`, ...) ar
 published with Spring's `ApplicationEventPublisher` inside the business transaction.
 Spring Modulith writes them to `event_publication` **in that same transaction**: this is
 the transactional outbox pattern ([ADR-0005](adr/0005-events-and-outbox.md)). Listeners
-run after commit. Publications that fail stay incomplete, get resubmitted, and are
-monitored. Each listener is idempotent.
+run after commit, in the process that published the event, and each listener is idempotent.
+A completed publication is deleted, so `event_publication` holds only what is still to be
+delivered ([ADR-0014](adr/0014-activity-feed-through-the-outbox.md)).
+
+A listener that throws leaves its publication failed; one a process stopped in the middle of
+stays published or processing. At the top of every hour, where the scheduled jobs run, one job
+(`shared.events`, ShedLock) counts the publications not completed after 10 minutes, marks the
+stale ones failed and resubmits every failed one. Spring Modulith's own resubmission on restart
+and its staleness check stay off: the check would query the database on a timer of its own and
+wake Neon. The gauge `moneytrail.event.publications.incomplete` reports what the last run found,
+from memory.
+
+The first listener through the outbox is the activity feed: `activity` turns each event of
+`groups` (a group created, a member who joined or left, an expense or a payment recorded,
+edited or reversed) into a row of `activity_items`, which keeps what the feed shows as it was
+then. `groups` knows nothing of it.
 
 The outbox is the default, not the rule for every event. Its listeners run after the
 request has answered, so whatever they create may not exist yet when the client sends its

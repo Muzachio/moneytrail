@@ -43,6 +43,10 @@ tags:
     description: The groups the signed-in user belongs to, where friends share expenses, and their members.
   - name: invites
     description: Invite links that let people join a group (docs/adr/0013-group-invites.md).
+  - name: group-activity
+    description: |
+      What happened in a group, newest first: who created it, joined or left, and each expense and
+      payment recorded, edited or reversed (docs/adr/0014-activity-feed-through-the-outbox.md).
 security:
   - sessionCookie: []
 paths:
@@ -915,6 +919,57 @@ paths:
           $ref: '#/components/responses/SettlementConflict'
         '422':
           $ref: '#/components/responses/SettlementRefused'
+  /v1/groups/{id}/activity:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: listGroupActivity
+      tags: [group-activity]
+      summary: List what happened in a group, newest first
+      description: |
+        The group's activity feed (docs/adr/0014-activity-feed-through-the-outbox.md): one item each
+        time someone created the group, joined or left it, or recorded, edited or reversed an expense
+        or a payment, newest first. A listener writes each item after the change has committed, so an
+        item can appear a moment after the change, or up to an hour later when that listener failed
+        and the hourly resubmission delivers it again. An item never changes: an edit adds an item
+        with the amounts before and after.
+
+        `people` holds the profile of everyone the page's items name, former members included, so
+        the feed can show their names without another request.
+
+        A page holds at most `limit` items; when there are more, `nextCursor` is set, and sending it
+        back as `cursor` gives the next page. The cursor marks the last item of the page (keyset
+        pagination on when the change happened and the item's id, never an offset). Anyone who is
+        not a member now gets `404`, a former member included.
+      parameters:
+        - name: cursor
+          in: query
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 100
+        - name: limit
+          in: query
+          description: How many items a page holds at most.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: A page of the group's activity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
   /v1/groups/{id}/leave:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -2057,7 +2112,7 @@ components:
       type: string
       # The default expense categories' keys, the first eight of CategoryKey, so the app shows a group
       # expense with the same names and icons as a person's own categories. A new key needs a
-      # migration too: the database checks the list (V18).
+      # migration too: the database checks the list (V18, and the activity feed's in V20).
       enum: [housing, food, transport, bills, shopping, leisure, health, other]
       description: |
         What a group expense was for. A label kept with the expense, not a ledger account: a group's
@@ -2381,6 +2436,112 @@ components:
             members with a balance. Empty when every balance is zero.
           items:
             $ref: '#/components/schemas/SuggestedPayment'
+    ActivityKind:
+      type: string
+      enum:
+        - GROUP_CREATED
+        - MEMBER_JOINED
+        - MEMBER_LEFT
+        - EXPENSE_ADDED
+        - EXPENSE_EDITED
+        - EXPENSE_REVERSED
+        - SETTLEMENT_RECORDED
+        - SETTLEMENT_EDITED
+        - SETTLEMENT_REVERSED
+      description: |
+        What happened. In every case `actorId` is who did it: who created the group, the member who
+        joined or left, or who recorded, edited or reversed the expense or payment, who may be
+        someone other than who paid.
+    ActivityItem:
+      type: object
+      required: [id, kind, actorId, occurredAt]
+      description: |
+        One thing that happened in a group, as it was at that moment. Which optional properties it
+        holds depends on `kind`:
+        - `GROUP_CREATED`: `groupName`.
+        - `MEMBER_JOINED`, `MEMBER_LEFT`: nothing more; the member is `actorId`.
+        - `EXPENSE_ADDED`: `subjectId`, `description`, `category`, `amount`, `paidBy` and
+          `occurredOn`.
+        - `EXPENSE_EDITED`: the same for the new version, plus `previousDescription`,
+          `previousCategory` and `previousAmount`.
+        - `EXPENSE_REVERSED`: `subjectId`, `description`, `category` and `amount` of the version
+          reversed.
+        - `SETTLEMENT_RECORDED`: `subjectId`, `amount`, `from`, `to` and `occurredOn`.
+        - `SETTLEMENT_EDITED`: the same for the new version, plus `previousAmount`.
+        - `SETTLEMENT_REVERSED`: `subjectId`, `amount`, `from` and `to` of the version reversed.
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/ActivityKind'
+        actorId:
+          type: string
+          format: uuid
+          description: Who did it.
+        occurredAt:
+          type: string
+          format: date-time
+          description: When it was done.
+        subjectId:
+          type: string
+          format: uuid
+          description: |
+            The expense or payment, in the version this item is about: the id of
+            `GET /v1/groups/{id}/expenses/{expenseId}` or `GET /v1/groups/{id}/settlements/{settlementId}`.
+        groupName:
+          type: string
+          description: The group's name when it was created.
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/GroupExpenseCategory'
+        amount:
+          $ref: '#/components/schemas/Money'
+        previousDescription:
+          type: string
+          description: The description of the version an edit replaced.
+        previousCategory:
+          $ref: '#/components/schemas/GroupExpenseCategory'
+          description: The category of the version an edit replaced.
+        previousAmount:
+          $ref: '#/components/schemas/Money'
+          description: The amount of the version an edit replaced.
+        paidBy:
+          type: string
+          format: uuid
+          description: Who paid the expense.
+        from:
+          type: string
+          format: uuid
+          description: Who paid the payment.
+        to:
+          type: string
+          format: uuid
+          description: Who received the payment.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the expense or payment happened, as it was recorded.
+    ActivityPage:
+      type: object
+      required: [items, people]
+      properties:
+        items:
+          type: array
+          description: What happened, newest first.
+          items:
+            $ref: '#/components/schemas/ActivityItem'
+        people:
+          type: array
+          description: |
+            Everyone the items name (`actorId`, `paidBy`, `from`, `to`), once each, former members
+            included.
+          items:
+            $ref: '#/components/schemas/Profile'
+        nextCursor:
+          type: string
+          description: Send it as `cursor` for the next page. Absent on the last page.
     ReportGrouping:
       type: string
       enum: [category, month]

@@ -47,6 +47,9 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 # Versions of Spring Modulith artifacts come from the Spring Modulith BOM.
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
+spring-modulith-starter-jdbc = { module = "org.springframework.modulith:spring-modulith-starter-jdbc" }
+# The registry SPI, for the hourly job that marks stale publications failed (shared.events).
+spring-modulith-events-core = { module = "org.springframework.modulith:spring-modulith-events-core" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-logback-appender" }

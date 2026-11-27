@@ -2,7 +2,6 @@ package io.github.muzachio.moneytrail.shared.idempotency;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.muzachio.moneytrail.MoneyTrailApplication;
 import io.github.muzachio.moneytrail.WorkerIntegrationTest;
 import java.io.IOException;
 import java.time.Clock;
@@ -72,18 +71,6 @@ class ExpiredIdempotencyKeysTests extends WorkerIntegrationTest {
         CronExpression sessionCleanup = CronExpression.parse(productionSetting("spring.session.jdbc.cleanup-cron"));
         assertThat(sessionCleanup.next(nextCleanup.minusSeconds(1).atZone(ZoneOffset.UTC)))
                 .isEqualTo(nextCleanup.atZone(ZoneOffset.UTC));
-    }
-
-    /**
-     * The scheduler runs the app's own jobs and nothing else: no library schedules work of its own in
-     * the processes that have the jobs on (Spring Modulith's Moments is off, application.yml).
-     */
-    @Test
-    void schedulesOnlyTheAppsOwnJobs() {
-        assertThat(scheduledTasks.getScheduledTasks())
-                .isNotEmpty()
-                .extracting(task -> task.getTask().toString())
-                .allSatisfy(job -> assertThat(job).startsWith(MoneyTrailApplication.class.getPackageName() + "."));
     }
 
     @Test

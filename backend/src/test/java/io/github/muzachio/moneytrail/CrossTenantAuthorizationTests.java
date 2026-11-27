@@ -294,6 +294,9 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
             entry(
                     "getSettleUp path.id",
                     new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/settle-up", by.id()))),
+            entry(
+                    "listGroupActivity path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/activity", by.id()))),
             // Paying someone who is in no group: a member of the group in the path gets member_not_found.
             entry(
                     "createSettlement path.id",
