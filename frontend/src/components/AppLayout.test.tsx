@@ -63,18 +63,20 @@ describe('AppLayout', () => {
         'Summary',
         'Transactions',
         'New transaction',
+        'Groups',
         'Accounts',
-        'You',
       ])
       expect(
         within(tabs).getByRole('link', { name: 'Transactions' }),
       ).toHaveAttribute('aria-current', 'page')
-      // Only one of each: the header keeps the name and the API's status.
+      // Only one of each: the header keeps the name, the API's status and the account menu.
       expect(screen.getAllByRole('navigation')).toHaveLength(1)
       expect(
         screen.getAllByRole('button', { name: 'New transaction' }),
       ).toEqual([within(tabs).getByRole('button', { name: 'New transaction' })])
-      expect(screen.queryByRole('button', { name: 'Your account' })).toBeNull()
+      expect(
+        within(tabs).queryByRole('button', { name: 'Your account' }),
+      ).toBeNull()
     })
 
     it('opens the new-transaction dialog from the centre button, and gives the focus back', async () => {
@@ -92,11 +94,11 @@ describe('AppLayout', () => {
       expect(add).toHaveFocus()
     })
 
-    it('opens the account panel from the You tab', async () => {
+    it('opens the account panel from the avatar in the header, where the You tab went', async () => {
       renderApp('/')
 
-      const tabs = await screen.findByRole('navigation', { name: 'Main' })
-      fireEvent.click(within(tabs).getByRole('button', { name: 'You' }))
+      await screen.findByRole('navigation', { name: 'Main' })
+      fireEvent.click(screen.getByRole('button', { name: 'Your account' }))
 
       expect(
         await screen.findByRole('button', { name: 'Sign out' }),

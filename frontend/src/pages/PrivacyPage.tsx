@@ -24,7 +24,11 @@ const sections = [
   },
   {
     title: 'privacy.access.title',
-    points: ['privacy.access.you', 'privacy.access.maintainer'],
+    points: [
+      'privacy.access.you',
+      'privacy.access.groups',
+      'privacy.access.maintainer',
+    ],
   },
   { title: 'privacy.trackers.title', points: ['privacy.trackers.none'] },
   { title: 'privacy.rights.title', points: ['privacy.rights.ask'] },

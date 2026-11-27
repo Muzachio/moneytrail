@@ -33,6 +33,27 @@ export function formatDateTime(instant: string, language: string) {
   )
 }
 
+/**
+ * The day of `instant` in this device's time zone, short, as when an invite link was made:
+ * "12 Nov", "12/11". With `weekday`, as when it expires: "Mon, 23 Nov", "seg., 23/11".
+ */
+export function formatShortDate(
+  instant: string,
+  language: string,
+  { weekday = false } = {},
+) {
+  return formatter(language, {
+    ...(weekday && { weekday: 'short' }),
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(instant))
+}
+
+/** Whether `instant` falls on today's date in this device's time zone. */
+export function isToday(instant: string, now = new Date()) {
+  return new Date(instant).toDateString() === now.toDateString()
+}
+
 /** The same, shorter, for a line of the trail: "22 Oct, 21:20". */
 export function formatShortDateTime(instant: string, language: string) {
   return formatter(language, {

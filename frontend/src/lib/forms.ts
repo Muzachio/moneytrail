@@ -61,7 +61,16 @@ export function apiErrorMessage(error: unknown, t: TFunction): string {
     case 'account_not_found':
     case 'category_not_found':
     case 'transaction_not_found':
+    case 'group_not_found':
       return t('errors.notFound')
+    case 'invite_not_found':
+      return t('errors.inviteNotFound')
+    case 'group_archived':
+      return t('errors.groupArchived')
+    case 'group_not_settled':
+      return t('errors.groupNotSettled')
+    case 'member_not_settled':
+      return t('errors.memberNotSettled')
     case 'account_archived':
       return t('errors.accountArchived')
     case 'category_archived':
