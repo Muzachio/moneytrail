@@ -1,6 +1,9 @@
 import type { RouteObject } from 'react-router'
 import { AppLayout } from '@/components/AppLayout'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { GroupPage } from '@/pages/GroupPage'
+import { GroupsPage } from '@/pages/GroupsPage'
+import { JoinPage } from '@/pages/JoinPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
 import { SummaryPage } from '@/pages/SummaryPage'
@@ -10,6 +13,8 @@ import { TransactionsPage } from '@/pages/TransactionsPage'
 export const routes: RouteObject[] = [
   // Outside AppLayout, so it opens without a session: the sign-in page links to it.
   { path: '/privacy', element: <PrivacyPage /> },
+  // Outside it too: an invite link opens it before the person has signed in (ADR-0013).
+  { path: '/join', element: <JoinPage /> },
   {
     path: '/',
     element: <AppLayout />,
@@ -21,6 +26,8 @@ export const routes: RouteObject[] = [
         element: <TransactionsPage />,
         children: [{ path: ':id', element: <TransactionDetailSheet /> }],
       },
+      { path: 'groups', element: <GroupsPage /> },
+      { path: 'groups/:id', element: <GroupPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

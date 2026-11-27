@@ -3,15 +3,21 @@ import { render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { routes } from '@/routes'
 
-/** Renders the real routes at `path`, with a fresh query cache per test. */
+/**
+ * Renders the real routes at `path`, with a fresh query cache per test. Returns the router too, to
+ * check where the app went, the fragment of the address included.
+ */
 export function renderApp(path = '/') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  )
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+    router,
+  }
 }

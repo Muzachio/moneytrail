@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Outlet } from 'react-router'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router'
 import { useCurrentUser } from '@/api/session'
 import { AccountMenu } from '@/components/AccountMenu'
 import { ApiStatus } from '@/components/ApiStatus'
@@ -10,6 +10,7 @@ import { Logo } from '@/components/Logo'
 import type { AppOutletContext } from '@/components/newTransaction'
 import { TransactionDialog } from '@/components/transactions/TransactionDialog'
 import { Button } from '@/components/ui/button'
+import { returningFromSignIn } from '@/lib/invites'
 import { useWideScreen } from '@/lib/useWideScreen'
 import { cn } from '@/lib/utils'
 import { SignInPage } from '@/pages/SignInPage'
@@ -19,13 +20,15 @@ const navItems = [
   { to: '/', label: 'nav.summary', end: true },
   { to: '/accounts', label: 'nav.accounts', end: false },
   { to: '/transactions', label: 'nav.transactions', end: false },
+  { to: '/groups', label: 'nav.groups', end: false },
 ] as const
 
 export function AppLayout() {
   const { t } = useTranslation()
+  const location = useLocation()
   const currentUser = useCurrentUser()
-  // On a phone the navigation, the new-transaction button and the account menu move to the
-  // bottom tabs, as in the design canvas; the header keeps the name and the API's status.
+  // On a phone the navigation and the new-transaction button move to the bottom tabs, as in the
+  // design canvas; the header keeps the name, the API's status and the account menu.
   const wide = useWideScreen()
   const [adding, setAdding] = useState(false)
   // The header's button, the bottom tabs' one, or another one a page offers, such as the empty
@@ -36,6 +39,14 @@ export function AppLayout() {
       setAddOpener(opener)
       setAdding(true)
     },
+  }
+
+  // Google sign-in always comes back to `/` (or `/?sign-in=not-invited`); when it started on the
+  // join page, the person goes on to it, with the outcome, to see the group they were invited to.
+  if (returningFromSignIn()) {
+    return (
+      <Navigate to={{ pathname: '/join', search: location.search }} replace />
+    )
   }
 
   if (currentUser.data === null) {
@@ -87,7 +98,7 @@ export function AppLayout() {
               </Button>
             )}
             <ApiStatus />
-            {user && wide && <AccountMenu user={user} />}
+            {user && <AccountMenu user={user} />}
           </div>
         </div>
       </header>
@@ -112,10 +123,7 @@ export function AppLayout() {
         )}
       </main>
       {user && !wide && (
-        <BottomTabs
-          user={user}
-          onNewTransaction={outletContext.newTransaction}
-        />
+        <BottomTabs onNewTransaction={outletContext.newTransaction} />
       )}
       {user && (
         <TransactionDialog

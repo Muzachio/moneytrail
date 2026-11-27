@@ -7,7 +7,8 @@
     "label": "Main",
     "summary": "Summary",
     "accounts": "Accounts",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "groups": "Groups"
   },
   "apiStatus": {
     "checking": "Checking API…",
@@ -16,7 +17,6 @@
   },
   "accountMenu": {
     "label": "Your account",
-    "tab": "You",
     "signOut": "Sign out"
   },
   "language": {
@@ -71,7 +71,8 @@
     "access": {
       "title": "Who can see it",
       "you": "Only you, in the app. Nobody else who uses MoneyTrail can see your accounts or transactions.",
-      "maintainer": "The person who maintains MoneyTrail has technical access to the database."
+      "maintainer": "The person who maintains MoneyTrail has technical access to the database.",
+      "groups": "In a group, its members see your name and photo, and the group's expenses and payments. They never see your email or your own accounts and transactions."
     },
     "trackers": {
       "title": "No ads, no trackers",
@@ -181,7 +182,11 @@
     "alreadySaved": "An earlier attempt was already saved. Close this window and check the list.",
     "accountArchived": "This account is archived. Pick another one.",
     "categoryArchived": "This category is archived. Pick another one.",
-    "alreadyReversed": "This transaction was already reversed or edited. Close this window and open it again."
+    "alreadyReversed": "This transaction was already reversed or edited. Close this window and open it again.",
+    "inviteNotFound": "This invite link no longer works. Close this window and reload the page.",
+    "groupArchived": "This group is archived. Restore it first.",
+    "groupNotSettled": "Everyone's balance must be zero before the group can be archived. Settle up first.",
+    "memberNotSettled": "You can leave once your balance in this group is zero. Settle up first."
   },
   "rowMenu": {
     "label": "More actions for {{name}}",
@@ -524,5 +529,128 @@
     "title": "Page not found",
     "description": "This page does not exist (yet).",
     "back": "Back to the summary"
+  },
+  "groups": {
+    "title": "Groups",
+    "lead": "Share costs with friends and see who owes whom.",
+    "loading": "Loading your groups…",
+    "loadFailed": "Your groups could not be loaded.",
+    "allArchived": "All your groups are archived. Open one to restore it, or make a new one.",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "summary": {
+      "owe_one": "You owe <amount>{{amount}}</amount> in one group.",
+      "owe_other": "You owe <amount>{{amount}}</amount> in {{count}} groups.",
+      "owed_one": "You are owed <amount>{{amount}}</amount> in one group.",
+      "owed_other": "You are owed <amount>{{amount}}</amount> in {{count}} groups.",
+      "settled": "You are settled up in every group."
+    },
+    "balance": {
+      "owe": "You owe",
+      "owed": "You are owed",
+      "settled": "All settled up"
+    },
+    "archived": {
+      "title": "Archived groups ({{count}})",
+      "on": "archived on {{date}}",
+      "settled": "all settled up",
+      "open": "Open",
+      "openLabel": "Open {{name}}"
+    },
+    "empty": {
+      "title": "No groups yet",
+      "text": "Make one for a trip, a shared flat or dinners with friends. To join a friend's group, open the invite link they sent you."
+    },
+    "new": {
+      "button": "New group",
+      "title": "New group",
+      "namePlaceholder": "e.g. Porto weekend",
+      "currency": "Currency",
+      "currencyHint": "Every expense in the group is in this currency.",
+      "next": "Next you can invite people with a link. Members see each other's names and photos and the group's expenses, never anyone's own accounts.",
+      "create": "Create group"
+    }
+  },
+  "group": {
+    "loading": "Loading the group…",
+    "loadFailed": "The group could not be loaded.",
+    "notFound": {
+      "title": "This group is not available",
+      "text": "It does not exist, or you are not a member of it. If someone invited you, open the invite link they sent you."
+    },
+    "you": "You",
+    "youWithName": "{{name}} (you)",
+    "archivedBadge": "Archived",
+    "archivedNote": "This group is archived. It keeps its history, but takes no new expenses, payments or members until it is restored.",
+    "menu": "More actions for {{name}}",
+    "rename": "Rename",
+    "renameTitle": "Rename group",
+    "archive": "Archive group",
+    "restore": "Restore group",
+    "leave": "Leave group",
+    "leaveTitle": "Leave {{name}}?",
+    "leaveText": "You will stop seeing the group. Your part in its history stays, and you can come back with a new invite link.",
+    "archiveFailed": "The group could not be archived.",
+    "restoreFailed": "The group could not be restored.",
+    "membersTitle": "Members",
+    "joined": "Joined on {{date}}"
+  },
+  "invites": {
+    "title": "Invite people",
+    "to": "to {{name}}",
+    "intro": "Anyone with the link can join for 7 days. Send it only to the people you want in the group.",
+    "create": "Create invite link",
+    "createFailed": "The link could not be created.",
+    "createAnother": "Create another link",
+    "done": "Done",
+    "newLink": "New invite link",
+    "shownOnce": "Shown once",
+    "linkLabel": "Invite link",
+    "share": "Share…",
+    "shareText": "Join {{name}} on MoneyTrail",
+    "copy": "Copy link",
+    "copied": "Copied",
+    "copiedStatus": "The link was copied.",
+    "copyNow": "Copy it now. MoneyTrail keeps only a fingerprint of the link, so it cannot show it to you again.",
+    "activeTitle": "Active links",
+    "active": "Active links ({{count}})",
+    "loading": "Loading the active links…",
+    "loadFailed": "The active links could not be loaded.",
+    "none": "No active links. Nobody new can join until someone creates one.",
+    "byYou": "Created by you, {{date}}",
+    "by": "Created by {{name}}, {{date}}",
+    "today": "today",
+    "expires": "Expires {{date}}",
+    "revoke": "Revoke",
+    "revokeLabel": "Revoke the link: {{who}}",
+    "revokeFailed": "The link could not be revoked.",
+    "privacy": "People who join see the members' names and photos and the group's expenses, never anyone's own accounts."
+  },
+  "join": {
+    "loading": "Opening the invite…",
+    "signedOut": {
+      "title": "You have been invited to a group",
+      "text": "Sign in to see which group it is and who invited you. You come straight back here to join."
+    },
+    "notLetIn": {
+      "title": "MoneyTrail is not open to this account yet",
+      "text": "For now only invited people can use the app, and the Google account you signed in with is not on the list. Ask whoever sent you the link to add it, then open the link again.",
+      "retry": "Use another Google account"
+    },
+    "gone": {
+      "title": "This invite no longer works",
+      "text": "It may have expired, been revoked, or belong to a group that was archived. Ask whoever sent it for a new link.",
+      "home": "Go to MoneyTrail"
+    },
+    "failed": {
+      "title": "The invite could not be opened"
+    },
+    "preview": {
+      "invitedBy": "{{name}} invited you to",
+      "alreadyMember": "You are already a member of",
+      "join": "Join group",
+      "open": "Open group",
+      "privacy": "The members will see your name, your photo and the group's expenses. Never your own accounts."
+    }
   }
 }

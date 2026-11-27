@@ -7,7 +7,8 @@
     "label": "Principal",
     "summary": "Resumo",
     "accounts": "Contas",
-    "transactions": "Movimentos"
+    "transactions": "Movimentos",
+    "groups": "Grupos"
   },
   "apiStatus": {
     "checking": "A verificar a API…",
@@ -16,7 +17,6 @@
   },
   "accountMenu": {
     "label": "A tua conta",
-    "tab": "Perfil",
     "signOut": "Terminar sessão"
   },
   "language": {
@@ -71,7 +71,8 @@
     "access": {
       "title": "Quem os pode ver",
       "you": "Só tu, na app. Mais ninguém que use o MoneyTrail vê as tuas contas ou os teus movimentos.",
-      "maintainer": "Quem mantém o MoneyTrail tem acesso técnico à base de dados."
+      "maintainer": "Quem mantém o MoneyTrail tem acesso técnico à base de dados.",
+      "groups": "Num grupo, os membros veem o teu nome e a tua foto, e as despesas e os pagamentos do grupo. Nunca veem o teu email nem as tuas contas e movimentos pessoais."
     },
     "trackers": {
       "title": "Sem anúncios nem rastreadores",
@@ -182,7 +183,11 @@
     "alreadySaved": "Uma tentativa anterior já foi guardada. Fecha esta janela e confirma na lista.",
     "accountArchived": "Esta conta está arquivada. Escolhe outra.",
     "categoryArchived": "Esta categoria está arquivada. Escolhe outra.",
-    "alreadyReversed": "Este movimento já foi estornado ou editado. Fecha esta janela e abre-o novamente."
+    "alreadyReversed": "Este movimento já foi estornado ou editado. Fecha esta janela e abre-o novamente.",
+    "inviteNotFound": "Este link de convite já não funciona. Fecha esta janela e recarrega a página.",
+    "groupArchived": "Este grupo está arquivado. Restaura-o primeiro.",
+    "groupNotSettled": "Para arquivar o grupo, o saldo de todos tem de estar a zero. Acertem as contas primeiro.",
+    "memberNotSettled": "Só podes sair quando o teu saldo no grupo estiver a zero. Acerta as contas primeiro."
   },
   "rowMenu": {
     "label": "Mais ações para {{name}}",
@@ -527,5 +532,131 @@
     "title": "Página não encontrada",
     "description": "Esta página não existe (ainda).",
     "back": "Voltar ao resumo"
+  },
+  "groups": {
+    "title": "Grupos",
+    "lead": "Partilha despesas com amigos e vê quem deve a quem.",
+    "loading": "A carregar os teus grupos…",
+    "loadFailed": "Não foi possível carregar os teus grupos.",
+    "allArchived": "Todos os teus grupos estão arquivados. Abre um para o restaurar, ou cria um novo.",
+    "members_one": "{{count}} membro",
+    "members_many": "{{count}} membros",
+    "members_other": "{{count}} membros",
+    "summary": {
+      "owe_one": "Deves <amount>{{amount}}</amount> num grupo.",
+      "owe_many": "Deves <amount>{{amount}}</amount> em {{count}} grupos.",
+      "owe_other": "Deves <amount>{{amount}}</amount> em {{count}} grupos.",
+      "owed_one": "Devem-te <amount>{{amount}}</amount> num grupo.",
+      "owed_many": "Devem-te <amount>{{amount}}</amount> em {{count}} grupos.",
+      "owed_other": "Devem-te <amount>{{amount}}</amount> em {{count}} grupos.",
+      "settled": "Tens as contas acertadas em todos os grupos."
+    },
+    "balance": {
+      "owe": "Deves",
+      "owed": "Devem-te",
+      "settled": "Contas acertadas"
+    },
+    "archived": {
+      "title": "Grupos arquivados ({{count}})",
+      "on": "arquivado a {{date}}",
+      "settled": "contas acertadas",
+      "open": "Abrir",
+      "openLabel": "Abrir {{name}}"
+    },
+    "empty": {
+      "title": "Ainda não tens grupos",
+      "text": "Cria um para uma viagem, uma casa partilhada ou jantares com amigos. Para entrares no grupo de um amigo, abre o link de convite que te enviaram."
+    },
+    "new": {
+      "button": "Novo grupo",
+      "title": "Novo grupo",
+      "namePlaceholder": "p. ex. Fim de semana no Porto",
+      "currency": "Moeda",
+      "currencyHint": "Todas as despesas do grupo são nesta moeda.",
+      "next": "A seguir podes convidar pessoas com um link. Os membros veem os nomes e as fotos uns dos outros e as despesas do grupo, nunca as contas pessoais de ninguém.",
+      "create": "Criar grupo"
+    }
+  },
+  "group": {
+    "loading": "A carregar o grupo…",
+    "loadFailed": "Não foi possível carregar o grupo.",
+    "notFound": {
+      "title": "Este grupo não está disponível",
+      "text": "Não existe, ou não és membro dele. Se alguém te convidou, abre o link de convite que te enviaram."
+    },
+    "you": "Tu",
+    "youWithName": "{{name}} (tu)",
+    "archivedBadge": "Arquivado",
+    "archivedNote": "Este grupo está arquivado. Guarda o histórico, mas não aceita novas despesas, pagamentos nem membros até ser restaurado.",
+    "menu": "Mais ações para {{name}}",
+    "rename": "Mudar o nome",
+    "renameTitle": "Mudar o nome do grupo",
+    "archive": "Arquivar grupo",
+    "restore": "Restaurar grupo",
+    "leave": "Sair do grupo",
+    "leaveTitle": "Sair de {{name}}?",
+    "leaveText": "Deixas de ver o grupo. A tua parte no histórico fica, e podes voltar com um novo link de convite.",
+    "archiveFailed": "Não foi possível arquivar o grupo.",
+    "restoreFailed": "Não foi possível restaurar o grupo.",
+    "membersTitle": "Membros",
+    "joined": "Entrou a {{date}}"
+  },
+  "invites": {
+    "title": "Convidar pessoas",
+    "to": "para {{name}}",
+    "intro": "Qualquer pessoa com o link pode entrar durante 7 dias. Envia-o só a quem queres no grupo.",
+    "create": "Criar link de convite",
+    "createFailed": "Não foi possível criar o link.",
+    "createAnother": "Criar outro link",
+    "done": "Concluído",
+    "newLink": "Novo link de convite",
+    "shownOnce": "Mostrado uma vez",
+    "linkLabel": "Link de convite",
+    "share": "Partilhar…",
+    "shareText": "Entra em {{name}} no MoneyTrail",
+    "copy": "Copiar link",
+    "copied": "Copiado",
+    "copiedStatus": "O link foi copiado.",
+    "copyNow": "Copia-o agora. O MoneyTrail guarda só uma impressão digital do link, por isso não o pode voltar a mostrar.",
+    "activeTitle": "Links ativos",
+    "active": "Links ativos ({{count}})",
+    "loading": "A carregar os links ativos…",
+    "loadFailed": "Não foi possível carregar os links ativos.",
+    "none": "Não há links ativos. Ninguém novo pode entrar até alguém criar um.",
+    "byYou": "Criado por ti, {{date}}",
+    "by": "Criado por {{name}}, {{date}}",
+    "today": "hoje",
+    "expires": "Expira {{date}}",
+    "revoke": "Revogar",
+    "revokeLabel": "Revogar o link: {{who}}",
+    "revokeFailed": "Não foi possível revogar o link.",
+    "privacy": "Quem entra vê os nomes e as fotos dos membros e as despesas do grupo, nunca as contas pessoais de ninguém."
+  },
+  "join": {
+    "loading": "A abrir o convite…",
+    "signedOut": {
+      "title": "Tens um convite para um grupo",
+      "text": "Inicia sessão para veres que grupo é e quem te convidou. Voltas logo aqui para entrar no grupo."
+    },
+    "notLetIn": {
+      "title": "O MoneyTrail ainda não está aberto a esta conta",
+      "text": "Por agora, só quem foi convidado pode usar a app, e a conta Google com que iniciaste sessão não está na lista. Pede a quem te enviou o link para a acrescentar e depois abre o link outra vez.",
+      "retry": "Usar outra conta Google"
+    },
+    "gone": {
+      "title": "Este convite já não funciona",
+      "text": "Pode ter expirado, sido revogado ou ser de um grupo que foi arquivado. Pede um link novo a quem to enviou.",
+      "home": "Ir para o MoneyTrail"
+    },
+    "failed": {
+      "title": "Não foi possível abrir o convite"
+    },
+    "preview": {
+      "invitedBy": "{{name}} convidou-te para",
+      "alreadyMember": "Já és membro de",
+      "join": "Entrar no grupo",
+      "open": "Abrir o grupo",
+      "privacy": "Os membros vão ver o teu nome, a tua foto e as despesas do grupo. Nunca as tuas contas pessoais."
+    }
   }
 }

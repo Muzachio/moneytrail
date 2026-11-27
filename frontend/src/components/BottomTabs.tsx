@@ -1,8 +1,6 @@
-import { ChartColumn, Landmark, List, Plus } from 'lucide-react'
+import { ChartColumn, Landmark, List, Plus, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import type { CurrentUser } from '@/api/session'
-import { AccountMenu } from '@/components/AccountMenu'
 import { cn } from '@/lib/utils'
 
 const tab =
@@ -13,15 +11,14 @@ function tabClass({ isActive }: { isActive: boolean }) {
 }
 
 /**
- * The phone's navigation, as in the design canvas: Summary, Transactions, the new-transaction
- * button in the centre, Accounts and You, within reach of the thumb. The centre button opens the
+ * The phone's navigation, as in the design canvas: Summary and Transactions, the new-transaction
+ * button in the centre, then Groups and Accounts, within reach of the thumb. Groups took the place
+ * of the "You" tab; the account menu is the avatar in the header (#91). The centre button opens the
  * same dialog as the header's button on wider screens.
  */
 export function BottomTabs({
-  user,
   onNewTransaction,
 }: {
-  user: CurrentUser
   onNewTransaction: (opener: HTMLElement) => void
 }) {
   const { t } = useTranslation()
@@ -50,11 +47,14 @@ export function BottomTabs({
       >
         <Plus aria-hidden className="size-6" />
       </button>
+      <NavLink to="/groups" className={tabClass}>
+        <Users aria-hidden className="size-5.5" />
+        {t('nav.groups')}
+      </NavLink>
       <NavLink to="/accounts" className={tabClass}>
         <Landmark aria-hidden className="size-5.5" />
         {t('nav.accounts')}
       </NavLink>
-      <AccountMenu user={user} tab className={tab} />
     </nav>
   )
 }

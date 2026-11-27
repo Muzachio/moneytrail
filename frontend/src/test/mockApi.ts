@@ -13,6 +13,12 @@ import { i18n } from '@/i18n/i18n'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 import type { NewTransaction, Transaction } from '@/api/transactions'
+import {
+  type FakeAnswer,
+  fakeGroups,
+  type TestGroup,
+  type TestInvite,
+} from './fakeGroups'
 import { fakeTransactions, Refused } from './fakeTransactions'
 
 /** An invented user for tests. */
@@ -122,9 +128,13 @@ function problem(status: number, code: string): Answer {
   return { error, response: new Response(null, { status }) }
 }
 
+function fromFake({ status, data, code }: FakeAnswer): Answer {
+  return status < 300 ? ok(data, status) : problem(status, code ?? 'error')
+}
+
 type RequestInit = {
   params?: {
-    path?: { id: string }
+    path?: { id: string; inviteId?: string }
     header?: Record<string, string>
     query?: Record<string, string | number | undefined>
   }
@@ -135,8 +145,9 @@ type RequestInit = {
  * Stands in for the API: the health check, `/v1/me` with `user` (401 when it is null), and the
  * accounts, categories and transactions of that user, with the spending reports on them, kept in
  * memory so that what a test adds, renames, archives, records or reverses shows up in the next
- * list and report, as with the real API. The
- * money-moving POSTs need an Idempotency-Key and replay their first answer for the same request.
+ * list and report, as with the real API, and the groups the user is in with their invite links
+ * (`fakeGroups`). The money-moving POSTs need an Idempotency-Key and replay their first answer
+ * for the same request.
  *
  * Returns the spies, to check what was sent or to make one call fail with `mockImplementationOnce`,
  * and the fake's state.
@@ -146,16 +157,21 @@ export function mockApi({
   accounts = [],
   categories = defaultCategories(),
   transactions = [],
+  groups = [],
+  invites = [],
 }: {
   user?: CurrentUser | null
   accounts?: Account[]
   categories?: Category[]
   transactions?: Transaction[]
+  groups?: TestGroup[]
+  invites?: TestInvite[]
 } = {}) {
   const state = {
     accounts: accounts.map((account) => ({ ...account })),
     categories: categories.map((category) => ({ ...category })),
   }
+  const groupsFake = fakeGroups(groups, invites, user)
   const ledger = fakeTransactions(
     transactions,
     state.accounts,
@@ -211,6 +227,10 @@ export function mockApi({
       case '/v1/transactions/{id}':
         return refusing(() => ok(ledger.detail(init?.params?.path?.id ?? '')))
     }
+    const answer = groupsFake.get(path, init)
+    if (answer) {
+      return fromFake(answer)
+    }
     throw new Error(`Unexpected GET ${path}`)
   }) as never)
 
@@ -265,6 +285,15 @@ export function mockApi({
         ),
       )
     }
+    if (path === '/v1/groups') {
+      return idempotent(path, init, () =>
+        fromFake(groupsFake.post(path, init)!),
+      )
+    }
+    const answer = groupsFake.post(path, init)
+    if (answer) {
+      return fromFake(answer)
+    }
     throw new Error(`Unexpected POST ${path}`)
   }) as never)
 
@@ -318,10 +347,34 @@ export function mockApi({
       }
       return ok({ ...category })
     }
+    const answer = groupsFake.patch(path, init)
+    if (answer) {
+      return fromFake(answer)
+    }
     throw new Error(`Unexpected PATCH ${path}`)
   }) as never)
 
-  return { get, post, patch, state, ledger, transactions: ledger.versions }
+  const remove = vi.spyOn(api, 'DELETE').mockImplementation((async (
+    path: string,
+    init: RequestInit,
+  ) => {
+    const answer = groupsFake.remove(path, init)
+    if (answer) {
+      return fromFake(answer)
+    }
+    throw new Error(`Unexpected DELETE ${path}`)
+  }) as never)
+
+  return {
+    get,
+    post,
+    patch,
+    remove,
+    state,
+    groups: groupsFake.state,
+    ledger,
+    transactions: ledger.versions,
+  }
 }
 
 /** The fake's refusals as problem answers. */
