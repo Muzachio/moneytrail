@@ -57,6 +57,14 @@ public interface LedgerService {
     Account renameAccount(UUID accountId, String name);
 
     /**
+     * Gives the account a new subtype, keeping its kind, postings and balance. The ledger does not
+     * read subtypes; the module that opened the account decides which changes make sense.
+     *
+     * @throws DomainException {@code account_not_found} (404)
+     */
+    Account changeAccountSubtype(UUID accountId, String subtype);
+
+    /**
      * Archives the account; it keeps its postings and balance. Archiving it again changes nothing.
      *
      * @throws DomainException {@code account_not_found} (404)

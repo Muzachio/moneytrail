@@ -37,7 +37,9 @@ would build it: immutable entries, idempotent writes, safe concurrency.
 
 ### MVP (v0.1): personal finance
 - Sign in with Google.
-- **Accounts:** checking, savings, credit card, cash. Each has one currency (EUR by default).
+- **Accounts:** checking, savings, credit card, cash, and investments. Each has one currency (EUR by
+  default). Money put into investments is still the person's, so moving it there is a transfer,
+  never spending. An investment account's balance is what went in minus what came out.
 - **Transactions:** expense, income, transfer between own accounts.
 - **Categories:** default set (Food, Transport, Housing, Leisure, Health, ...) plus user-defined.
 - **Editing is a reversal:** "edit" or "delete" creates a compensating entry. History is never lost.
@@ -67,7 +69,8 @@ would build it: immutable entries, idempotent writes, safe concurrency.
 ## Out of scope (for now)
 - Live bank connections (Open Banking / PSD2 aggregators): revisit after v0.4.
 - Native mobile apps (the PWA covers it).
-- Investments, crypto, tax filing.
+- Tracking investments: holdings, prices and market value (an investment account only records the
+  money moved in and out), crypto, tax filing.
 
 ## Non-functional requirements
 - **Correctness first:** every journal entry balances to zero. Balances can always be

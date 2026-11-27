@@ -26,12 +26,18 @@ record UserAccount(
 
     /**
      * The kinds of account the user can open. The ledger keeps the kind and, in the account's
-     * {@code subtype}, the key, which never changes.
+     * {@code subtype}, the key. An asset can become another asset (a savings account used for
+     * investing becomes an investment account), which changes the key but never the kind.
      */
     enum Type {
         CHECKING(AccountKind.ASSET, "checking"),
         SAVINGS(AccountKind.ASSET, "savings"),
         CASH(AccountKind.ASSET, "cash"),
+        /**
+         * Money put into investments, which is still the user's: moving money here is a transfer,
+         * not spending. The balance is what went in minus what came out, not a market value.
+         */
+        INVESTMENT(AccountKind.ASSET, "investment"),
         CREDIT_CARD(AccountKind.LIABILITY, "credit-card");
 
         private final AccountKind kind;

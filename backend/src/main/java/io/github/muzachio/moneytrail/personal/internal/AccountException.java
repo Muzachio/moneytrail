@@ -19,6 +19,13 @@ final class AccountException extends DomainException {
                 HttpStatus.NOT_FOUND, "account_not_found", "There is no account " + accountId + ".");
     }
 
+    static AccountException typeChangeRefused() {
+        return new AccountException(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                "account_type_change_refused",
+                "A credit card keeps its type, and no other account can become one.");
+    }
+
     // The same code as the schema rules' failures (api/openapi.yaml, BadRequest).
     static AccountException badRequest(String message) {
         return new AccountException(HttpStatus.BAD_REQUEST, "bad_request", message);

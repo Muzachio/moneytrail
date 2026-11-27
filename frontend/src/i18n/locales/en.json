@@ -218,6 +218,7 @@
     },
     "groups": {
       "cashAndBank": "Cash and bank",
+      "investments": "Investments",
       "creditCards": "Credit cards"
     },
     "columns": {
@@ -230,10 +231,12 @@
       "CHECKING": "Checking",
       "SAVINGS": "Savings",
       "CREDIT_CARD": "Credit card",
-      "CASH": "Cash"
+      "CASH": "Cash",
+      "INVESTMENT": "Investments"
     },
     "owed": "{{type}} · what you owe",
     "renameTitle": "Rename account",
+    "editTitle": "Edit account",
     "archiveHint": "Hides it from lists. Its history is kept.",
     "archiveFailed": "Could not archive {{name}}.",
     "restore": "Restore",

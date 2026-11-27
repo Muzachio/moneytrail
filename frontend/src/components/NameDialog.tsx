@@ -3,7 +3,9 @@ import { useId } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
+import type { AccountType } from '@/api/accounts'
 import type { CategoryIcon } from '@/api/categories'
+import { AccountTypePicker } from '@/components/accounts/AccountTypePicker'
 import { IconPicker } from '@/components/categories/IconPicker'
 import { FormError } from '@/components/FormError'
 import { Button } from '@/components/ui/button'
@@ -17,12 +19,17 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { accountTypes } from '@/lib/accounts'
 import { categoryIconNames } from '@/lib/categories'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage, nameSchema } from '@/lib/forms'
 
-/** What the dialog saves: the name, and the icon when it offers the icons. */
-export type NameDialogValues = { name: string; icon?: CategoryIcon }
+/** What the dialog saves: the name, and the icon or the account type when it offers them. */
+export type NameDialogValues = {
+  name: string
+  icon?: CategoryIcon
+  type?: AccountType
+}
 
 type NameDialogProps = {
   open: boolean
@@ -36,6 +43,12 @@ type NameDialogProps = {
    * account, and for a default category, which keeps the icon of its key.
    */
   initialIcon?: CategoryIcon
+  /**
+   * Offers these account types to pick from, with `initialType` picked at first: an asset account
+   * can become another asset (#121). Left out for a credit card and for categories.
+   */
+  typeOptions?: readonly AccountType[]
+  initialType?: AccountType
   placeholder?: string
   /** Sends the values; what it throws is shown in the form, and the dialog stays open. */
   onSave: (values: NameDialogValues) => Promise<unknown>
@@ -50,7 +63,8 @@ type NameDialogProps = {
 
 /**
  * A dialog with a name field, and the category icons when it is for a category of the person's
- * own: adding a category, or renaming an account or a category.
+ * own, or the account types when it edits an asset account: adding a category, or editing an
+ * account or a category.
  */
 export function NameDialog({
   open,
@@ -80,12 +94,15 @@ export function NameDialog({
 const nameFormSchema = z.object({
   name: nameSchema,
   icon: z.enum(categoryIconNames).optional(),
+  type: z.enum(accountTypes).optional(),
 })
 
 function NameForm({
   submitLabel,
   initialName = '',
   initialIcon,
+  typeOptions,
+  initialType,
   placeholder,
   onSave,
   nameError,
@@ -98,18 +115,22 @@ function NameForm({
   const errorId = useId()
   const form = useForm({
     resolver: zodResolver(nameFormSchema),
-    defaultValues: { name: initialName, icon: initialIcon },
+    defaultValues: { name: initialName, icon: initialIcon, type: initialType },
   })
 
-  const submit = form.handleSubmit(async ({ name, icon }) => {
+  const submit = form.handleSubmit(async ({ name, icon, type }) => {
     // Saving a name that did not change would still turn a default category's translated name
     // into a fixed one, in one language.
-    if (name === initialName.trim() && icon === initialIcon) {
+    if (
+      name === initialName.trim() &&
+      icon === initialIcon &&
+      type === initialType
+    ) {
       onSaved()
       return
     }
     try {
-      await onSave({ name, icon })
+      await onSave({ name, icon, type })
       onSaved()
     } catch (error) {
       const message = nameError?.(error)
@@ -144,6 +165,9 @@ function NameForm({
       />
       {initialIcon !== undefined && (
         <IconPicker field={form.register('icon')} />
+      )}
+      {typeOptions !== undefined && (
+        <AccountTypePicker types={typeOptions} field={form.register('type')} />
       )}
       <FormError form={form} />
       <DialogFooter className="mx-0 mb-0 border-0 bg-transparent p-0">

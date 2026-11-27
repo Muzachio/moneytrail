@@ -14,6 +14,7 @@ import {
   accountKind,
   accountTotals,
   accountTypeIcons,
+  assetTypes,
   isLiability,
 } from '@/lib/accounts'
 import { formatDate } from '@/lib/dates'
@@ -89,7 +90,14 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
   const groups = [
     {
       title: t('accounts.groups.cashAndBank'),
-      accounts: active.filter((account) => !isLiability(account.type)),
+      accounts: active.filter(
+        (account) =>
+          !isLiability(account.type) && account.type !== 'INVESTMENT',
+      ),
+    },
+    {
+      title: t('accounts.groups.investments'),
+      accounts: active.filter((account) => account.type === 'INVESTMENT'),
     },
     {
       title: t('accounts.groups.creditCards'),
@@ -99,6 +107,8 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
 
   const setArchived = (account: Account, archived: boolean) =>
     archive.mutate({ id: account.id, archived })
+  // An asset can become another asset (#121); a credit card keeps its type.
+  const retypable = renaming !== null && !isLiability(renaming.type)
 
   return (
     <>
@@ -157,11 +167,17 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
       <NameDialog
         open={renaming !== null}
         onOpenChange={(open) => !open && setRenaming(null)}
-        title={t('accounts.renameTitle')}
+        title={t(retypable ? 'accounts.editTitle' : 'accounts.renameTitle')}
         submitLabel={t('common.save')}
         initialName={renaming?.name}
-        onSave={({ name }) =>
-          rename.mutateAsync({ id: renaming?.id ?? '', name })
+        typeOptions={retypable ? assetTypes : undefined}
+        initialType={retypable ? renaming?.type : undefined}
+        onSave={({ name, type }) =>
+          rename.mutateAsync({
+            id: renaming?.id ?? '',
+            ...(name !== renaming?.name && { name }),
+            ...(type !== undefined && type !== renaming?.type && { type }),
+          })
         }
         returnFocusTo={renameOpener}
       />

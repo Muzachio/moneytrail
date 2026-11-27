@@ -59,6 +59,10 @@ class AccountEntity {
         this.name = name;
     }
 
+    void changeSubtype(String subtype) {
+        this.subtype = subtype;
+    }
+
     // Archiving twice keeps the first date.
     void archive(Instant now) {
         if (archivedAt == null) {

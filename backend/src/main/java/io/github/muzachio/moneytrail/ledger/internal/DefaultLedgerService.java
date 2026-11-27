@@ -116,6 +116,13 @@ class DefaultLedgerService implements LedgerService {
     }
 
     @Override
+    public Account changeAccountSubtype(UUID accountId, String subtype) {
+        AccountEntity account = existingAccount(accountId);
+        account.changeSubtype(subtype);
+        return save(account);
+    }
+
+    @Override
     public Account archiveAccount(UUID accountId) {
         AccountEntity account = existingAccount(accountId);
         // Postgres keeps microseconds: the date returned now is the one read back later.

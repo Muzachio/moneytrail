@@ -322,7 +322,18 @@ export function mockApi({
       if (account === undefined) {
         return problem(404, 'account_not_found')
       }
-      Object.assign(account, changed(init.body as AccountUpdate))
+      const update = init.body as AccountUpdate
+      // As the API: a credit card keeps its type, and no other account becomes one.
+      if (
+        update.type !== undefined &&
+        update.type !== account.type &&
+        (update.type === 'CREDIT_CARD' || account.type === 'CREDIT_CARD')
+      ) {
+        return problem(422, 'account_type_change_refused')
+      }
+      Object.assign(account, changed(update), {
+        ...(update.type !== undefined && { type: update.type }),
+      })
       return ok({ ...account })
     }
     if (path === '/v1/categories/{id}') {

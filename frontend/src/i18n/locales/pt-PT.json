@@ -219,6 +219,7 @@
     },
     "groups": {
       "cashAndBank": "Dinheiro e bancos",
+      "investments": "Investimentos",
       "creditCards": "Cartões de crédito"
     },
     "columns": {
@@ -231,10 +232,12 @@
       "CHECKING": "Conta à ordem",
       "SAVINGS": "Poupança",
       "CREDIT_CARD": "Cartão de crédito",
-      "CASH": "Dinheiro"
+      "CASH": "Dinheiro",
+      "INVESTMENT": "Investimentos"
     },
     "owed": "{{type}} · o que deves",
     "renameTitle": "Mudar o nome da conta",
+    "editTitle": "Editar conta",
     "archiveHint": "Deixa de aparecer nas listas. O histórico fica guardado.",
     "archiveFailed": "Não foi possível arquivar {{name}}.",
     "restore": "Restaurar",

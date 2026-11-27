@@ -110,6 +110,28 @@ describe('AddAccountDialog', () => {
     expect(post.mock.calls[0][1]).not.toHaveProperty('body.openingBalance')
   })
 
+  it('adds an investment account, which gets a group of its own', async () => {
+    const { post } = mockAccounts()
+    const dialog = await openAddAccount()
+
+    fill(dialog, 'Name', 'Index funds')
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Investments' }))
+    fill(dialog, 'Balance today', '557')
+    submit(dialog)
+
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(post.mock.calls[0][1]).toMatchObject({
+      body: {
+        name: 'Index funds',
+        type: 'INVESTMENT',
+        openingBalance: { amountMinor: 55700, currency: 'EUR' },
+      },
+    })
+    const investments = screen.getByRole('region', { name: 'Investments' })
+    expect(investments).toHaveTextContent('Index funds')
+    expect(investments).toHaveTextContent('€557.00')
+  })
+
   it('offers euros only, for now', async () => {
     mockAccounts()
     const dialog = await openAddAccount()

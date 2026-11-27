@@ -63,15 +63,31 @@ class UserAccounts {
         return view(account, type);
     }
 
-    UserAccount update(UUID userId, UUID accountId, @Nullable String name, @Nullable Boolean archived) {
-        if (name == null && archived == null) {
-            throw AccountException.badRequest("Send a name, archived, or both.");
+    /**
+     * A new type keeps the account's kind: an asset becomes another asset, and a credit card stays
+     * one, since the same balance would otherwise mean money owed instead of money had.
+     */
+    UserAccount update(
+            UUID userId,
+            UUID accountId,
+            @Nullable String name,
+            UserAccount.@Nullable Type newType,
+            @Nullable Boolean archived) {
+        if (name == null && newType == null && archived == null) {
+            throw AccountException.badRequest("Send a name, a type, archived, or more than one.");
         }
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Account account = ledger.findAccount(accountId)
                 .filter(found -> found.ledgerId().equals(ledgerId))
                 .orElseThrow(() -> AccountException.notFound(accountId));
         UserAccount.Type type = UserAccount.Type.of(account).orElseThrow(() -> AccountException.notFound(accountId));
+        if (newType != null && newType != type) {
+            if (newType.kind() != type.kind()) {
+                throw AccountException.typeChangeRefused();
+            }
+            account = ledger.changeAccountSubtype(accountId, newType.key());
+            type = newType;
+        }
         if (name != null) {
             account = ledger.renameAccount(accountId, clean(name));
         }
