@@ -186,7 +186,10 @@
     "inviteNotFound": "This invite link no longer works. Close this window and reload the page.",
     "groupArchived": "This group is archived. Restore it first.",
     "groupNotSettled": "Everyone's balance must be zero before the group can be archived. Settle up first.",
-    "memberNotSettled": "You can leave once your balance in this group is zero. Settle up first."
+    "memberNotSettled": "You can leave once your balance in this group is zero. Settle up first.",
+    "expenseAlreadyReversed": "This expense was already reversed or edited. Close this window and open it again.",
+    "expenseMemberLeft": "Someone who left the group paid this expense or has a part in it, so it can no longer change.",
+    "memberNotFound": "Someone in this expense is no longer in the group. Untick them and try again."
   },
   "rowMenu": {
     "label": "More actions for {{name}}",
@@ -594,6 +597,123 @@
     "restoreFailed": "The group could not be restored.",
     "membersTitle": "Members",
     "joined": "Joined on {{date}}"
+  },
+  "groupExpenses": {
+    "add": "Add expense",
+    "addTo": "Add an expense to {{name}}",
+    "listTitle": "Expenses and payments",
+    "newestFirst": "Newest first",
+    "loading": "Loading the expenses…",
+    "loadFailed": "The expenses could not be loaded.",
+    "loadMoreFailed": "More expenses could not be loaded.",
+    "formerMember": "A former member",
+    "youObject": "you",
+    "empty": {
+      "title": "No expenses yet",
+      "text": "Add what someone paid for the group. MoneyTrail splits it and keeps everyone's balance.",
+      "archived": "This group has no expenses."
+    },
+    "row": {
+      "youPaid": "You paid",
+      "paid": "{{name}} paid",
+      "split": {
+        "EQUALLY_one": "for one person",
+        "EQUALLY_other": "equally among {{count}}",
+        "SHARES": "by shares",
+        "PERCENTAGES": "by percentages",
+        "EXACT_AMOUNTS": "by exact amounts"
+      },
+      "lent": "You lent {{amount}}",
+      "share": "Your share {{amount}}",
+      "notInvolved": "Not involved"
+    },
+    "payment": {
+      "label": "Payment",
+      "youPaid": "You paid {{to}}",
+      "paidYou": "{{from}} paid you",
+      "paid": "{{from}} paid {{to}}"
+    },
+    "methods": {
+      "EQUALLY": "Equally",
+      "EXACT_AMOUNTS": "Exact amounts",
+      "PERCENTAGES": "Percentages",
+      "SHARES": "Shares"
+    },
+    "form": {
+      "newTitle": "New group expense",
+      "editTitle": "Edit group expense",
+      "subtitle": "{{name}} · {{currency}}",
+      "descriptionPlaceholder": "What was it for?",
+      "paidBy": "Paid by",
+      "pickPayer": "Choose who paid.",
+      "split": "Split",
+      "takingPart": "Who takes part",
+      "inputHeader": {
+        "EXACT_AMOUNTS": "Amount",
+        "PERCENTAGES": "Percent",
+        "SHARES": "Shares"
+      },
+      "shareHeader": "Share",
+      "inputLabel": {
+        "EXACT_AMOUNTS": "Amount for {{name}}",
+        "PERCENTAGES": "Percentage for {{name}}",
+        "SHARES": "Shares for {{name}}"
+      },
+      "notTakingPart": "Not taking part",
+      "total": "Total",
+      "people_one": "{{count}} person",
+      "people_other": "{{count}} people",
+      "shares_one": "{{count}} share",
+      "shares_other": "{{count}} shares",
+      "submit": "Add expense",
+      "editNote": "When you save, the original is reversed and the corrected expense recorded. Both stay in the trail."
+    },
+    "status": {
+      "addsUp": "Adds up to {{amount}}",
+      "amount": "Enter an amount above zero.",
+      "nobody": "Choose who takes part.",
+      "shares": "Give everyone a whole number of shares above zero.",
+      "tooManyShares": "The shares can add up to 10,000 at most.",
+      "percent": "Give everyone a percentage above zero.",
+      "percentLeft": "{{percent}} left to assign",
+      "percentOver": "{{percent}} too much",
+      "exactMissing": "Give everyone an amount, or untick them.",
+      "amountLeft": "{{amount}} left to assign",
+      "amountOver": "{{amount}} more than the amount"
+    },
+    "detail": {
+      "kicker": "Expense · {{group}}",
+      "kickerAlone": "Expense",
+      "loading": "Loading the expense…",
+      "loadFailed": "Could not load this expense.",
+      "editedBy": "Edited by {{name}}",
+      "yourShare": "Your share",
+      "confirm": {
+        "title": "Reverse this expense?",
+        "description": "Everyone goes back to the balance they had before it. Both entries stay in the trail.",
+        "reverse": "Reverse expense"
+      },
+      "oldVersion": "This is an earlier version. An edit replaced it, so it no longer counts.",
+      "reversed": "Reversed. It no longer counts towards anyone's balance.",
+      "splitTitle": {
+        "EQUALLY": "Split equally",
+        "SHARES": "Split by shares",
+        "PERCENTAGES": "Split by percentages",
+        "EXACT_AMOUNTS": "Split by exact amounts"
+      },
+      "member": "Member",
+      "paidTag": "paid",
+      "payerNotInSplit": "{{name}} paid for the others and is not in the split.",
+      "payerNotInSplitYou": "You paid for the others and are not in the split.",
+      "rounding_one": "{{total}} does not divide exactly. The cent left over goes to {{names}}, whose share had the largest remainder, so the shares add up to {{total}}.",
+      "rounding_other": "{{total}} does not divide exactly. The {{count}} cents left over go to {{names}}, whose shares had the largest remainders, so the shares add up to {{total}}."
+    },
+    "trail": {
+      "recorded": "Recorded as {{amount}} · {{category}}",
+      "corrected": "Corrected to {{amount}} · {{category}}",
+      "meta": "{{name}} · {{when}}",
+      "note": "Edits never overwrite history: the original is reversed and the corrected expense recorded. Any member can do it, and the trail shows who."
+    }
   },
   "invites": {
     "title": "Invite people",

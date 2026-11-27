@@ -7,7 +7,10 @@ import { AccountMenu } from '@/components/AccountMenu'
 import { ApiStatus } from '@/components/ApiStatus'
 import { BottomTabs } from '@/components/BottomTabs'
 import { Logo } from '@/components/Logo'
-import type { AppOutletContext } from '@/components/newTransaction'
+import type {
+  AppOutletContext,
+  CentreAction,
+} from '@/components/newTransaction'
 import { TransactionDialog } from '@/components/transactions/TransactionDialog'
 import { Button } from '@/components/ui/button'
 import { returningFromSignIn } from '@/lib/invites'
@@ -34,11 +37,14 @@ export function AppLayout() {
   // The header's button, the bottom tabs' one, or another one a page offers, such as the empty
   // list's.
   const [addOpener, setAddOpener] = useState<HTMLElement | null>(null)
+  // What a page puts on the bottom tabs' centre button instead, such as a group's new expense.
+  const [centreAction, setCentreAction] = useState<CentreAction | null>(null)
   const outletContext: AppOutletContext = {
     newTransaction: (opener) => {
       setAddOpener(opener)
       setAdding(true)
     },
+    setCentreAction,
   }
 
   // Google sign-in always comes back to `/` (or `/?sign-in=not-invited`); when it started on the
@@ -123,7 +129,10 @@ export function AppLayout() {
         )}
       </main>
       {user && !wide && (
-        <BottomTabs onNewTransaction={outletContext.newTransaction} />
+        <BottomTabs
+          onNewTransaction={outletContext.newTransaction}
+          centreAction={centreAction}
+        />
       )}
       {user && (
         <TransactionDialog

@@ -16,7 +16,8 @@ export type Profile = components['schemas']['Profile']
 
 export const groupsKey = ['groups'] as const
 
-function groupKey(id: string) {
+/** A group, and under it everything about it: its invites, expenses and payments. */
+export function groupKey(id: string) {
   return [...groupsKey, id] as const
 }
 

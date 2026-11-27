@@ -5,11 +5,12 @@ import {
   EllipsisVertical,
   LogOut,
   Pencil,
+  Plus,
   UserPlus,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import {
   type Group,
   useGroup,
@@ -18,8 +19,11 @@ import {
 } from '@/api/groups'
 import { ApiError } from '@/api/problem'
 import { useCurrentUser } from '@/api/session'
+import { GroupEntries } from '@/components/groups/GroupEntries'
+import { GroupExpenseDialog } from '@/components/groups/GroupExpenseDialog'
 import { InvitePeopleDialog } from '@/components/groups/InvitePeopleDialog'
 import { NameDialog } from '@/components/NameDialog'
+import { useSetCentreAction } from '@/components/newTransaction'
 import { AvatarStack, PersonAvatar } from '@/components/PersonAvatar'
 import { LoadFailed, Loading } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
@@ -44,8 +48,8 @@ import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage } from '@/lib/forms'
 
 /**
- * A group's page: its name, its members and the ways to invite people, rename, archive or leave
- * it. Its expenses, balances and activity join it in #92 and #93.
+ * A group's page: its name, its expenses and payments, its members and the ways to add an expense,
+ * invite people, rename, archive or leave it. Its balances and activity join it in #93.
  */
 export function GroupPage() {
   const { t } = useTranslation()
@@ -104,6 +108,21 @@ function GroupDetails({ group }: { group: Group }) {
   const [inviteOpener, setInviteOpener] = useState<HTMLElement | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [addOpener, setAddOpener] = useState<HTMLElement | null>(null)
+  const openAdd = useCallback((opener: HTMLElement) => {
+    setAddOpener(opener)
+    setAdding(true)
+  }, [])
+
+  // On a phone the bottom tabs' centre button adds an expense to this group, as in the design
+  // canvas; an archived group takes none, so the button keeps its new transaction.
+  const setCentreAction = useSetCentreAction()
+  const addLabel = t('groupExpenses.addTo', { name: group.name })
+  useEffect(() => {
+    setCentreAction(group.archived ? null : { label: addLabel, run: openAdd })
+    return () => setCentreAction(null)
+  }, [setCentreAction, group.archived, addLabel, openAdd])
 
   const you = (userId: string) => userId === me?.id
   // The signed-in person first, as "You", then the others in the order they joined.
@@ -155,6 +174,17 @@ function GroupDetails({ group }: { group: Group }) {
             >
               <UserPlus aria-hidden />
               {t('invites.title')}
+            </Button>
+          )}
+          {/* On a phone the bottom tabs' centre button adds the expense, as in the design. */}
+          {!group.archived && (
+            <Button
+              size="lg"
+              className="max-sm:hidden"
+              onClick={(event) => openAdd(event.currentTarget)}
+            >
+              <Plus aria-hidden />
+              {t('groupExpenses.add')}
             </Button>
           )}
           {/* Not modal: a dialog opens as the menu closes, as with the rows' menus. */}
@@ -228,39 +258,56 @@ function GroupDetails({ group }: { group: Group }) {
         </p>
       )}
 
-      <section
-        aria-labelledby="group-members"
-        className="flex flex-col rounded-xl border bg-card"
-      >
-        <h2
-          id="group-members"
-          className="px-5 pt-4.5 pb-1.5 text-[15px] font-semibold"
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+        <GroupEntries
+          group={group}
+          onAdd={group.archived ? undefined : openAdd}
+        />
+        <section
+          aria-labelledby="group-members"
+          className="flex flex-col rounded-xl border bg-card"
         >
-          {t('group.membersTitle')}
-        </h2>
-        <ul>
-          {members.map((member) => (
-            <li
-              key={member.userId}
-              className="flex items-center gap-3 border-t px-5 py-3 first:border-t-0"
-            >
-              <PersonAvatar person={member} className="size-8 text-xs" />
-              <span className="min-w-0">
-                <span className="block truncate font-medium">
-                  {you(member.userId)
-                    ? t('group.youWithName', { name: member.name })
-                    : member.name}
+          <h2
+            id="group-members"
+            className="px-5 pt-4.5 pb-1.5 text-[15px] font-semibold"
+          >
+            {t('group.membersTitle')}
+          </h2>
+          <ul>
+            {members.map((member) => (
+              <li
+                key={member.userId}
+                className="flex items-center gap-3 border-t px-5 py-3 first:border-t-0"
+              >
+                <PersonAvatar person={member} className="size-8 text-xs" />
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">
+                    {you(member.userId)
+                      ? t('group.youWithName', { name: member.name })
+                      : member.name}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {t('group.joined', {
+                      date: formatDate(member.joinedAt, i18n.language),
+                    })}
+                  </span>
                 </span>
-                <span className="block text-sm text-muted-foreground">
-                  {t('group.joined', {
-                    date: formatDate(member.joinedAt, i18n.language),
-                  })}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      {!group.archived && (
+        <GroupExpenseDialog
+          open={adding}
+          onOpenChange={setAdding}
+          group={group}
+          returnFocusTo={addOpener}
+        />
+      )}
+      {/* An expense's detail, `/groups/<id>/expenses/<expense id>`, as a panel over the page. */}
+      <Outlet />
 
       <InvitePeopleDialog
         group={group}
