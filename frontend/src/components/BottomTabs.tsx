@@ -1,6 +1,7 @@
 import { ChartColumn, Landmark, List, Plus, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
+import type { CentreAction } from '@/components/newTransaction'
 import { cn } from '@/lib/utils'
 
 const tab =
@@ -14,12 +15,15 @@ function tabClass({ isActive }: { isActive: boolean }) {
  * The phone's navigation, as in the design canvas: Summary and Transactions, the new-transaction
  * button in the centre, then Groups and Accounts, within reach of the thumb. Groups took the place
  * of the "You" tab; the account menu is the avatar in the header (#91). The centre button opens the
- * same dialog as the header's button on wider screens.
+ * same dialog as the header's button on wider screens, unless the page gives it another action: on
+ * a group's page it adds an expense to the group (#92).
  */
 export function BottomTabs({
   onNewTransaction,
+  centreAction,
 }: {
   onNewTransaction: (opener: HTMLElement) => void
+  centreAction?: CentreAction | null
 }) {
   const { t } = useTranslation()
 
@@ -40,8 +44,12 @@ export function BottomTabs({
       </NavLink>
       <button
         type="button"
-        aria-label={t('transactions.new')}
-        onClick={(event) => onNewTransaction(event.currentTarget)}
+        aria-label={centreAction?.label ?? t('transactions.new')}
+        onClick={(event) =>
+          centreAction
+            ? centreAction.run(event.currentTarget)
+            : onNewTransaction(event.currentTarget)
+        }
         // Raised above the bar, with a ring of the bar's colour around it, as in the design canvas.
         className="-mt-5.5 grid size-13 place-items-center justify-self-center rounded-full bg-primary text-primary-foreground shadow-[0_0_0_4px_var(--background),0_8px_18px_rgb(0_0_0/0.18)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >

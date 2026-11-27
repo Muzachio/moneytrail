@@ -149,6 +149,37 @@ export function formatWeekday(day: Day, language: string) {
   return weekday.charAt(0).toLocaleUpperCase(language) + weekday.slice(1)
 }
 
+/**
+ * The heading of a day in a list, newest first: "Today" or "Yesterday" (`words`, already
+ * translated) with the long date, or else the day of the week with the date.
+ */
+export function dayHeading(
+  day: Day,
+  language: string,
+  words: { today: string; yesterday: string },
+) {
+  const now = today()
+  const relative =
+    day === now
+      ? words.today
+      : day === addDays(now, -1)
+        ? words.yesterday
+        : undefined
+  return relative === undefined
+    ? {
+        label: formatWeekday(day, language),
+        date: formatDay(day, language, { day: 'numeric', month: 'long' }),
+      }
+    : {
+        label: relative,
+        date: formatDay(day, language, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        }),
+      }
+}
+
 /** The first day of `month`: `2026-10-01`. */
 export function firstDayOf(month: Month): Day {
   return `${month}-01`

@@ -62,7 +62,14 @@ export function apiErrorMessage(error: unknown, t: TFunction): string {
     case 'category_not_found':
     case 'transaction_not_found':
     case 'group_not_found':
+    case 'group_expense_not_found':
       return t('errors.notFound')
+    case 'group_expense_already_reversed':
+      return t('errors.expenseAlreadyReversed')
+    case 'group_expense_member_left':
+      return t('errors.expenseMemberLeft')
+    case 'member_not_found':
+      return t('errors.memberNotFound')
     case 'invite_not_found':
       return t('errors.inviteNotFound')
     case 'group_archived':

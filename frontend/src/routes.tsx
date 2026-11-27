@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router'
 import { AppLayout } from '@/components/AppLayout'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { GroupExpenseSheet } from '@/pages/GroupExpenseSheet'
 import { GroupPage } from '@/pages/GroupPage'
 import { GroupsPage } from '@/pages/GroupsPage'
 import { JoinPage } from '@/pages/JoinPage'
@@ -27,7 +28,13 @@ export const routes: RouteObject[] = [
         children: [{ path: ':id', element: <TransactionDetailSheet /> }],
       },
       { path: 'groups', element: <GroupsPage /> },
-      { path: 'groups/:id', element: <GroupPage /> },
+      {
+        path: 'groups/:id',
+        element: <GroupPage />,
+        children: [
+          { path: 'expenses/:expenseId', element: <GroupExpenseSheet /> },
+        ],
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -14,14 +14,7 @@ import { useLedgerNames } from '@/components/transactions/useLedgerNames'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CURRENCY } from '@/lib/accounts'
-import {
-  addDays,
-  type Day,
-  formatDay,
-  formatMonthName,
-  formatWeekday,
-  today,
-} from '@/lib/dates'
+import { type Day, dayHeading, formatMonthName } from '@/lib/dates'
 import { apiErrorMessage } from '@/lib/forms'
 import { formatMoney, type Money } from '@/lib/money'
 import { byDay, formatTransactionAmount, netOf } from '@/lib/transactions'
@@ -202,34 +195,6 @@ function Amount({ money, language }: { money: Money; language: string }) {
       {formatMoney(money, language, { signed: true })}
     </span>
   )
-}
-
-/** "Today", "Yesterday", or the day of the week, then the date. */
-function dayHeading(
-  day: Day,
-  language: string,
-  words: { today: string; yesterday: string },
-) {
-  const now = today()
-  const relative =
-    day === now
-      ? words.today
-      : day === addDays(now, -1)
-        ? words.yesterday
-        : undefined
-  return relative === undefined
-    ? {
-        label: formatWeekday(day, language),
-        date: formatDay(day, language, { day: 'numeric', month: 'long' }),
-      }
-    : {
-        label: relative,
-        date: formatDay(day, language, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        }),
-      }
 }
 
 function DayGroup({

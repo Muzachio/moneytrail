@@ -13,6 +13,7 @@ import { i18n } from '@/i18n/i18n'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 import type { NewTransaction, Transaction } from '@/api/transactions'
+import type { TestExpense, TestSettlement } from './fakeGroupExpenses'
 import {
   type FakeAnswer,
   fakeGroups,
@@ -134,7 +135,7 @@ function fromFake({ status, data, code }: FakeAnswer): Answer {
 
 type RequestInit = {
   params?: {
-    path?: { id: string; inviteId?: string }
+    path?: { id: string; inviteId?: string; expenseId?: string }
     header?: Record<string, string>
     query?: Record<string, string | number | undefined>
   }
@@ -145,9 +146,9 @@ type RequestInit = {
  * Stands in for the API: the health check, `/v1/me` with `user` (401 when it is null), and the
  * accounts, categories and transactions of that user, with the spending reports on them, kept in
  * memory so that what a test adds, renames, archives, records or reverses shows up in the next
- * list and report, as with the real API, and the groups the user is in with their invite links
- * (`fakeGroups`). The money-moving POSTs need an Idempotency-Key and replay their first answer
- * for the same request.
+ * list and report, as with the real API, and the groups the user is in with their invite links,
+ * expenses and payments (`fakeGroups`). The money-moving POSTs need an Idempotency-Key and replay
+ * their first answer for the same request.
  *
  * Returns the spies, to check what was sent or to make one call fail with `mockImplementationOnce`,
  * and the fake's state.
@@ -159,6 +160,8 @@ export function mockApi({
   transactions = [],
   groups = [],
   invites = [],
+  groupExpenses = [],
+  settlements = [],
 }: {
   user?: CurrentUser | null
   accounts?: Account[]
@@ -166,12 +169,20 @@ export function mockApi({
   transactions?: Transaction[]
   groups?: TestGroup[]
   invites?: TestInvite[]
+  groupExpenses?: TestExpense[]
+  settlements?: TestSettlement[]
 } = {}) {
   const state = {
     accounts: accounts.map((account) => ({ ...account })),
     categories: categories.map((category) => ({ ...category })),
   }
-  const groupsFake = fakeGroups(groups, invites, user)
+  const groupsFake = fakeGroups(
+    groups,
+    invites,
+    user,
+    groupExpenses,
+    settlements,
+  )
   const ledger = fakeTransactions(
     transactions,
     state.accounts,
@@ -285,7 +296,11 @@ export function mockApi({
         ),
       )
     }
-    if (path === '/v1/groups') {
+    if (
+      path === '/v1/groups' ||
+      path === '/v1/groups/{id}/expenses' ||
+      path === '/v1/groups/{id}/expenses/{expenseId}/reverse'
+    ) {
       return idempotent(path, init, () =>
         fromFake(groupsFake.post(path, init)!),
       )
@@ -372,6 +387,7 @@ export function mockApi({
     remove,
     state,
     groups: groupsFake.state,
+    groupExpenses: groupsFake.expenses,
     ledger,
     transactions: ledger.versions,
   }

@@ -187,7 +187,10 @@
     "inviteNotFound": "Este link de convite já não funciona. Fecha esta janela e recarrega a página.",
     "groupArchived": "Este grupo está arquivado. Restaura-o primeiro.",
     "groupNotSettled": "Para arquivar o grupo, o saldo de todos tem de estar a zero. Acertem as contas primeiro.",
-    "memberNotSettled": "Só podes sair quando o teu saldo no grupo estiver a zero. Acerta as contas primeiro."
+    "memberNotSettled": "Só podes sair quando o teu saldo no grupo estiver a zero. Acerta as contas primeiro.",
+    "expenseAlreadyReversed": "Esta despesa já foi estornada ou editada. Fecha esta janela e abre-a novamente.",
+    "expenseMemberLeft": "Alguém que saiu do grupo pagou esta despesa ou tem uma parte nela, por isso já não pode mudar.",
+    "memberNotFound": "Alguém nesta despesa já não está no grupo. Tira-lhe o visto e tenta novamente."
   },
   "rowMenu": {
     "label": "Mais ações para {{name}}",
@@ -600,6 +603,127 @@
     "restoreFailed": "Não foi possível restaurar o grupo.",
     "membersTitle": "Membros",
     "joined": "Entrou a {{date}}"
+  },
+  "groupExpenses": {
+    "add": "Adicionar despesa",
+    "addTo": "Adicionar uma despesa a {{name}}",
+    "listTitle": "Despesas e pagamentos",
+    "newestFirst": "Mais recentes primeiro",
+    "loading": "A carregar as despesas…",
+    "loadFailed": "Não foi possível carregar as despesas.",
+    "loadMoreFailed": "Não foi possível carregar mais despesas.",
+    "formerMember": "Um antigo membro",
+    "youObject": "ti",
+    "empty": {
+      "title": "Ainda sem despesas",
+      "text": "Adiciona o que alguém pagou pelo grupo. O MoneyTrail divide-o e mantém o saldo de cada um.",
+      "archived": "Este grupo não tem despesas."
+    },
+    "row": {
+      "youPaid": "Tu pagaste",
+      "paid": "{{name}} pagou",
+      "split": {
+        "EQUALLY_one": "para uma pessoa",
+        "EQUALLY_many": "por igual entre {{count}}",
+        "EQUALLY_other": "por igual entre {{count}}",
+        "SHARES": "por partes",
+        "PERCENTAGES": "por percentagens",
+        "EXACT_AMOUNTS": "por valores exatos"
+      },
+      "lent": "Emprestaste {{amount}}",
+      "share": "A tua parte {{amount}}",
+      "notInvolved": "Não participas"
+    },
+    "payment": {
+      "label": "Pagamento",
+      "youPaid": "Pagaste a {{to}}",
+      "paidYou": "{{from}} pagou-te",
+      "paid": "{{from}} pagou a {{to}}"
+    },
+    "methods": {
+      "EQUALLY": "Por igual",
+      "EXACT_AMOUNTS": "Valores exatos",
+      "PERCENTAGES": "Percentagens",
+      "SHARES": "Partes"
+    },
+    "form": {
+      "newTitle": "Nova despesa do grupo",
+      "editTitle": "Editar despesa do grupo",
+      "subtitle": "{{name}} · {{currency}}",
+      "descriptionPlaceholder": "Em que foi?",
+      "paidBy": "Quem pagou",
+      "pickPayer": "Escolhe quem pagou.",
+      "split": "Divisão",
+      "takingPart": "Quem participa",
+      "inputHeader": {
+        "EXACT_AMOUNTS": "Valor",
+        "PERCENTAGES": "Percentagem",
+        "SHARES": "Partes"
+      },
+      "shareHeader": "Parte",
+      "inputLabel": {
+        "EXACT_AMOUNTS": "Valor para {{name}}",
+        "PERCENTAGES": "Percentagem para {{name}}",
+        "SHARES": "Partes para {{name}}"
+      },
+      "notTakingPart": "Fora da divisão",
+      "total": "Total",
+      "people_one": "{{count}} pessoa",
+      "people_many": "{{count}} pessoas",
+      "people_other": "{{count}} pessoas",
+      "shares_one": "{{count}} parte",
+      "shares_many": "{{count}} partes",
+      "shares_other": "{{count}} partes",
+      "submit": "Adicionar despesa",
+      "editNote": "Ao guardar, o original é estornado e a despesa corrigida é registada. Ambos ficam no histórico."
+    },
+    "status": {
+      "addsUp": "Soma {{amount}}",
+      "amount": "Escreve um valor acima de zero.",
+      "nobody": "Escolhe quem participa.",
+      "shares": "Dá a cada pessoa um número inteiro de partes acima de zero.",
+      "tooManyShares": "As partes podem somar no máximo 10 000.",
+      "percent": "Dá a cada pessoa uma percentagem acima de zero.",
+      "percentLeft": "Falta atribuir {{percent}}",
+      "percentOver": "{{percent}} a mais",
+      "exactMissing": "Dá um valor a cada pessoa, ou tira-lhe o visto.",
+      "amountLeft": "Falta atribuir {{amount}}",
+      "amountOver": "{{amount}} acima do valor"
+    },
+    "detail": {
+      "kicker": "Despesa · {{group}}",
+      "kickerAlone": "Despesa",
+      "loading": "A carregar a despesa…",
+      "loadFailed": "Não foi possível carregar esta despesa.",
+      "editedBy": "Editada por {{name}}",
+      "yourShare": "A tua parte",
+      "confirm": {
+        "title": "Estornar esta despesa?",
+        "description": "Todos voltam ao saldo que tinham antes dela. Os dois lançamentos ficam no histórico.",
+        "reverse": "Estornar despesa"
+      },
+      "oldVersion": "Esta é uma versão anterior. Uma edição substituiu-a, por isso já não conta.",
+      "reversed": "Estornada. Já não conta para o saldo de ninguém.",
+      "splitTitle": {
+        "EQUALLY": "Dividida por igual",
+        "SHARES": "Dividida por partes",
+        "PERCENTAGES": "Dividida por percentagens",
+        "EXACT_AMOUNTS": "Dividida por valores exatos"
+      },
+      "member": "Membro",
+      "paidTag": "pagou",
+      "payerNotInSplit": "{{name}} pagou pelos outros e não entra na divisão.",
+      "payerNotInSplitYou": "Pagaste pelos outros e não entras na divisão.",
+      "rounding_one": "{{total}} não se divide exatamente. O cêntimo que sobra vai para {{names}}, cuja parte tinha o maior resto, para que as partes somem {{total}}.",
+      "rounding_many": "{{total}} não se divide exatamente. Os {{count}} cêntimos que sobram vão para {{names}}, cujas partes tinham os maiores restos, para que as partes somem {{total}}.",
+      "rounding_other": "{{total}} não se divide exatamente. Os {{count}} cêntimos que sobram vão para {{names}}, cujas partes tinham os maiores restos, para que as partes somem {{total}}."
+    },
+    "trail": {
+      "recorded": "Registada com {{amount}} · {{category}}",
+      "corrected": "Corrigida para {{amount}} · {{category}}",
+      "meta": "{{name}} · {{when}}",
+      "note": "Editar nunca reescreve o histórico: o original é estornado e a despesa corrigida é registada. Qualquer membro o pode fazer, e o histórico mostra quem."
+    }
   },
   "invites": {
     "title": "Convidar pessoas",

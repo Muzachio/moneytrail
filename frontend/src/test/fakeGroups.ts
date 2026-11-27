@@ -7,8 +7,14 @@ import type {
   NewGroup,
   Profile,
 } from '@/api/groups'
+import type { NewGroupExpense } from '@/api/groupExpenses'
 import type { CurrentUser } from '@/api/session'
 import type { Money } from '@/lib/money'
+import {
+  fakeGroupExpenses,
+  type TestExpense,
+  type TestSettlement,
+} from './fakeGroupExpenses'
 
 /** An invented member of a group. */
 export function testMember(
@@ -52,19 +58,25 @@ export function testToken(seed = Math.random().toString(36).slice(2)) {
 export type FakeAnswer = { status: number; data?: unknown; code?: string }
 
 type Init = {
-  params?: { path?: { id?: string; inviteId?: string } }
+  params?: {
+    path?: { id?: string; inviteId?: string; expenseId?: string }
+    query?: { cursor?: string; limit?: number }
+  }
   body?: unknown
 }
 
 /**
  * The groups and invites part of the fake API: groups the signed-in person is a member of, their
- * invite links, and the lookup and accept of a token, kept in memory as the real API keeps them.
- * Group ids of other people's groups answer `group_not_found`, as for a stranger.
+ * invite links, and the lookup and accept of a token, kept in memory as the real API keeps them,
+ * and the groups' expenses and payments (`fakeGroupExpenses`). Group ids of other people's groups
+ * answer `group_not_found`, as for a stranger.
  */
 export function fakeGroups(
   groups: TestGroup[],
   invites: TestInvite[],
   user: CurrentUser | null,
+  expenses: TestExpense[] = [],
+  settlements: TestSettlement[] = [],
 ) {
   const state = {
     groups: groups.map((group) => ({ ...group })),
@@ -72,6 +84,7 @@ export function fakeGroups(
     /** Groups the person is not in (yet): what an invite to someone else's group leads to. */
     others: [] as TestGroup[],
   }
+  const expensesFake = fakeGroupExpenses(expenses, settlements)
 
   const me: GroupMember | undefined = user
     ? { userId: user.id, name: user.name, joinedAt: '2026-11-27T09:00:00Z' }
@@ -118,6 +131,18 @@ export function fakeGroups(
         const group = find(id)
         return group ? { status: 200, data: detail(group) } : notFound
       }
+      case '/v1/groups/{id}/expenses': {
+        const group = find(id)
+        return group
+          ? expensesFake.list(group, init?.params?.query ?? {})
+          : notFound
+      }
+      case '/v1/groups/{id}/expenses/{expenseId}': {
+        const group = find(id)
+        return group
+          ? expensesFake.detail(group, init?.params?.path?.expenseId)
+          : notFound
+      }
       case '/v1/groups/{id}/invites': {
         const group = find(id)
         if (!group) {
@@ -154,6 +179,26 @@ export function fakeGroups(
         })
         state.groups.push(group)
         return { status: 201, data: detail(group) }
+      }
+      case '/v1/groups/{id}/expenses': {
+        const group = find(id)
+        return group
+          ? expensesFake.create(group, init.body as NewGroupExpense, me!.userId)
+          : notFound
+      }
+      case '/v1/groups/{id}/expenses/{expenseId}/reverse': {
+        const group = find(id)
+        const { replacement } = (init.body ?? {}) as {
+          replacement?: NewGroupExpense
+        }
+        return group
+          ? expensesFake.reverse(
+              group,
+              init.params?.path?.expenseId,
+              replacement,
+              me!.userId,
+            )
+          : notFound
       }
       case '/v1/groups/{id}/leave': {
         const group = find(id)
@@ -270,7 +315,7 @@ export function fakeGroups(
     return { status: 204 }
   }
 
-  return { state, get, post, patch, remove }
+  return { state, expenses: expensesFake.state, get, post, patch, remove }
 }
 
 function profile({ userId, name, avatarUrl }: GroupMember): Profile {
