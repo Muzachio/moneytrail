@@ -85,7 +85,7 @@ included, so private data must never reach a commit.
 - Small, focused changes: one roadmap task per branch and PR.
 - Conventional Commits, in English: `<type>(<scope>): <Description>`.
   - Type in lowercase: `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`, `perf`.
-  - Scope is a module (`ledger`, `personal`, `groups`, `budgets`, `invoices`, `imports`,
+  - Scope is a module (`ledger`, `personal`, `groups`, `activity`, `budgets`, `invoices`, `imports`,
     `reports`, `identity`, `shared`) or `api`, `frontend`, `db`, `deploy`, `adr`, `deps`
     (dependency updates).
   - Description starts with a capital letter, imperative mood, no final period, first

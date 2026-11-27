@@ -40,6 +40,19 @@ spring:
       # hourly and daily events that nothing here listens to. Off, scheduling is on only where
       # moneytrail.jobs.enabled is (shared.scheduling).
       enabled: false
+    # The outbox (ADR-0005, ADR-0014). Flyway creates event_publication (V19), so Spring Modulith's
+    # own schema initialization stays off, as it is by default.
+    events:
+      # A completed publication has nothing left to say: what its listener wrote is the record.
+      # Deleting it on completion keeps the table to the publications still to be delivered.
+      completion-mode: delete
+      # The hourly job of shared.events resubmits what is left incomplete, and it is the only way:
+      # resubmitting on restart as well would deliver twice whenever two processes start together.
+      republish-outstanding-events-on-restart: false
+      # No spring.modulith.events.staleness on purpose: set, Spring Modulith would look for stale
+      # publications on a timer of its own (every minute by default), each look a query that wakes
+      # Neon. Unset, it schedules nothing (StalenessMonitorConfiguration in 2.2), and the hourly job
+      # marks the stale ones failed itself, at the top of the hour.
 
 management:
   endpoints:

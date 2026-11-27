@@ -41,7 +41,7 @@ Goal: an empty app deployed end to end, so every later feature ships on a workin
 - [x] Group balances and settle-up suggestions (greedy, at most n − 1 payments)
 - [x] Settlements
 - [ ] Optional mirror of my share into my personal ledger
-- [ ] `GroupExpenseAdded` event → in-app activity feed
+- [x] `GroupExpenseAdded` event → in-app activity feed
 - [x] Cross-tenant authorization test suite
 - [ ] Groups UI: groups list, invite and join, group page with expenses and the split dialog,
   balances, settle-up and activity, on desktop and phone

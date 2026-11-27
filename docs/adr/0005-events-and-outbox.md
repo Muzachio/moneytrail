@@ -1,7 +1,9 @@
 # ADR-0005: Domain events through Spring Modulith's outbox, not Kafka
 
 - **Status:** Accepted. Refined by [ADR-0010](0010-synchronous-listeners.md): a listener whose
-  result the user needs at once runs synchronously, in the publisher's transaction
+  result the user needs at once runs synchronously, in the publisher's transaction; and by
+  [ADR-0014](0014-activity-feed-through-the-outbox.md): incomplete publications are resubmitted
+  by an hourly job only, not on restart
 - **Date:** 2026-10-14
 
 ## Context
