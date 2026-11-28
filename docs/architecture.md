@@ -306,6 +306,18 @@ nothing and an edited one adds only its correction. By category, the months are 
 categories with spending come largest first; by month, every month of the period is there, with
 zeros when nothing moved. A period covers at most 24 calendar months.
 
+Where the income went (`GET /v1/reports/income-allocation`, #125) splits it into spent, invested
+and saved, and adds a second query: how much each of the user's own accounts changed in the
+period, leaving out entries that post to `EQUITY` (opening balances), as the accounts page counts
+a month's change. `personal` says what each account is for (`PersonalLedgerQueries.accountUses`:
+everyday, savings or investment), so `reports` never reads its account-type keys. Invested is the
+investment accounts' change, negative when money came out of them; saved is the rest of the
+income, so the three parts always add up to it, and the savings accounts' change is reported as
+the part of saved they account for. Since every other entry of a personal ledger posts only to the
+user's accounts and categories and balances to zero, the accounts' changes add up to income less
+spending, so saved is also what the checking, cash and savings accounts gained less what credit
+cards' debt grew: saved plus invested is what was kept of the income.
+
 ### Guarantees and how they are enforced
 
 | Guarantee | Enforcement |
@@ -392,6 +404,7 @@ GET|POST         /v1/categories         PATCH /v1/categories/{id} (rename/archiv
 GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse
 GET              /v1/reports/spending?from=&to=&groupBy=category|month
+GET              /v1/reports/income-allocation?from=&to=
 
 GET|POST         /v1/groups             GET|PATCH /v1/groups/{id}   POST /v1/groups/{id}/leave
 GET|POST         /v1/groups/{id}/invites        DELETE /v1/groups/{id}/invites/{inviteId}

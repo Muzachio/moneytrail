@@ -36,6 +36,14 @@ function realApi(get: ReturnType<typeof mockApi>['get']) {
   ) => Promise<unknown>
 }
 
+/** The query of every `GET /v1/reports/income-allocation` sent so far. */
+function allocationQueries(get: ReturnType<typeof mockApi>['get']) {
+  type Call = [string, { params: { query: Omit<Query, 'groupBy'> } }]
+  return (get.mock.calls as unknown as Call[])
+    .filter(([path]) => path === '/v1/reports/income-allocation')
+    .map(([, init]) => init.params.query)
+}
+
 /** The query of every `GET /v1/reports/spending` sent so far. */
 function reportQueries(get: ReturnType<typeof mockApi>['get']) {
   type Call = [string, { params: { query: Query } }]
@@ -104,9 +112,12 @@ describe('SummaryPage', () => {
       expect(region('Spending')).toHaveTextContent(
         '€149.428% of income · 9 transactions',
       )
-      expect(region('Net this month')).toHaveTextContent(
-        '+€1,725.57You kept 92% of your income',
-      )
+      // Saved is all that was not spent or invested, with the emergency fund's top-up as its
+      // detail; shares are of the income, as above.
+      expect(items(region('Where the income went'))).toEqual([
+        'Spent€149.428%',
+        'Saved€1,725.5792%of which in savings €200.00',
+      ])
       expect(
         screen.getByText('Where your money went this month.'),
       ).toBeVisible()
@@ -122,6 +133,81 @@ describe('SummaryPage', () => {
           { from: '2026-05-01', to: '2026-10-25', groupBy: 'month' },
         ]),
       )
+      expect(allocationQueries(get)).toEqual([
+        { from: '2026-10-01', to: '2026-10-25' },
+      ])
+    })
+
+    it('splits off what was invested, and draws each part as wide as its amount', async () => {
+      const seed = data()
+      const index = testAccount({ name: 'Index funds', type: 'INVESTMENT' })
+      seed.accounts.push(index)
+      seed.transactions.push(
+        testTransaction({
+          type: 'TRANSFER',
+          description: 'Index fund',
+          occurredOn: '2026-10-24',
+          fromAccountId: seed.checking.id,
+          toAccountId: index.id,
+          amount: euros(55700),
+        }),
+      )
+      render('/', seed)
+
+      const split = await screen.findByRole('region', {
+        name: 'Where the income went',
+      })
+      expect(items(split)).toEqual([
+        'Spent€149.428%',
+        'Invested€557.0030%',
+        'Saved€1,168.5762%of which in savings €200.00',
+      ])
+      // Each segment grows by its amount in cents: whole numbers, no rounding.
+      const segments = [
+        ...split.querySelectorAll<HTMLElement>('[aria-hidden] > div'),
+      ]
+      expect(segments.map((segment) => segment.style.flexGrow)).toEqual([
+        '14942',
+        '55700',
+        '116857',
+      ])
+    })
+
+    it('shows money taken out of investments as a negative part, and out of savings under saved', async () => {
+      const seed = data()
+      const index = testAccount({ name: 'Index funds', type: 'INVESTMENT' })
+      seed.accounts.push(index)
+      seed.transactions.push(
+        testTransaction({
+          type: 'TRANSFER',
+          description: 'From the fund',
+          occurredOn: '2026-10-24',
+          fromAccountId: seed.emergency.id,
+          toAccountId: seed.checking.id,
+          amount: euros(50000),
+        }),
+        testTransaction({
+          type: 'TRANSFER',
+          description: 'Sold some units',
+          occurredOn: '2026-10-24',
+          fromAccountId: index.id,
+          toAccountId: seed.checking.id,
+          amount: euros(10000),
+        }),
+      )
+      render('/', seed)
+
+      const split = await screen.findByRole('region', {
+        name: 'Where the income went',
+      })
+      expect(items(split)).toEqual([
+        'Spent€149.428%',
+        'Taken from investments−€100.00−5%',
+        'Saved€1,825.5797%€300.00 taken from savings',
+      ])
+      expect(within(split).getByText('−€100.00')).toHaveClass('text-taken-text')
+      // The bar draws only the parts above zero.
+      expect(split.querySelectorAll('[aria-hidden] > div').length).toBe(2)
     })
 
     it("lists the month's spending by category, largest first, with each share", async () => {
@@ -252,14 +338,23 @@ describe('SummaryPage', () => {
 
     it('goes back a month, with the whole month and the trend that ends with it', async () => {
       const { get } = render()
-      await screen.findByRole('region', { name: 'Net this month' })
+      await screen.findByRole('region', { name: 'Where the income went' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Previous month' }))
 
-      const net = await screen.findByRole('region', {
-        name: 'Net in September',
+      expect(
+        await screen.findByText('Where your money went in September 2026.'),
+      ).toBeVisible()
+      await waitFor(() =>
+        expect(items(region('Where the income went'))).toEqual([
+          'Spent€750.0041%',
+          'Saved€1,100.0059%',
+        ]),
+      )
+      expect(allocationQueries(get)).toContainEqual({
+        from: '2026-09-01',
+        to: '2026-09-30',
       })
-      expect(net).toHaveTextContent('+€1,100.00You kept 59% of your income')
       expect(region('Spending')).toHaveTextContent(
         '€750.0041% of income · 2 transactions',
       )
@@ -297,9 +392,11 @@ describe('SummaryPage', () => {
       expect(region('Spending')).toHaveTextContent(
         '€0.00No income to compare with · 0 transactions',
       )
-      expect(region('Net in August')).toHaveTextContent(
-        '€0.00Nothing came in or went out',
-      )
+      // Nothing came in to share out, so no shares either.
+      expect(items(region('Where the income went'))).toEqual([
+        'Spent€0.00',
+        'Saved€0.00',
+      ])
     })
 
     it('adds a transaction recorded from the header to the summary', async () => {
@@ -354,9 +451,10 @@ describe('SummaryPage', () => {
       expect(items(categories)[0]).toBe(
         `Alimentação94,42${NBSP}€, 63% das despesas`,
       )
-      expect(region('Saldo deste mês')).toHaveTextContent(
-        'Ficaste com 92% das tuas receitas',
-      )
+      expect(items(region('Para onde foram as receitas'))).toEqual([
+        `Gasto149,42${NBSP}€8%`,
+        `Poupado1725,57${NBSP}€92%dos quais na poupança 200,00${NBSP}€`,
+      ])
       expect(
         within(region('Últimos 6 meses')).getByRole('table', {
           name: 'Receitas e despesas nos últimos 6 meses',
@@ -371,15 +469,16 @@ describe('SummaryPage', () => {
       onPhone()
     })
 
-    it('shows what was spent and kept, the top categories and the latest transactions', async () => {
+    it('shows what was spent and where the rest went, the top categories and the latest transactions', async () => {
       render()
 
       const spent = await screen.findByRole('region', {
         name: 'Spent in October',
       })
-      expect(spent).toHaveTextContent(
-        '€149.428% of €1,874.99 income+€1,725.57 kept',
-      )
+      expect(spent).toHaveTextContent('€149.428% of €1,874.99 income')
+      expect(items(spent)).toEqual([
+        'Saved€1,725.5792%of which in savings €200.00',
+      ])
       expect(items(region('Top categories'))).toEqual([
         'Food€94.42',
         'Transport€40.00',
@@ -450,11 +549,17 @@ describe('SummaryPage', () => {
       )
       render('/', seed)
 
-      expect(
-        await screen.findByRole('region', { name: 'Spent in October' }),
-      ).toHaveTextContent(
+      const spent = await screen.findByRole('region', {
+        name: 'Spent in October',
+      })
+      expect(spent).toHaveTextContent(
         '€2,149.42115% of €1,874.99 income€274.43 over income',
       )
+      // Saved is negative, in the warning colour; the savings top-up still shows under it.
+      expect(items(spent)).toEqual(['Saved−€274.43−15%€200.00 into savings'])
+      expect(within(spent).getByText('−€274.43')).toHaveClass('text-taken-text')
+      // The bar draws spending only: nothing else is above zero.
+      expect(spent.querySelectorAll('[aria-hidden] > div').length).toBe(1)
     })
   })
 

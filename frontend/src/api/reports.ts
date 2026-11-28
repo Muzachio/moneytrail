@@ -9,6 +9,7 @@ export type SpendingReport = components['schemas']['SpendingReport']
 export type CategorySpending = components['schemas']['CategorySpending']
 export type MonthTotals = components['schemas']['MonthTotals']
 export type ReportGrouping = components['schemas']['ReportGrouping']
+export type IncomeAllocation = components['schemas']['IncomeAllocation']
 
 /** Every report: recording, reversing or editing a transaction changes them all. */
 export const reportsKey = ['reports'] as const
@@ -40,13 +41,16 @@ export function useMonthSummary(month: Month, today: Day) {
     queryKey: [...reportsKey, 'summary', month, today],
     queryFn: async () => {
       const period = monthPeriod(month, today)
-      const [byCategory, trend, page] = await Promise.all([
+      const [byCategory, trend, page, allocation] = await Promise.all([
         spendingReport({ ...period, groupBy: 'category' }),
         spendingReport({ ...trendPeriod(month, today), groupBy: 'month' }),
         api
           .GET('/v1/transactions', {
             params: { query: { month, limit: RECENT } },
           })
+          .then(dataOrThrow),
+        api
+          .GET('/v1/reports/income-allocation', { params: { query: period } })
           .then(dataOrThrow),
       ])
       return {
@@ -61,6 +65,8 @@ export function useMonthSummary(month: Month, today: Day) {
           spending: trend.spending,
           months: trend.months ?? [],
         },
+        /** Where the month's income went: spent, invested, saved and left (#125). */
+        allocation,
         /** How many transactions the month has, transfers included. */
         count: page.summary.count,
         recent: page.items,

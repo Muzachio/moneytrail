@@ -137,9 +137,8 @@ function Summary({ month, wide }: { month: Month; wide: boolean }) {
         <>
           <StatCards
             totals={data.totals}
+            allocation={data.allocation}
             period={data.period}
-            month={shown}
-            current={current}
             count={data.count}
           />
           <div className="flex flex-wrap items-stretch gap-4">
@@ -170,7 +169,11 @@ function Summary({ month, wide }: { month: Month; wide: boolean }) {
         </>
       ) : (
         <>
-          <SpentCard totals={data.totals} month={shown} />
+          <SpentCard
+            totals={data.totals}
+            allocation={data.allocation}
+            month={shown}
+          />
           <TopCategoriesCard
             categories={data.categories}
             spending={data.totals.spending}

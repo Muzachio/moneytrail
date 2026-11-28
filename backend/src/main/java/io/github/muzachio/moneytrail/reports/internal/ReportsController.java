@@ -37,6 +37,18 @@ class ReportsController implements ReportsApi {
                 });
     }
 
+    @Override
+    public ResponseEntity<io.github.muzachio.moneytrail.shared.api.model.IncomeAllocation> getIncomeAllocation(
+            LocalDate from, LocalDate to) {
+        IncomeAllocation allocation = reports.allocation(SignedIn.userId(), new ReportPeriod(from, to));
+        return ResponseEntity.ok(new io.github.muzachio.moneytrail.shared.api.model.IncomeAllocation(
+                toApi(allocation.income()),
+                toApi(allocation.spending()),
+                toApi(allocation.invested()),
+                toApi(allocation.saved()),
+                toApi(allocation.savingsAccounts())));
+    }
+
     private static SpendingReport toApi(SpendingByCategory report) {
         return new SpendingReport(toApi(report.income()), toApi(report.spending()))
                 .categories(report.categories().stream()

@@ -6,7 +6,7 @@ import {
   lastDayOf,
   type Month,
 } from '@/lib/dates'
-import { type Money, sumMoney } from '@/lib/money'
+import { type Money, percentOf, sumMoney } from '@/lib/money'
 
 /** How many months the summary's trend shows, the month in view included. */
 export const TREND_MONTHS = 6
@@ -52,6 +52,81 @@ export function axisTicks(max: number, unit = 100): number[] {
         return [0, step, step * 2, step * 3]
       }
     }
+  }
+}
+
+/** One part of where the income went (#125). */
+export type SplitPart = {
+  key: 'spent' | 'invested' | 'saved'
+  amount: Money
+  /**
+   * Below zero: money taken out of the investments, or saved negative because more was spent or
+   * invested than came in.
+   */
+  negative: boolean
+  /**
+   * The part's share of the month's income, a whole percentage, negative when the part is;
+   * undefined without income to share.
+   */
+  share: number | undefined
+}
+
+export type IncomeSplit = {
+  /** Spent and saved always, and invested between them when it is not zero. */
+  parts: SplitPart[]
+  /** The parts the bar draws: the ones above zero, each as wide as its amount. */
+  bar: SplitPart[]
+  /**
+   * The savings accounts' part of what was saved, for the detail line under it; negative when
+   * money was taken out of them, undefined when they did not change.
+   */
+  savingsAccounts: Money | undefined
+}
+
+/**
+ * The summary's split of the month's income from the API's allocation, whose three parts add up
+ * to the income. Shares are of the income, the same base as the spending card's, so the two never
+ * disagree; a negative part has a negative share, and the shares still add up to 100% (or close
+ * to it, each being rounded).
+ */
+export function incomeSplit({
+  income,
+  spending,
+  invested,
+  saved,
+  savingsAccounts,
+}: {
+  income: Money
+  spending: Money
+  invested: Money
+  saved: Money
+  savingsAccounts: Money
+}): IncomeSplit {
+  const all: [SplitPart['key'], Money][] = [
+    ['spent', spending],
+    ['invested', invested],
+    ['saved', saved],
+  ]
+  const parts = all
+    .filter(([key, amount]) => key !== 'invested' || amount.amountMinor !== 0)
+    .map(([key, amount]): SplitPart => {
+      const negative = amount.amountMinor < 0
+      const share = percentOf(
+        { ...amount, amountMinor: Math.abs(amount.amountMinor) },
+        income,
+      )
+      return {
+        key,
+        amount,
+        negative,
+        share: share === undefined || !negative ? share : -share,
+      }
+    })
+  return {
+    parts,
+    bar: parts.filter((part) => part.amount.amountMinor > 0),
+    savingsAccounts:
+      savingsAccounts.amountMinor === 0 ? undefined : savingsAccounts,
   }
 }
 

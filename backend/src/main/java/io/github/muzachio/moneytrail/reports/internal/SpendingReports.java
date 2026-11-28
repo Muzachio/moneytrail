@@ -21,10 +21,13 @@ class SpendingReports {
 
     private final PersonalLedgerQueries personalLedgers;
     private final CategorySums categorySums;
+    private final AccountChangeSums accountChanges;
 
-    SpendingReports(PersonalLedgerQueries personalLedgers, CategorySums categorySums) {
+    SpendingReports(
+            PersonalLedgerQueries personalLedgers, CategorySums categorySums, AccountChangeSums accountChanges) {
         this.personalLedgers = personalLedgers;
         this.categorySums = categorySums;
+        this.accountChanges = accountChanges;
     }
 
     SpendingByCategory byCategory(UUID userId, ReportPeriod period) {
@@ -41,6 +44,18 @@ class SpendingReports {
                 .map(ledgerId -> categorySums.byMonth(ledgerId, period))
                 .orElseGet(List::of);
         return SpendingByMonth.of(period, sums, zero());
+    }
+
+    /** The same category sums as the other reports, so its income and spending are theirs. */
+    IncomeAllocation allocation(UUID userId, ReportPeriod period) {
+        return personalLedgers
+                .ledgerOf(userId)
+                .map(ledgerId -> IncomeAllocation.of(
+                        categorySums.byMonth(ledgerId, period),
+                        accountChanges.between(ledgerId, period.from(), period.to()),
+                        personalLedgers.accountUses(ledgerId),
+                        zero()))
+                .orElseGet(() -> IncomeAllocation.of(List.of(), Map.of(), Map.of(), zero()));
     }
 
     private Money zero() {
