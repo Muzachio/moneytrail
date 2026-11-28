@@ -21,4 +21,14 @@ class GroupMembershipCheck implements GroupMembership {
             throw GroupException.notFound(groupId);
         }
     }
+
+    @Override
+    public MemberAccount memberAccount(UUID groupId, UUID userId) {
+        GroupStore.Row group =
+                store.findForMember(groupId, userId, Lock.NONE).orElseThrow(() -> GroupException.notFound(groupId));
+        UUID accountId = store.membership(groupId, userId)
+                .orElseThrow(() -> GroupException.notFound(groupId))
+                .accountId();
+        return new MemberAccount(accountId, group.name(), group.currency());
+    }
 }

@@ -196,6 +196,45 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                     new Case(
                             Kind.TRANSACTION,
                             (f, by, id) -> post("/v1/transactions/" + id + "/reverse", by.id(), "{}"))),
+            // A personal expense is no group's, so the owner's own transaction gets account_change_refused.
+            entry(
+                    "changeTransactionAccount path.id",
+                    new Case(
+                            Kind.TRANSACTION,
+                            (f, by, id) ->
+                                    post("/v1/transactions/" + id + "/account", by.id(), """
+                            {"accountId": "%s"}""".formatted(by.account())))),
+            entry(
+                    "changeTransactionAccount body.accountId",
+                    new Case(
+                            Kind.ACCOUNT,
+                            (f, by, id) -> post(
+                                    "/v1/transactions/" + by.transaction() + "/account", by.id(), """
+                            {"accountId": "%s"}""".formatted(id)))),
+            entry(
+                    "getGroupMirror path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> get("/v1/groups/" + id + "/mirror", by.id()))),
+            entry(
+                    "turnOnGroupMirror path.id",
+                    new Case(
+                            Kind.GROUP,
+                            (f, by, id) ->
+                                    put("/v1/groups/" + id + "/mirror", by.id(), mirror(by.category(), by.account())))),
+            entry(
+                    "turnOnGroupMirror body.categoryId",
+                    new Case(
+                            Kind.CATEGORY,
+                            (f, by, id) ->
+                                    put("/v1/groups/" + by.group() + "/mirror", by.id(), mirror(id, by.account())))),
+            entry(
+                    "turnOnGroupMirror body.accountId",
+                    new Case(
+                            Kind.ACCOUNT,
+                            (f, by, id) ->
+                                    put("/v1/groups/" + by.group() + "/mirror", by.id(), mirror(by.category(), id)))),
+            entry(
+                    "turnOffGroupMirror path.id",
+                    new Case(Kind.GROUP, (f, by, id) -> delete("/v1/groups/" + id + "/mirror", by.id()))),
             entry(
                     "reverseTransaction body.replacement.accountId",
                     new Case(Kind.ACCOUNT, (f, by, id) -> reverse(by, expense(by.category(), id)))),
@@ -720,6 +759,11 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
                 "/v1/transactions/" + by.transaction() + "/reverse", by.id(), "{\"replacement\": " + replacement + "}");
     }
 
+    private static String mirror(UUID categoryId, UUID accountId) {
+        return """
+                {"categoryId": "%s", "accountId": "%s"}""".formatted(categoryId, accountId);
+    }
+
     private static String expense(UUID categoryId, UUID accountId) {
         return """
                 {"type": "EXPENSE", "amount": {"amountMinor": 1250, "currency": "EUR"}, "occurredOn": "%s",
@@ -762,8 +806,25 @@ class CrossTenantAuthorizationTests extends PostgresIntegrationTest {
         return request.exchange();
     }
 
+    /** With an {@code Idempotency-Key} too, which turning a group's mirror off takes. */
     private MvcTestResult delete(String uri, UUID userId) {
-        return mvc.delete().uri(uri).with(user(userId.toString())).with(csrf()).exchange();
+        return mvc.delete()
+                .uri(uri)
+                .with(user(userId.toString()))
+                .with(csrf())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .exchange();
+    }
+
+    private MvcTestResult put(String uri, UUID userId, String body) {
+        return mvc.put()
+                .uri(uri)
+                .with(user(userId.toString()))
+                .with(csrf())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .exchange();
     }
 
     private MvcTestResult patch(String uri, UUID userId, String body) {

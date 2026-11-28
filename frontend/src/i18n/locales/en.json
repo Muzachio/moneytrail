@@ -238,7 +238,8 @@
       "SAVINGS": "Savings",
       "CREDIT_CARD": "Credit card",
       "CASH": "Cash",
-      "INVESTMENT": "Investments"
+      "INVESTMENT": "Investments",
+      "GROUP": "Group"
     },
     "owed": "{{type}} · what you owe",
     "renameTitle": "Rename account",

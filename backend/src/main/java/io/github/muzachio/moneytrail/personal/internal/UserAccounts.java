@@ -31,10 +31,12 @@ class UserAccounts {
 
     private final LedgerService ledger;
     private final PersonalLedgers personalLedgers;
+    private final GroupMirrorStore mirrors;
 
-    UserAccounts(LedgerService ledger, PersonalLedgers personalLedgers) {
+    UserAccounts(LedgerService ledger, PersonalLedgers personalLedgers, GroupMirrorStore mirrors) {
         this.ledger = ledger;
         this.personalLedgers = personalLedgers;
+        this.mirrors = mirrors;
     }
 
     /** In the order they were opened, archived ones included. */
@@ -42,9 +44,10 @@ class UserAccounts {
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Map<UUID, Money> balances = ledger.balances(ledgerId);
         Map<UUID, Money> changes = changesThisMonth(ledgerId);
+        Map<UUID, UUID> groups = mirrors.groupsByAccount(userId);
         return ledger.accounts(ledgerId).stream()
-                .flatMap(account ->
-                        UserAccount.Type.of(account).stream().map(type -> view(account, type, balances, changes)))
+                .flatMap(account -> UserAccount.Type.of(account).stream()
+                        .map(type -> view(account, type, balances, changes, groups.get(account.id()))))
                 .toList();
     }
 
@@ -55,6 +58,9 @@ class UserAccounts {
      */
     UserAccount create(
             UUID userId, UserAccount.Type type, String name, Currency currency, @Nullable Money openingBalance) {
+        if (type == UserAccount.Type.GROUP) {
+            throw AccountException.fromGroup("A group's account is opened by turning on the group's mirror.");
+        }
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Account account = ledger.openAccount(new NewAccount(ledgerId, type.kind(), type.key(), clean(name), currency));
         if (openingBalance != null && !openingBalance.isZero()) {
@@ -81,6 +87,15 @@ class UserAccounts {
                 .filter(found -> found.ledgerId().equals(ledgerId))
                 .orElseThrow(() -> AccountException.notFound(accountId));
         UserAccount.Type type = UserAccount.Type.of(account).orElseThrow(() -> AccountException.notFound(accountId));
+        if (newType != null
+                && newType != type
+                && (type == UserAccount.Type.GROUP || newType == UserAccount.Type.GROUP)) {
+            throw AccountException.fromGroup("A group's account keeps its type, and no other account can become one.");
+        }
+        if (archived != null && type == UserAccount.Type.GROUP) {
+            throw AccountException.fromGroup(
+                    "A group's account is archived and restored by turning the group's mirror off and on.");
+        }
         if (newType != null && newType != type) {
             if (newType.kind() != type.kind()) {
                 throw AccountException.typeChangeRefused();
@@ -117,11 +132,20 @@ class UserAccounts {
                 account,
                 type,
                 Map.of(account.id(), ledger.balance(account.id())),
-                changesThisMonth(account.ledgerId()));
+                changesThisMonth(account.ledgerId()),
+                type == UserAccount.Type.GROUP
+                        ? mirrors.findByAccount(account.id())
+                                .map(GroupMirrorStore.Mirror::groupId)
+                                .orElse(null)
+                        : null);
     }
 
     private static UserAccount view(
-            Account account, UserAccount.Type type, Map<UUID, Money> balances, Map<UUID, Money> changes) {
+            Account account,
+            UserAccount.Type type,
+            Map<UUID, Money> balances,
+            Map<UUID, Money> changes,
+            @Nullable UUID groupId) {
         Money zero = Money.zero(account.currency());
         return new UserAccount(
                 account.id(),
@@ -130,7 +154,8 @@ class UserAccounts {
                 account.currency(),
                 balances.getOrDefault(account.id(), zero),
                 changes.getOrDefault(account.id(), zero),
-                account.archivedAt());
+                account.archivedAt(),
+                groupId);
     }
 
     private Map<UUID, Money> changesThisMonth(UUID ledgerId) {

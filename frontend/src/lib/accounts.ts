@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   PiggyBank,
   TrendingUp,
+  Users,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { Account, AccountType } from '@/api/accounts'
@@ -25,19 +26,26 @@ export const accountTypes = [
   'INVESTMENT',
 ] as const satisfies readonly AccountType[]
 
+/** A type the person can give an account; a group's account only comes from its mirror. */
+export type ChosenAccountType = (typeof accountTypes)[number]
+
 /**
  * The types an account holding money the person has can change to: one asset can become another,
  * but a credit card keeps its type, since the same balance would then mean money owed.
  */
 export const assetTypes = accountTypes.filter((type) => !isLiability(type))
 
-/** The design canvas' icon for each type of account, and a rising line for investments. */
+/**
+ * The design canvas' icon for each type of account, a rising line for investments, and people for a
+ * group's account, which only the group's mirror opens (#94), so the add-account dialog never offers it.
+ */
 export const accountTypeIcons: Record<AccountType, LucideIcon> = {
   CHECKING: Landmark,
   SAVINGS: PiggyBank,
   CREDIT_CARD: CreditCard,
   CASH: Coins,
   INVESTMENT: TrendingUp,
+  GROUP: Users,
 }
 
 /**

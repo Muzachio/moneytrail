@@ -85,6 +85,10 @@ class AccountsController implements AccountsApi {
         if (archivedAt != null) {
             body.archivedAt(archivedAt.atOffset(ZoneOffset.UTC));
         }
+        UUID groupId = account.groupId();
+        if (groupId != null) {
+            body.groupId(groupId);
+        }
         return body;
     }
 
@@ -100,6 +104,7 @@ class AccountsController implements AccountsApi {
             case CASH -> UserAccount.Type.CASH;
             case INVESTMENT -> UserAccount.Type.INVESTMENT;
             case CREDIT_CARD -> UserAccount.Type.CREDIT_CARD;
+            case GROUP -> UserAccount.Type.GROUP;
         };
     }
 
@@ -110,6 +115,7 @@ class AccountsController implements AccountsApi {
             case CASH -> AccountType.CASH;
             case INVESTMENT -> AccountType.INVESTMENT;
             case CREDIT_CARD -> AccountType.CREDIT_CARD;
+            case GROUP -> AccountType.GROUP;
         };
     }
 }

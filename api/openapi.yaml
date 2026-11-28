@@ -47,6 +47,10 @@ tags:
     description: |
       What happened in a group, newest first: who created it, joined or left, and each expense and
       payment recorded, edited or reversed (docs/adr/0014-activity-feed-through-the-outbox.md).
+  - name: group-mirror
+    description: |
+      A member's share of a group's expenses and payments, recorded in their own ledger too when they
+      turn it on for that group (docs/adr/0015-group-shares-in-the-personal-ledger.md).
 security:
   - sessionCookie: []
 paths:
@@ -85,8 +89,9 @@ paths:
       tags: [accounts]
       summary: List the user's accounts with their balances
       description: |
-        Every checking, savings, cash and credit card account of the signed-in user, archived ones
-        included, in the order they were created. Categories are not accounts here, and neither is
+        Every checking, savings, cash, investment and credit card account of the signed-in user,
+        archived ones included, in the order they were created, and the account of each group whose
+        share they record in their ledger (`GROUP`). Categories are not accounts here, and neither is
         the ledger's opening balances account. Each account comes with its balance and with how much
         it changed this month.
       responses:
@@ -110,6 +115,9 @@ paths:
 
         It moves money, so it takes an `Idempotency-Key`: a retry gets the first response again and
         creates neither a second account nor a second entry.
+
+        A group's account is opened by turning on the group's mirror, never here
+        (`422 account_from_group`).
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -132,7 +140,7 @@ paths:
         '409':
           $ref: '#/components/responses/IdempotencyKeyInUse'
         '422':
-          $ref: '#/components/responses/IdempotencyKeyReused'
+          $ref: '#/components/responses/AccountRefused'
   /v1/accounts/{id}:
     parameters:
       - name: id
@@ -149,9 +157,11 @@ paths:
         Changes the properties sent and leaves the others as they are. An archived account keeps its
         history and its balance, but new transactions cannot use it. A new type keeps the history and
         the balance too: checking, savings, cash and investment accounts all hold money the user has,
-        so one can become another, but a credit card holds money owed and keeps its type. This moves
-        no money, so it takes no `Idempotency-Key`: sending the same change again gives the same
-        result.
+        so one can become another, but a credit card holds money owed and keeps its type. A group's
+        account can be renamed, but it keeps its type, and only turning its group's mirror off and on
+        archives and restores it.
+        This moves no money, so it takes no `Idempotency-Key`: sending the same change again gives
+        the same result.
       requestBody:
         required: true
         content:
@@ -419,6 +429,10 @@ paths:
         transaction it corrects already used. A transaction is reversed at most once, so reversing
         it again, or an old version of an edited one, answers `409`.
 
+        A transaction that records the user's share of a group (it has `group`) is changed in the
+        group, which changes it here too: reversing or editing it here answers
+        `422 transaction_from_group`.
+
         It moves money, so it takes an `Idempotency-Key`.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -433,6 +447,49 @@ paths:
           description: |
             The correction when a `replacement` was sent, otherwise the reversed transaction; both
             with their trail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/TransactionNotFound'
+        '409':
+          $ref: '#/components/responses/ReversalConflict'
+        '422':
+          $ref: '#/components/responses/TransactionRefused'
+  /v1/transactions/{id}/account:
+    parameters:
+      - $ref: '#/components/parameters/TransactionId'
+    post:
+      operationId: changeTransactionAccount
+      tags: [transactions]
+      summary: Change the account a group expense or payment was paid from or into
+      description: |
+        For a transaction that records the user's share of a group (it has `group`): moves the money
+        it took from, or brought to, one of the user's accounts onto another account. The transaction
+        is corrected as an edit is, by reversing it and recording the same amounts on the new account,
+        so the trail shows both. Everything else about it is changed in the group.
+
+        Only the current version of such a transaction, and only one where money left or reached an
+        account (`422 account_change_refused` otherwise: a share of an expense someone else paid moves
+        no money of the user's yet). The new account follows the rules of a new transaction.
+
+        It moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionAccountChange'
+      responses:
+        '200':
+          description: The corrected transaction, with its trail.
           content:
             application/json:
               schema:
@@ -1017,6 +1074,106 @@ paths:
           $ref: '#/components/responses/Unauthenticated'
         '404':
           $ref: '#/components/responses/GroupNotFound'
+  /v1/groups/{id}/mirror:
+    parameters:
+      - $ref: '#/components/parameters/GroupId'
+    get:
+      operationId: getGroupMirror
+      tags: [group-mirror]
+      summary: Whether the user's share of the group is recorded in their ledger
+      description: |
+        The signed-in member's mirror of this group (docs/adr/0015-group-shares-in-the-personal-ledger.md).
+        Off until they turn it on; each member decides for themselves. Anyone who is not a member now
+        gets `404`.
+      responses:
+        '200':
+          description: The member's mirror of the group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMirror'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+    put:
+      operationId: turnOnGroupMirror
+      tags: [group-mirror]
+      summary: Record the user's share of the group in their ledger, or change how
+      description: |
+        Turns the mirror on, or changes its category and account when it is on already. From then on,
+        each expense and payment of the group the user takes part in is recorded in their ledger too,
+        a moment after it is recorded in the group:
+
+        - their share of an expense as spending, in their category with the same key as the
+          expense's, or in `categoryId` when they have none;
+        - what they paid or received, from or into `accountId`, which they can change on each one
+          (`POST /v1/transactions/{id}/account`);
+        - the rest in the group's account in their ledger, whose balance is always their balance in
+          the group: positive, the others owe them; negative, they owe the others.
+
+        Turning it on opens that account with the user's current balance in the group, moved from
+        their opening balances like an account's opening balance, so it is neither income nor
+        spending. Expenses from before are not recorded one by one. Turning it on again later only
+        changes the category and the account.
+
+        Only for a group in the currency of the user's ledger (`422 mirror_currency_mismatch`). It
+        moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupMirrorSettings'
+      responses:
+        '200':
+          description: The mirror, on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMirror'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyKeyInUse'
+        '422':
+          $ref: '#/components/responses/MirrorRefused'
+    delete:
+      operationId: turnOffGroupMirror
+      tags: [group-mirror]
+      summary: Stop recording the user's share of the group in their ledger
+      description: |
+        Turns the mirror off. What it recorded stays in the user's ledger. The group's account moves
+        its balance back to the user's opening balances, which is neither income nor spending, and is
+        archived; turning the mirror on again brings it back. Turning off a mirror that is off changes
+        nothing. Leaving the group turns it off too.
+
+        It moves money, so it takes an `Idempotency-Key`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The mirror, off.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMirror'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/GroupNotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyKeyInUse'
+        '422':
+          $ref: '#/components/responses/IdempotencyKeyReused'
   /v1/groups/{id}/leave:
     parameters:
       - $ref: '#/components/parameters/GroupId'
@@ -1257,10 +1414,28 @@ components:
             status: 404
             detail: There is no account with this id.
             code: account_not_found
+    AccountRefused:
+      description: |
+        The request is well formed, but the account cannot be created. `code` says why:
+
+        - `account_from_group`: a group's account is opened by turning on the group's mirror.
+        - `idempotency_key_reused`: see `IdempotencyKeyReused`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: A group's account is opened by turning on the group's mirror.
+            code: account_from_group
     AccountTypeChangeRefused:
       description: |
-        A credit card holds money the user owes and the other accounts money they have, so neither
-        can take the other's type: the balance would change meaning without any money moving.
+        `account_type_change_refused`: a credit card holds money the user owes and the other accounts
+        money they have, so neither can take the other's type: the balance would change meaning
+        without any money moving. `account_from_group`: a group's account keeps its type, no other
+        account can become one, and turning the group's mirror off and on is what archives and
+        restores it.
       content:
         application/problem+json:
           schema:
@@ -1364,6 +1539,12 @@ components:
           category.
         - `account_archived`, `category_archived`: archived accounts and categories cannot be
           used for new transactions.
+        - `account_from_group`: a group's account only records the user's share of the group, so
+          no transaction of their own can use it.
+        - `transaction_from_group`: the transaction records the user's share of a group, so it is
+          reversed or edited in the group.
+        - `account_change_refused`: the transaction is not from a group, or no money of the user's
+          moved in it, so it has no account to change.
         - `currency_mismatch`: the amount is not in the account's currency.
         - `idempotency_key_reused`: see `IdempotencyKeyReused`.
       content:
@@ -1524,6 +1705,26 @@ components:
             status: 404
             detail: There is no group with this id.
             code: group_not_found
+    MirrorRefused:
+      description: |
+        The request is well formed, but the mirror cannot be turned on with it. `code` says why:
+
+        - `category_not_found`, `account_not_found`: the user has no category or account with this
+          id, as for a new transaction.
+        - `category_kind_mismatch`: the category must be an expense category.
+        - `category_archived`, `account_archived`: they must be active.
+        - `account_from_group`: the account must be one of the user's own, not a group's.
+        - `mirror_currency_mismatch`: the group's currency is not the currency of the user's ledger.
+        - `idempotency_key_reused`: see `IdempotencyKeyReused`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            title: Unprocessable Content
+            status: 422
+            detail: The group's currency is not the currency of your ledger.
+            code: mirror_currency_mismatch
     GroupNotSettled:
       description: |
         `group_not_settled`: a group can be archived only when every member's balance is zero.
@@ -1627,12 +1828,16 @@ components:
       description: The currency of an account or a group. Only EUR for now; more currencies come later.
     AccountType:
       type: string
-      enum: [CHECKING, SAVINGS, CASH, INVESTMENT, CREDIT_CARD]
+      enum: [CHECKING, SAVINGS, CASH, INVESTMENT, CREDIT_CARD, GROUP]
       description: |
         What the account is. Checking, savings, cash and investment accounts hold money the user has
         (assets in the ledger); a credit card holds money the user owes (a liability). Money moved
         into an investment account is a transfer, not spending; its balance is what was put in minus
         what was taken out, not a market value.
+
+        A `GROUP` account is a group's, opened when the user turns on its mirror: its balance is
+        their balance in the group, positive when the others owe them and negative when they owe the
+        others. Only the mirror records in it.
     AccountName:
       type: string
       minLength: 1
@@ -1674,6 +1879,10 @@ components:
           type: string
           format: date-time
           description: When the account was archived; only on archived accounts.
+        groupId:
+          type: string
+          format: uuid
+          description: The group of a `GROUP` account; only on those.
     AccountList:
       type: object
       required: [items]
@@ -1712,7 +1921,9 @@ components:
           $ref: '#/components/schemas/AccountType'
           description: |
             The account's new type, among checking, savings, cash and investment. A credit card keeps
-            its type, and no other account can become one (`422 account_type_change_refused`).
+            its type, and no other account can become one (`422 account_type_change_refused`). A
+            group's account keeps its type too, and no other account can become one
+            (`422 account_from_group`).
     CategoryKind:
       type: string
       enum: [EXPENSE, INCOME]
@@ -2034,6 +2245,50 @@ components:
           description: |
             A later entry cancelled this version, on its own or as part of an edit. Only old versions
             are reversed: the current version of a transaction never is.
+        group:
+          $ref: '#/components/schemas/TransactionGroupLink'
+    TransactionGroupLink:
+      type: object
+      required: [groupId, groupAccountId, groupEntryId, type]
+      description: |
+        Only on a transaction that records the user's share of a group
+        (docs/adr/0015-group-shares-in-the-personal-ledger.md). It is changed in the group, except for
+        the account the money came from or went to (`POST /v1/transactions/{id}/account`).
+
+        - An `EXPENSE` the user paid and shares is an expense of their share from `accountId`, with
+          `paid`, the whole amount that left it; the rest went to the group's account, as what the
+          others owe them.
+        - An `EXPENSE` someone else paid is an expense of the user's share from the group's account
+          (`accountId` is `groupAccountId`): nothing of theirs moved yet, they owe it to the group.
+        - An `EXPENSE` the user paid without a share, and a `SETTLEMENT`, are transfers between one
+          of their accounts and the group's account.
+      properties:
+        groupId:
+          type: string
+          format: uuid
+        groupAccountId:
+          type: string
+          format: uuid
+          description: The group's account in the user's ledger, whose name is the group's.
+        groupEntryId:
+          type: string
+          format: uuid
+          description: The id of the expense or settlement in the group.
+        type:
+          $ref: '#/components/schemas/GroupEntryType'
+        paid:
+          $ref: '#/components/schemas/Money'
+          description: |
+            For an expense the user paid and shares: the whole amount that left `accountId`, of which
+            `amount` was their share.
+    TransactionAccountChange:
+      type: object
+      required: [accountId]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: The user's account the money came from, or went to, instead.
     Posting:
       type: object
       required: [accountId, amount]
@@ -2712,6 +2967,44 @@ components:
         spending:
           $ref: '#/components/schemas/Money'
           description: What was spent in the expense categories in the month's days of the period.
+    GroupMirror:
+      type: object
+      required: [enabled]
+      description: |
+        Whether the signed-in member records their share of the group in their own ledger. When it is
+        on, it says with which category and account, and which account in their ledger is the
+        group's.
+      properties:
+        enabled:
+          type: boolean
+        categoryId:
+          type: string
+          format: uuid
+          description: The category for shares of expenses whose category the user has none of; only when on.
+        accountId:
+          type: string
+          format: uuid
+          description: The account the user pays from and is paid into unless they change it; only when on.
+        groupAccountId:
+          type: string
+          format: uuid
+          description: The group's account in the user's ledger; only when on.
+    GroupMirrorSettings:
+      type: object
+      required: [categoryId, accountId]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+          description: |
+            One of the user's active expense categories, for the share of an expense whose category
+            (`food`, `transport` and so on) the user has no category for.
+        accountId:
+          type: string
+          format: uuid
+          description: |
+            One of the user's active accounts, not a group's: where what they pay comes from and what
+            they are paid goes, unless they change it on one of them.
     GroupName:
       type: string
       minLength: 1

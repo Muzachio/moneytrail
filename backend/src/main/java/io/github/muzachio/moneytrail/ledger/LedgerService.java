@@ -157,6 +157,18 @@ public interface LedgerService {
      */
     Money balance(UUID accountId);
 
+    /**
+     * The account's balance and every entry that posts to it, read at the same moment, so that the
+     * balance is exactly the sum of those entries' postings to it. Until the transaction ends, nothing
+     * more can be posted to the account: a posting waits for it, so whatever the caller does with the
+     * snapshot is committed before any newer entry. A module that starts following an account from its
+     * balance (the mirror of a group in a personal ledger, ADR-0015) learns which entries that balance
+     * already holds, and hears of every later one.
+     *
+     * @throws DomainException {@code account_not_found} (404)
+     */
+    AccountSnapshot snapshot(UUID accountId);
+
     /** The balance of every account of a ledger, archived ones included, read as {@link #balance} is. */
     Map<UUID, Money> balances(UUID ledgerId);
 
