@@ -11,17 +11,21 @@ import io.github.muzachio.moneytrail.ledger.EntryPosition;
 import io.github.muzachio.moneytrail.ledger.EntryTotals;
 import io.github.muzachio.moneytrail.ledger.JournalEntry;
 import io.github.muzachio.moneytrail.ledger.LedgerService;
+import io.github.muzachio.moneytrail.ledger.NewJournalEntry;
 import io.github.muzachio.moneytrail.ledger.Posting;
+import io.github.muzachio.moneytrail.personal.internal.GroupMirrorStore.Handled;
 import io.github.muzachio.moneytrail.shared.DomainException;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Currency;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -41,10 +45,12 @@ class Transactions {
 
     private final LedgerService ledger;
     private final PersonalLedgers personalLedgers;
+    private final GroupMirrorStore mirrors;
 
-    Transactions(LedgerService ledger, PersonalLedgers personalLedgers) {
+    Transactions(LedgerService ledger, PersonalLedgers personalLedgers, GroupMirrorStore mirrors) {
         this.ledger = ledger;
         this.personalLedgers = personalLedgers;
+        this.mirrors = mirrors;
     }
 
     /**
@@ -63,7 +69,7 @@ class Transactions {
     TransactionHistory find(UUID userId, UUID transactionId) {
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Map<UUID, Account> accounts = accountsOf(ledgerId);
-        return historyOf(ledgerId, transactionId, accounts);
+        return historyOf(userId, ledgerId, transactionId, accounts);
     }
 
     /**
@@ -75,9 +81,12 @@ class Transactions {
         Map<UUID, Account> accounts = accountsOf(ledgerId);
         EntryFilter entries = entryFilter(ledgerId, filter, accounts);
         EntryPage page = ledger.entries(entries, cursor == null ? null : Cursors.decode(cursor), limit);
-        List<UserTransaction> items = page.entries().stream()
-                .map(entry -> UserTransaction.of(entry, accounts, false).orElseThrow(() -> notATransaction(entry)))
-                .toList();
+        List<UserTransaction> items = withGroups(
+                userId,
+                page.entries().stream()
+                        .map(entry ->
+                                UserTransaction.of(entry, accounts, false).orElseThrow(() -> notATransaction(entry)))
+                        .toList());
         EntryPosition next = page.next();
         return new TransactionPage(
                 filter.month(), summaryOf(ledger.totals(entries)), items, next == null ? null : Cursors.encode(next));
@@ -150,20 +159,101 @@ class Transactions {
     TransactionHistory reverse(UUID userId, UUID transactionId, @Nullable Movement replacement) {
         UUID ledgerId = personalLedgers.ledgerOf(userId);
         Map<UUID, Account> accounts = accountsOf(ledgerId);
-        TransactionHistory history = historyOf(ledgerId, transactionId, accounts);
+        TransactionHistory history = historyOf(userId, ledgerId, transactionId, accounts);
+        if (history.transaction().group() != null) {
+            throw TransactionException.transactionFromGroup(transactionId);
+        }
         if (history.transaction().reversed()) {
             throw TransactionException.alreadyReversed(transactionId);
         }
         if (replacement == null) {
             reversing(transactionId, () -> ledger.reverse(transactionId, userId));
-            return historyOf(ledgerId, transactionId, accounts);
+            return historyOf(userId, ledgerId, transactionId, accounts);
         }
         Set<UUID> alreadyUsed =
                 history.postings().stream().map(Posting::accountId).collect(toSet());
         checkUsable(replacement, accounts, alreadyUsed);
         JournalEntry correction =
                 reversing(transactionId, () -> ledger.replace(transactionId, replacement.toEntry(ledgerId, userId)));
-        return historyOf(ledgerId, correction.id(), accounts);
+        return historyOf(userId, ledgerId, correction.id(), accounts);
+    }
+
+    /**
+     * Moves what a mirrored transaction took from, or brought to, one of the user's accounts onto
+     * another (ADR-0015): the entry is replaced with the same postings on the new account, as an edit
+     * is. It takes the mirror's lock first, so the listener never corrects the same entry meanwhile;
+     * the history is read after the lock, when nothing can change it any more.
+     */
+    TransactionHistory changeAccount(UUID userId, UUID transactionId, UUID accountId) {
+        UUID ledgerId = personalLedgers.ledgerOf(userId);
+        Map<UUID, Account> accounts = accountsOf(ledgerId);
+        UserTransaction.GroupLink link = historyOf(userId, ledgerId, transactionId, accounts)
+                .transaction()
+                .group();
+        // The new account first, as for a new transaction: whether it is usable does not depend on
+        // which transaction it is for.
+        checkAccount(accountId, PersonalLedgers.CURRENCY, accounts, Set.of());
+        if (link == null) {
+            throw TransactionException.accountChangeRefused(transactionId);
+        }
+        mirrors.lock(userId, link.groupId());
+        TransactionHistory history = historyOf(userId, ledgerId, transactionId, accounts);
+        if (history.transaction().reversed()) {
+            throw TransactionException.alreadyReversed(transactionId);
+        }
+        Account current = history.postings().stream()
+                .map(Posting::accountId)
+                .filter(id -> !id.equals(link.groupAccountId()))
+                .map(accounts::get)
+                .filter(Objects::nonNull)
+                .filter(account -> UserAccount.Type.of(account).isPresent())
+                .findFirst()
+                .orElseThrow(() -> TransactionException.accountChangeRefused(transactionId));
+        if (accountId.equals(current.id())) {
+            return history;
+        }
+        UserTransaction transaction = history.transaction();
+        List<Posting> postings = history.postings().stream()
+                .map(posting ->
+                        posting.accountId().equals(current.id()) ? new Posting(accountId, posting.amount()) : posting)
+                .toList();
+        JournalEntry corrected = reversing(
+                transactionId,
+                () -> ledger.replace(
+                        transactionId,
+                        new NewJournalEntry(
+                                ledgerId, transaction.occurredOn(), transaction.description(), userId, postings)));
+        mirrors.recordedAs(link.groupEntryId(), userId, corrected.id());
+        return historyOf(userId, ledgerId, corrected.id(), accounts);
+    }
+
+    /** Adds to each transaction that the mirror of a group recorded which group entry it records. */
+    private List<UserTransaction> withGroups(UUID userId, List<UserTransaction> transactions) {
+        Map<UUID, Handled> handled = mirrors.byPersonalEntries(
+                transactions.stream().map(UserTransaction::id).toList());
+        if (handled.isEmpty()) {
+            return transactions;
+        }
+        Map<UUID, UUID> groupAccounts = groupAccountsOf(userId);
+        return transactions.stream()
+                .map(transaction -> {
+                    Handled recorded = handled.get(transaction.id());
+                    return recorded == null ? transaction : transaction.withGroup(link(recorded, groupAccounts));
+                })
+                .toList();
+    }
+
+    private Map<UUID, UUID> groupAccountsOf(UUID userId) {
+        return mirrors.groupsByAccount(userId).entrySet().stream()
+                .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
+    }
+
+    private static UserTransaction.GroupLink link(Handled recorded, Map<UUID, UUID> groupAccounts) {
+        return new UserTransaction.GroupLink(
+                recorded.groupId(),
+                Objects.requireNonNull(groupAccounts.get(recorded.groupId())),
+                recorded.groupEntryId(),
+                Objects.requireNonNull(recorded.type(), "A recorded group entry has a type"));
     }
 
     /**
@@ -179,6 +269,27 @@ class Transactions {
             }
             throw e;
         }
+    }
+
+    /**
+     * A version of a mirrored transaction that an account change replaced has no row of its own any
+     * more: the row follows the version in effect. Every version of one history records the same group
+     * entry, so the link of any of them is the link of all.
+     */
+    private TransactionHistory historyOf(UUID userId, UUID ledgerId, UUID transactionId, Map<UUID, Account> accounts) {
+        TransactionHistory history = historyOf(ledgerId, transactionId, accounts);
+        Map<UUID, Handled> handled = mirrors.byPersonalEntries(
+                history.trail().stream().map(TransactionHistory.Step::entryId).toList());
+        if (handled.isEmpty()) {
+            return history;
+        }
+        Handled recorded =
+                handled.getOrDefault(transactionId, handled.values().iterator().next());
+        return new TransactionHistory(
+                history.transaction().withGroup(link(recorded, groupAccountsOf(userId))),
+                history.postings(),
+                history.trail(),
+                history.currentId());
     }
 
     private TransactionHistory historyOf(UUID ledgerId, UUID transactionId, Map<UUID, Account> accounts) {
@@ -243,15 +354,15 @@ class Transactions {
         switch (movement) {
             case Movement.Expense expense -> {
                 checkCategory(expense.categoryId(), AccountKind.EXPENSE, movement, accounts, mayBeArchived);
-                checkAccount(expense.accountId(), movement, accounts, mayBeArchived);
+                checkAccount(expense.accountId(), movement.amount().currency(), accounts, mayBeArchived);
             }
             case Movement.Income income -> {
                 checkCategory(income.categoryId(), AccountKind.INCOME, movement, accounts, mayBeArchived);
-                checkAccount(income.accountId(), movement, accounts, mayBeArchived);
+                checkAccount(income.accountId(), movement.amount().currency(), accounts, mayBeArchived);
             }
             case Movement.Transfer transfer -> {
-                checkAccount(transfer.fromAccountId(), movement, accounts, mayBeArchived);
-                checkAccount(transfer.toAccountId(), movement, accounts, mayBeArchived);
+                checkAccount(transfer.fromAccountId(), movement.amount().currency(), accounts, mayBeArchived);
+                checkAccount(transfer.toAccountId(), movement.amount().currency(), accounts, mayBeArchived);
             }
         }
     }
@@ -275,23 +386,31 @@ class Transactions {
         checkCurrency(category, movement);
     }
 
+    /** A group's account only holds what the mirror records, so none of the user's movements uses it. */
     private static void checkAccount(
-            UUID accountId, Movement movement, Map<UUID, Account> accounts, Set<UUID> mayBeArchived) {
+            UUID accountId, Currency currency, Map<UUID, Account> accounts, Set<UUID> mayBeArchived) {
         Account account = accounts.get(accountId);
-        if (account == null || UserAccount.Type.of(account).isEmpty()) {
+        Optional<UserAccount.Type> type = account == null ? Optional.empty() : UserAccount.Type.of(account);
+        if (account == null || type.isEmpty()) {
             throw TransactionException.accountNotFound(accountId);
+        }
+        if (type.get() == UserAccount.Type.GROUP) {
+            throw TransactionException.accountFromGroup(accountId);
         }
         if (account.archived() && !mayBeArchived.contains(accountId)) {
             throw TransactionException.accountArchived(accountId);
         }
-        checkCurrency(account, movement);
+        checkCurrency(account, currency);
+    }
+
+    private static void checkCurrency(Account account, Movement movement) {
+        checkCurrency(account, movement.amount().currency());
     }
 
     // The ledger checks this too, but answers with its own code; here the user learns which rule.
-    private static void checkCurrency(Account account, Movement movement) {
-        if (!account.currency().equals(movement.amount().currency())) {
-            throw TransactionException.currencyMismatch(
-                    movement.amount().currency().getCurrencyCode());
+    private static void checkCurrency(Account account, Currency currency) {
+        if (!account.currency().equals(currency)) {
+            throw TransactionException.currencyMismatch(currency.getCurrencyCode());
         }
     }
 

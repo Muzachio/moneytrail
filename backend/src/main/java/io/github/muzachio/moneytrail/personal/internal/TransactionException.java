@@ -52,6 +52,25 @@ final class TransactionException extends DomainException {
         return refused("category_archived", "Category " + categoryId + " is archived.");
     }
 
+    /** A group's account only holds what the mirror records (ADR-0015). */
+    static TransactionException accountFromGroup(UUID accountId) {
+        return refused(
+                "account_from_group",
+                "Account " + accountId + " is a group's: it only records your share of the group.");
+    }
+
+    static TransactionException transactionFromGroup(UUID transactionId) {
+        return refused(
+                "transaction_from_group",
+                "Transaction " + transactionId + " records your share of a group: change it in the group.");
+    }
+
+    static TransactionException accountChangeRefused(UUID transactionId) {
+        return refused(
+                "account_change_refused",
+                "Transaction " + transactionId + " moved no money of yours, so it has no account to change.");
+    }
+
     // The code passed the schema's pattern (three capital letters), so it is safe in a message.
     static TransactionException currencyMismatch(String currencyCode) {
         return refused(

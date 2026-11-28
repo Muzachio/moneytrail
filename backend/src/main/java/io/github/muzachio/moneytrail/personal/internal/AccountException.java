@@ -26,6 +26,11 @@ final class AccountException extends DomainException {
                 "A credit card keeps its type, and no other account can become one.");
     }
 
+    /** Opening, retyping or archiving a group's account is the mirror's job (ADR-0015). */
+    static AccountException fromGroup(String message) {
+        return new AccountException(HttpStatus.UNPROCESSABLE_CONTENT, "account_from_group", message);
+    }
+
     // The same code as the schema rules' failures (api/openapi.yaml, BadRequest).
     static AccountException badRequest(String message) {
         return new AccountException(HttpStatus.BAD_REQUEST, "bad_request", message);

@@ -15,6 +15,8 @@ import org.jspecify.annotations.Nullable;
  * An account as the API shows it: one of the user's {@code ASSET} or {@code LIABILITY} accounts,
  * with its balance and how much it changed this month. Both are signed as the ledger keeps them, so
  * a credit card's debt is negative.
+ *
+ * @param groupId the group of a {@link Type#GROUP} account; null on the others
  */
 record UserAccount(
         UUID id,
@@ -23,7 +25,8 @@ record UserAccount(
         Currency currency,
         Money balance,
         Money changeThisMonth,
-        @Nullable Instant archivedAt) {
+        @Nullable Instant archivedAt,
+        @Nullable UUID groupId) {
 
     /**
      * The kinds of account the user can open. The ledger keeps the kind and, in the account's
@@ -39,7 +42,12 @@ record UserAccount(
          * not spending. The balance is what went in minus what came out, not a market value.
          */
         INVESTMENT(AccountKind.ASSET, "investment"),
-        CREDIT_CARD(AccountKind.LIABILITY, "credit-card");
+        CREDIT_CARD(AccountKind.LIABILITY, "credit-card"),
+        /**
+         * A group's account, opened by turning on the group's mirror (ADR-0015): its balance is the
+         * user's balance in the group, positive or negative. Only the mirror posts to it.
+         */
+        GROUP(AccountKind.ASSET, "group");
 
         private final AccountKind kind;
         private final String key;
@@ -63,6 +71,7 @@ record UserAccount(
                 case CHECKING, CASH, CREDIT_CARD -> AccountUse.EVERYDAY;
                 case SAVINGS -> AccountUse.SAVINGS;
                 case INVESTMENT -> AccountUse.INVESTMENT;
+                case GROUP -> AccountUse.GROUP;
             };
         }
 

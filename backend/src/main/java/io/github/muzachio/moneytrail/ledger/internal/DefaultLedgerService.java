@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 import io.github.muzachio.moneytrail.ledger.Account;
+import io.github.muzachio.moneytrail.ledger.AccountSnapshot;
 import io.github.muzachio.moneytrail.ledger.EntryFilter;
 import io.github.muzachio.moneytrail.ledger.EntryPage;
 import io.github.muzachio.moneytrail.ledger.EntryPosition;
@@ -31,6 +32,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -49,6 +51,7 @@ class DefaultLedgerService implements LedgerService {
     private final JournalEntries entries;
     private final AccountBalances balances;
     private final AccountChanges changes;
+    private final AccountSnapshots snapshots;
     private final EntryQueries entryQueries;
 
     DefaultLedgerService(
@@ -58,6 +61,7 @@ class DefaultLedgerService implements LedgerService {
             JournalEntries entries,
             AccountBalances balances,
             AccountChanges changes,
+            AccountSnapshots snapshots,
             EntryQueries entryQueries) {
         this.ledgers = ledgers;
         this.ledgerInserts = ledgerInserts;
@@ -65,6 +69,7 @@ class DefaultLedgerService implements LedgerService {
         this.entries = entries;
         this.balances = balances;
         this.changes = changes;
+        this.snapshots = snapshots;
         this.entryQueries = entryQueries;
     }
 
@@ -262,6 +267,13 @@ class DefaultLedgerService implements LedgerService {
     @Transactional(readOnly = true)
     public Money balance(UUID accountId) {
         return balances.find(accountId).orElseThrow(() -> LedgerException.accountNotFound(accountId));
+    }
+
+    /** MANDATORY: the lock it takes is only worth something in the caller's transaction. */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public AccountSnapshot snapshot(UUID accountId) {
+        return snapshots.of(accountId).orElseThrow(() -> LedgerException.accountNotFound(accountId));
     }
 
     @Override

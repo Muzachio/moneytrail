@@ -86,7 +86,7 @@ Spring Modulith treats every direct subpackage of the root as an application mod
 ```
 io.github.muzachio.moneytrail
 ├── ledger/      # core: accounts, journal entries, postings, balances. Exposes LedgerService only.
-├── personal/    # use cases: expense / income / transfer → ledger entries
+├── personal/    # use cases: expense / income / transfer → ledger entries; a member's share of groups (ADR-0015)
 ├── groups/      # groups, members, invites, splits, settlements → ledger entries
 ├── activity/    # each group's feed, from the events of groups (ADR-0014)
 ├── budgets/
@@ -115,7 +115,8 @@ Rules:
     `@Transactional(propagation = MANDATORY)`, so it refuses to run outside a transaction.
   - **`@ApplicationModuleListener`: asynchronous, after commit, through the outbox** (below).
     For work that may happen a little later and must neither slow down nor fail the request:
-    the activity feed of groups, budget alerts, imports, notifications. This is the default. It
+    the activity feed of groups, a member's share of a group in their ledger, budget alerts,
+    imports, notifications. This is the default. It
     runs in the process that published the event, in a thread of its own.
 
   Either way, listeners are idempotent: an outbox event can be delivered twice, and
@@ -295,6 +296,27 @@ SHA-256, and the token travels in the link's fragment and in request bodies, nev
 server sees. A link lets someone into a group, never into the app
 ([ADR-0013](adr/0013-group-invites.md)).
 
+### A member's share in their own ledger
+
+Each member can turn on, group by group, the mirror of the group in their personal ledger
+([ADR-0015](adr/0015-group-shares-in-the-personal-ledger.md)). Turning it on opens a `GROUP` account
+in their ledger (an `ASSET`, subtype `group`) whose balance is always their balance in the group, and
+gives it that balance against `Equity:Opening balances`. From then on, a listener in `personal`
+records each group entry they take part in, read from their postings in it (what they paid, `P`, and
+their share or what they received, `S`):
+
+| Group entry | Personal entry |
+|---|---|
+| Expense | their category with the expense's key `+S`, the paying account `−P`, the group's account `+(P − S)` |
+| Settlement | the paying account `−P` or `+S`, against the group's account: a transfer |
+
+Edits and reversals in the group replace or reverse the personal entry; earlier entries are only in
+the opening balance, and a correction of one of them adjusts that balance against equity. The
+mirror's entries are transactions with a link to their group; the personal endpoints refuse to edit
+them or to use the group's account, except for the account the money came from, which the member can
+change on each one. Shares are spending, so reports include them; in the income's split (#125) the
+group's account is neither savings nor investment.
+
 ### Reports
 
 The dashboard's reports (`GET /v1/reports/spending`) are one query in `reports`: the sum of the
@@ -366,6 +388,12 @@ activity_items   (id uuid pk, group_id fk, kind, actor_id fk users, occurred_at,
                   previous_description, previous_category, previous_amount_minor, paid_by,
                   from_user_id, to_user_id, occurred_on;
                   unique(group_id, kind, subject_id, occurred_at))  -- activity's
+group_mirrors    (user_id, group_id, member_account_id fk accounts, account_id fk accounts unique,
+                  category_id fk accounts, payment_account_id fk accounts, enabled,
+                  pk(user_id, group_id))  -- personal's: a member's mirror of a group (ADR-0015)
+group_mirror_entries (group_entry_id fk journal_entries, user_id, group_id, type,
+                  personal_entry_id fk journal_entries unique, before_mirror,
+                  pk(group_entry_id, user_id))  -- personal's: each group entry handled once per member
 
 budgets          (id, user_id, account_id (expense category), month date, limit_minor bigint)
 recurring_rules  (id, user_id, template jsonb, rrule text, next_run_on date)
@@ -403,6 +431,7 @@ GET|POST         /v1/accounts           PATCH /v1/accounts/{id} (rename/retype/a
 GET|POST         /v1/categories         PATCH /v1/categories/{id} (rename/archive only)
 GET|POST         /v1/transactions       GET /v1/transactions/{id}
 POST             /v1/transactions/{id}/reverse
+POST             /v1/transactions/{id}/account   (a group share's paying account)
 GET              /v1/reports/spending?from=&to=&groupBy=category|month
 GET              /v1/reports/income-allocation?from=&to=
 
@@ -417,6 +446,7 @@ GET              /v1/groups/{id}/settle-up      (suggestions)
 POST             /v1/groups/{id}/settlements    GET /v1/groups/{id}/settlements/{settlementId}
 POST             /v1/groups/{id}/settlements/{settlementId}/reverse
 GET              /v1/groups/{id}/activity       (the feed, newest first)
+GET|PUT|DELETE   /v1/groups/{id}/mirror         (the member's share in their own ledger)
 
 POST             /v1/invoices/parse     (raw QR string → prefilled transaction draft)
 POST             /v1/imports            (CSV upload → 202 + import id) · GET /v1/imports/{id}
@@ -478,7 +508,9 @@ from memory.
 The first listener through the outbox is the activity feed: `activity` turns each event of
 `groups` (a group created, a member who joined or left, an expense or a payment recorded,
 edited or reversed) into a row of `activity_items`, which keeps what the feed shows as it was
-then. `groups` knows nothing of it.
+then. `groups` knows nothing of it. The second is the mirror of a group in a member's ledger
+(ADR-0015): `personal` turns the same events into entries of each member's ledger who turned it on,
+keeping one row per group entry and member so a duplicate or late delivery records nothing twice.
 
 The outbox is the default, not the rule for every event. Its listeners run after the
 request has answered, so whatever they create may not exist yet when the client sends its

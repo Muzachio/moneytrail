@@ -108,7 +108,12 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
   const setArchived = (account: Account, archived: boolean) =>
     archive.mutate({ id: account.id, archived })
   // An asset can become another asset (#121); a credit card keeps its type.
-  const retypable = renaming !== null && !isLiability(renaming.type)
+  // A group's account keeps its type too: only its mirror opens one (#94).
+  const retypableType =
+    renaming === null || isLiability(renaming.type) || renaming.type === 'GROUP'
+      ? undefined
+      : renaming.type
+  const retypable = retypableType !== undefined
 
   return (
     <>
@@ -171,7 +176,7 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
         submitLabel={t('common.save')}
         initialName={renaming?.name}
         typeOptions={retypable ? assetTypes : undefined}
-        initialType={retypable ? renaming?.type : undefined}
+        initialType={retypableType}
         onSave={({ name, type }) =>
           rename.mutateAsync({
             id: renaming?.id ?? '',

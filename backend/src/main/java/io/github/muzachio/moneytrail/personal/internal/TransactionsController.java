@@ -3,13 +3,16 @@ package io.github.muzachio.moneytrail.personal.internal;
 import io.github.muzachio.moneytrail.identity.SignedIn;
 import io.github.muzachio.moneytrail.shared.Money;
 import io.github.muzachio.moneytrail.shared.api.TransactionsApi;
+import io.github.muzachio.moneytrail.shared.api.model.GroupEntryType;
 import io.github.muzachio.moneytrail.shared.api.model.MonthSummary;
 import io.github.muzachio.moneytrail.shared.api.model.NewTransaction;
 import io.github.muzachio.moneytrail.shared.api.model.PositiveMoney;
 import io.github.muzachio.moneytrail.shared.api.model.TrailAction;
 import io.github.muzachio.moneytrail.shared.api.model.TrailStep;
 import io.github.muzachio.moneytrail.shared.api.model.Transaction;
+import io.github.muzachio.moneytrail.shared.api.model.TransactionAccountChange;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionDetail;
+import io.github.muzachio.moneytrail.shared.api.model.TransactionGroupLink;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionReversal;
 import io.github.muzachio.moneytrail.shared.api.model.TransactionType;
 import java.time.YearMonth;
@@ -22,7 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Both {@code POST}s take the {@code Idempotency-Key} header (api/openapi.yaml), so
+ * The {@code POST}s take the {@code Idempotency-Key} header (api/openapi.yaml), so
  * shared.idempotency runs each of them once per key, in one transaction with the stored response.
  */
 @RestController
@@ -74,6 +77,13 @@ class TransactionsController implements TransactionsApi {
         NewTransaction replacement = transactionReversal == null ? null : transactionReversal.getReplacement();
         Movement correction = replacement == null ? null : toMovement(replacement);
         return ResponseEntity.ok(toApi(transactions.reverse(SignedIn.userId(), id, correction)));
+    }
+
+    @Override
+    public ResponseEntity<TransactionDetail> changeTransactionAccount(
+            String idempotencyKey, UUID id, TransactionAccountChange transactionAccountChange) {
+        return ResponseEntity.ok(
+                toApi(transactions.changeAccount(SignedIn.userId(), id, transactionAccountChange.getAccountId())));
     }
 
     /**
@@ -200,6 +210,22 @@ class TransactionsController implements TransactionsApi {
         }
         if (toAccountId != null) {
             body.toAccountId(toAccountId);
+        }
+        UserTransaction.GroupLink group = transaction.group();
+        if (group != null) {
+            TransactionGroupLink link = new TransactionGroupLink(
+                    group.groupId(),
+                    group.groupAccountId(),
+                    group.groupEntryId(),
+                    switch (group.type()) {
+                        case EXPENSE -> GroupEntryType.EXPENSE;
+                        case SETTLEMENT -> GroupEntryType.SETTLEMENT;
+                    });
+            Money paid = transaction.paid();
+            if (paid != null) {
+                link.paid(toApi(paid));
+            }
+            body.group(link);
         }
         return body;
     }

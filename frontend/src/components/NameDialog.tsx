@@ -3,7 +3,6 @@ import { useId } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
-import type { AccountType } from '@/api/accounts'
 import type { CategoryIcon } from '@/api/categories'
 import { AccountTypePicker } from '@/components/accounts/AccountTypePicker'
 import { IconPicker } from '@/components/categories/IconPicker'
@@ -19,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { accountTypes } from '@/lib/accounts'
+import { accountTypes, type ChosenAccountType } from '@/lib/accounts'
 import { categoryIconNames } from '@/lib/categories'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage, nameSchema } from '@/lib/forms'
@@ -28,7 +27,7 @@ import { apiErrorMessage, nameSchema } from '@/lib/forms'
 export type NameDialogValues = {
   name: string
   icon?: CategoryIcon
-  type?: AccountType
+  type?: ChosenAccountType
 }
 
 type NameDialogProps = {
@@ -47,8 +46,8 @@ type NameDialogProps = {
    * Offers these account types to pick from, with `initialType` picked at first: an asset account
    * can become another asset (#121). Left out for a credit card and for categories.
    */
-  typeOptions?: readonly AccountType[]
-  initialType?: AccountType
+  typeOptions?: readonly ChosenAccountType[]
+  initialType?: ChosenAccountType
   placeholder?: string
   /** Sends the values; what it throws is shown in the form, and the dialog stays open. */
   onSave: (values: NameDialogValues) => Promise<unknown>

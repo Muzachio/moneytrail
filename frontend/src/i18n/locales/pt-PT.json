@@ -239,7 +239,8 @@
       "SAVINGS": "Poupança",
       "CREDIT_CARD": "Cartão de crédito",
       "CASH": "Dinheiro",
-      "INVESTMENT": "Investimentos"
+      "INVESTMENT": "Investimentos",
+      "GROUP": "Grupo"
     },
     "owed": "{{type}} · o que deves",
     "renameTitle": "Mudar o nome da conta",
