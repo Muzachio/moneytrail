@@ -5,7 +5,6 @@ import { Link, useNavigate, useParams } from 'react-router'
 import {
   type GroupExpense,
   type GroupExpenseDetail,
-  type GroupTrailStep,
   useGroupExpense,
   useReverseGroupExpense,
 } from '@/api/groupExpenses'
@@ -13,11 +12,12 @@ import { type Group, useGroup } from '@/api/groups'
 import { useCurrentUser } from '@/api/session'
 import { GroupCategoryIcon } from '@/components/groups/GroupCategoryIcon'
 import { GroupExpenseDialog } from '@/components/groups/GroupExpenseDialog'
+import { GroupTrail } from '@/components/groups/GroupTrail'
 import { LoadFailed, Loading } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { formatDay, formatShortDateTime } from '@/lib/dates'
+import { formatDay } from '@/lib/dates'
 import { apiErrorMessage } from '@/lib/forms'
 import { groupCategoryName, memberNames } from '@/lib/groupExpenses'
 import { formatMoney } from '@/lib/money'
@@ -211,7 +211,24 @@ function DetailContent({
       {!current && <ReversedNotice detail={detail} groupId={group.id} />}
 
       <SplitSection expense={expense} names={names} me={me} />
-      <Trail trail={trail} currentId={currentId} names={names} />
+      <GroupTrail
+        trail={trail}
+        currentId={currentId}
+        names={names}
+        describe={(step) => {
+          const values = {
+            amount: formatMoney(step.amount, language),
+            category:
+              step.category === undefined
+                ? ''
+                : groupCategoryName(step.category, t),
+          }
+          return step.action === 'CORRECTED'
+            ? t('groupExpenses.trail.corrected', values)
+            : t('groupExpenses.trail.recorded', values)
+        }}
+        note={t('groupExpenses.trail.note')}
+      />
 
       {current && !group.archived && (
         <GroupExpenseDialog
@@ -468,97 +485,6 @@ function SplitSection({
           })}
         </p>
       )}
-    </section>
-  )
-}
-
-/** Every version and every reversal, newest first, each with who made it, as in the design. */
-function Trail({
-  trail,
-  currentId,
-  names,
-}: {
-  trail: GroupTrailStep[]
-  currentId: string | undefined
-  names: Names
-}) {
-  const { t, i18n } = useTranslation()
-  const language = i18n.resolvedLanguage ?? 'en'
-  const titleId = useId()
-  const first = trail[0]?.entryId
-  const steps = trail.toReversed()
-
-  const what = (step: GroupTrailStep) => {
-    const amount = formatMoney(step.amount, language)
-    const category =
-      step.category === undefined ? '' : groupCategoryName(step.category, t)
-    switch (step.action) {
-      case 'RECORDED':
-        return t('groupExpenses.trail.recorded', { amount, category })
-      case 'CORRECTED':
-        return t('groupExpenses.trail.corrected', { amount, category })
-      case 'REVERSED':
-        return step.reversesEntryId === first
-          ? t('transactions.trail.originalReversed')
-          : t('transactions.trail.correctionReversed')
-    }
-  }
-
-  return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-3">
-      <h3 id={titleId} className="font-semibold">
-        {t('transactions.trail.title')}
-      </h3>
-      <ol>
-        {steps.map((step, index) => {
-          const latest = step.entryId === currentId
-          return (
-            <li
-              key={step.entryId}
-              className={cn(
-                'relative grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-3',
-                index < steps.length - 1 && 'pb-4.5',
-              )}
-            >
-              {index < steps.length - 1 && (
-                <span
-                  aria-hidden
-                  className="absolute top-4.5 bottom-0 left-[9px] w-0.5 bg-border"
-                />
-              )}
-              <span
-                aria-hidden
-                className={cn(
-                  'relative mt-1.25 size-3 justify-self-center rounded-full ring-3 ring-background',
-                  latest
-                    ? 'bg-primary'
-                    : 'border-2 border-foreground/35 bg-background',
-                )}
-              />
-              <div>
-                <p className="font-medium">
-                  {what(step)}
-                  {latest && (
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {' · '}
-                      {t('transactions.trail.current')}
-                    </span>
-                  )}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t('groupExpenses.trail.meta', {
-                    name: names.name(step.recordedBy),
-                    when: formatShortDateTime(step.recordedAt, language),
-                  })}
-                </p>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-      <p className="rounded-[10px] bg-muted px-3 py-2.5 text-[13px] text-foreground/70">
-        {t('groupExpenses.trail.note')}
-      </p>
     </section>
   )
 }

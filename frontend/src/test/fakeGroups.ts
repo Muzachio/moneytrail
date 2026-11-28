@@ -8,6 +8,7 @@ import type {
   Profile,
 } from '@/api/groups'
 import type { NewGroupExpense } from '@/api/groupExpenses'
+import type { NewSettlement } from '@/api/groupSettlements'
 import type { CurrentUser } from '@/api/session'
 import type { Money } from '@/lib/money'
 import {
@@ -15,6 +16,7 @@ import {
   type TestExpense,
   type TestSettlement,
 } from './fakeGroupExpenses'
+import { fakeSettlements, type TestActivity } from './fakeSettlements'
 
 /** An invented member of a group. */
 export function testMember(
@@ -59,7 +61,12 @@ export type FakeAnswer = { status: number; data?: unknown; code?: string }
 
 type Init = {
   params?: {
-    path?: { id?: string; inviteId?: string; expenseId?: string }
+    path?: {
+      id?: string
+      inviteId?: string
+      expenseId?: string
+      settlementId?: string
+    }
     query?: { cursor?: string; limit?: number }
   }
   body?: unknown
@@ -77,6 +84,8 @@ export function fakeGroups(
   user: CurrentUser | null,
   expenses: TestExpense[] = [],
   settlements: TestSettlement[] = [],
+  activity: TestActivity[] = [],
+  formerMembers: Profile[] = [],
 ) {
   const state = {
     groups: groups.map((group) => ({ ...group })),
@@ -85,6 +94,11 @@ export function fakeGroups(
     others: [] as TestGroup[],
   }
   const expensesFake = fakeGroupExpenses(expenses, settlements)
+  const settlementsFake = fakeSettlements(
+    expensesFake.state,
+    activity,
+    formerMembers,
+  )
 
   const me: GroupMember | undefined = user
     ? { userId: user.id, name: user.name, joinedAt: '2026-11-27T09:00:00Z' }
@@ -143,6 +157,26 @@ export function fakeGroups(
           ? expensesFake.detail(group, init?.params?.path?.expenseId)
           : notFound
       }
+      case '/v1/groups/{id}/balances': {
+        const group = find(id)
+        return group ? settlementsFake.balances(group) : notFound
+      }
+      case '/v1/groups/{id}/settle-up': {
+        const group = find(id)
+        return group ? settlementsFake.settleUp(group) : notFound
+      }
+      case '/v1/groups/{id}/settlements/{settlementId}': {
+        const group = find(id)
+        return group
+          ? settlementsFake.detail(group, init?.params?.path?.settlementId)
+          : notFound
+      }
+      case '/v1/groups/{id}/activity': {
+        const group = find(id)
+        return group
+          ? settlementsFake.activity(group, init?.params?.query ?? {})
+          : notFound
+      }
       case '/v1/groups/{id}/invites': {
         const group = find(id)
         if (!group) {
@@ -196,6 +230,26 @@ export function fakeGroups(
               group,
               init.params?.path?.expenseId,
               replacement,
+              me!.userId,
+            )
+          : notFound
+      }
+      case '/v1/groups/{id}/settlements': {
+        const group = find(id)
+        return group
+          ? settlementsFake.create(
+              group,
+              init.body as NewSettlement,
+              me!.userId,
+            )
+          : notFound
+      }
+      case '/v1/groups/{id}/settlements/{settlementId}/reverse': {
+        const group = find(id)
+        return group
+          ? settlementsFake.reverse(
+              group,
+              init.params?.path?.settlementId,
               me!.userId,
             )
           : notFound
@@ -315,7 +369,15 @@ export function fakeGroups(
     return { status: 204 }
   }
 
-  return { state, expenses: expensesFake.state, get, post, patch, remove }
+  return {
+    state,
+    expenses: expensesFake.state,
+    settlements: settlementsFake.state,
+    get,
+    post,
+    patch,
+    remove,
+  }
 }
 
 function profile({ userId, name, avatarUrl }: GroupMember): Profile {

@@ -5,6 +5,7 @@ import type {
   GroupExpense,
   GroupExpenseCategory,
   NewGroupExpense,
+  Settlement,
 } from '@/api/groupExpenses'
 import type { GroupMember } from '@/api/groups'
 import { categoryIcons } from '@/lib/categories'
@@ -153,4 +154,21 @@ export function sameGroupExpense(a: NewGroupExpense, b: NewGroupExpense) {
         .map(({ userId, value }) => [userId, value ?? null]),
     ])
   return normal(a) === normal(b)
+}
+
+/** "You paid Rita", "Rita paid you", "Pedro paid Rita": a payment's title in the list and detail. */
+export function paymentTitle(
+  payment: Settlement,
+  names: ReturnType<typeof memberNames>,
+  me: string | undefined,
+  t: TFunction,
+) {
+  return payment.from === me
+    ? t('groupExpenses.payment.youPaid', { to: names.name(payment.to) })
+    : payment.to === me
+      ? t('groupExpenses.payment.paidYou', { from: names.name(payment.from) })
+      : t('groupExpenses.payment.paid', {
+          from: names.name(payment.from),
+          to: names.name(payment.to),
+        })
 }

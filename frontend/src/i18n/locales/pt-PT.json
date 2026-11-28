@@ -190,7 +190,10 @@
     "memberNotSettled": "Só podes sair quando o teu saldo no grupo estiver a zero. Acerta as contas primeiro.",
     "expenseAlreadyReversed": "Esta despesa já foi estornada ou editada. Fecha esta janela e abre-a novamente.",
     "expenseMemberLeft": "Alguém que saiu do grupo pagou esta despesa ou tem uma parte nela, por isso já não pode mudar.",
-    "memberNotFound": "Alguém nesta despesa já não está no grupo. Tira-lhe o visto e tenta novamente."
+    "memberNotFound": "Alguém nesta despesa já não está no grupo. Tira-lhe o visto e tenta novamente.",
+    "paymentAlreadyReversed": "Este pagamento já foi estornado ou editado. Fecha esta janela e abre-a novamente.",
+    "paymentMemberLeft": "Este pagamento é de ou para alguém que saiu do grupo, por isso já não pode mudar.",
+    "paymentToSelf": "Ninguém se pode pagar a si próprio. Escolhe duas pessoas diferentes."
   },
   "rowMenu": {
     "label": "Mais ações para {{name}}",
@@ -784,6 +787,142 @@
       "join": "Entrar no grupo",
       "open": "Abrir o grupo",
       "privacy": "Os membros vão ver o teu nome, a tua foto e as despesas do grupo. Nunca as tuas contas pessoais."
+    }
+  },
+  "groupBalances": {
+    "title": "Saldos",
+    "loading": "A carregar os saldos…",
+    "loadFailed": "Não foi possível carregar os saldos.",
+    "legend": {
+      "owed": "A receber",
+      "owes": "Deve"
+    },
+    "label": {
+      "owed": "a receber",
+      "owedYou": "a receber",
+      "owes": "deve",
+      "owesYou": "deves",
+      "settled": "sem dívidas"
+    },
+    "card": {
+      "to": "A {{names}}, no acerto sugerido",
+      "from": "De {{names}}, no acerto sugerido",
+      "settled": "Não deves nada a ninguém e ninguém te deve nada."
+    },
+    "tabs": {
+      "label": "O que mostrar",
+      "expenses": "Despesas",
+      "balances": "Saldos",
+      "activity": "Atividade"
+    }
+  },
+  "settleUp": {
+    "button": "Acertar contas",
+    "title": "Acertar contas",
+    "subtitle_one": "{{group}} · 1 pagamento acerta todos os saldos",
+    "subtitle_many": "{{group}} · {{count}} pagamentos acertam todos os saldos",
+    "subtitle_other": "{{group}} · {{count}} pagamentos acertam todos os saldos",
+    "subtitleSettled": "{{group}} · está tudo acertado",
+    "suggested": "Pagamentos sugeridos",
+    "none": "Está tudo acertado: não há nada a pagar.",
+    "loadFailed": "Não foi possível carregar os pagamentos sugeridos.",
+    "suggestion": {
+      "youPay": "Pagas a {{to}}",
+      "paysYou": "{{from}} paga-te",
+      "pays": "{{from}} paga a {{to}}",
+      "clearsYours": "Acerta o teu saldo",
+      "clears": "Acerta o saldo de {{name}}",
+      "record": "Registar",
+      "recordLabel": "Registar: {{text}}, {{amount}}",
+      "recording": "A registar…",
+      "recorded": "Registado"
+    },
+    "or": "ou",
+    "other": {
+      "title": "Outro pagamento",
+      "from": "De",
+      "to": "Para",
+      "amount": "Valor",
+      "submit": "Registar pagamento",
+      "recorded": "Pagamento registado.",
+      "samePerson": "Escolhe duas pessoas diferentes."
+    },
+    "note": "Paguem-se como de costume, em dinheiro, por MB WAY ou por transferência, e depois regista-o aqui. O MoneyTrail nunca movimenta dinheiro.",
+    "done": "Concluído"
+  },
+  "groupPayments": {
+    "kicker": "Pagamento · {{group}}",
+    "kickerAlone": "Pagamento",
+    "loading": "A carregar o pagamento…",
+    "loadFailed": "Não foi possível carregar este pagamento.",
+    "meta": "{{date}} · registado por {{name}}",
+    "effect": {
+      "title": "O que mudou",
+      "balanceOf": "Saldo de {{name}}",
+      "yours": "O teu saldo",
+      "noChange": "Sem alteração"
+    },
+    "reverse": "Estornar pagamento",
+    "confirm": {
+      "title": "Estornar este pagamento?",
+      "description": "Os dois saldos voltam ao que eram antes dele. Os dois registos ficam no histórico."
+    },
+    "oldVersion": "Esta é uma versão anterior. Uma edição substituiu-a, por isso já não conta.",
+    "reversed": "Estornado. Já não conta para o saldo de ninguém.",
+    "trailNote": "Um pagamento nunca é alterado: estorná-lo acrescenta um registo exatamente oposto, e o histórico mostra quem o fez.",
+    "note": "O MoneyTrail regista pagamentos feitos fora da app, em dinheiro, por MB WAY ou por transferência. Nunca movimenta dinheiro."
+  },
+  "groupActivity": {
+    "title": "Atividade",
+    "loading": "A carregar a atividade…",
+    "loadFailed": "Não foi possível carregar a atividade.",
+    "loadMoreFailed": "Não foi possível carregar mais atividade.",
+    "empty": "Ainda não aconteceu nada neste grupo.",
+    "items": {
+      "GROUP_CREATED": {
+        "other": "criou o grupo",
+        "you": "criaste o grupo"
+      },
+      "MEMBER_JOINED": {
+        "other": "entrou no grupo",
+        "you": "entraste no grupo"
+      },
+      "MEMBER_LEFT": {
+        "other": "saiu do grupo",
+        "you": "saíste do grupo"
+      },
+      "EXPENSE_ADDED": {
+        "other": "adicionou {{description}}, {{amount}}",
+        "you": "adicionaste {{description}}, {{amount}}"
+      },
+      "EXPENSE_EDITED": {
+        "other": "editou {{description}}",
+        "you": "editaste {{description}}"
+      },
+      "EXPENSE_EDITED_AMOUNT": {
+        "other": "editou {{description}}: {{previousAmount}} → {{amount}}",
+        "you": "editaste {{description}}: {{previousAmount}} → {{amount}}"
+      },
+      "EXPENSE_REVERSED": {
+        "other": "estornou {{description}}, {{amount}}",
+        "you": "estornaste {{description}}, {{amount}}"
+      },
+      "SETTLEMENT_RECORDED": {
+        "other": "registou um pagamento de {{amount}} para {{to}}",
+        "you": "registaste um pagamento de {{amount}} para {{to}}"
+      },
+      "SETTLEMENT_RECORDED_BETWEEN": {
+        "other": "registou um pagamento de {{amount}} de {{from}} para {{to}}",
+        "you": "registaste um pagamento de {{amount}} de {{from}} para {{to}}"
+      },
+      "SETTLEMENT_EDITED": {
+        "other": "editou um pagamento de {{from}} para {{to}}: {{previousAmount}} → {{amount}}",
+        "you": "editaste um pagamento de {{from}} para {{to}}: {{previousAmount}} → {{amount}}"
+      },
+      "SETTLEMENT_REVERSED": {
+        "other": "estornou um pagamento de {{amount}} de {{from}} para {{to}}",
+        "you": "estornaste um pagamento de {{amount}} de {{from}} para {{to}}"
+      }
     }
   }
 }

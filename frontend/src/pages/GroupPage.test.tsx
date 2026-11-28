@@ -58,7 +58,7 @@ describe('GroupPage', () => {
     Reflect.deleteProperty(navigator, 'clipboard')
   })
 
-  it('shows the group and its members, the signed-in person first', async () => {
+  it('shows the group and its members, each with their balance', async () => {
     const group = portoWeekend()
     mockApi({ groups: [group] })
     renderApp(`/groups/${group.id}`)
@@ -67,13 +67,14 @@ describe('GroupPage', () => {
       await screen.findByRole('heading', { level: 1, name: 'Porto weekend' }),
     ).toBeInTheDocument()
     expect(screen.getByText('You, Rita and João · EUR')).toBeInTheDocument()
-    const members = within(
-      screen.getByRole('region', { name: 'Members' }),
-    ).getAllByRole('listitem')
-    expect(members.map((member) => member.textContent)).toEqual([
-      'ATAna Teste (you)Joined on 14 November 2026',
-      'RRitaJoined on 14 November 2026',
-      'JJoãoJoined on 14 November 2026',
+    const balances = await within(
+      screen.getByRole('region', { name: 'Balances' }),
+    ).findAllByRole('listitem')
+    // Nothing recorded yet: everyone is settled, in the order they joined.
+    expect(balances.map((member) => member.textContent)).toEqual([
+      'RRitasettled up€0.00',
+      'ATYousettled up€0.00',
+      'JJoãosettled up€0.00',
     ])
     // Back to the list, above the name; the navigation's Groups is marked as the current page.
     expect(

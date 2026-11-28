@@ -61,11 +61,11 @@ export function useGroupExpense(groupId: string, expenseId: string) {
 }
 
 /**
- * After an expense moved the group's balances: everything under the group (its list, its expenses,
- * and the balances and activity of #93) and the groups list, which shows the person's balance in
- * each. Waited for, so the list is up to date when the dialog closes.
+ * After an expense or a payment moved the group's balances: everything under the group (its list,
+ * its expenses and payments, its balances, suggestions and activity) and the groups list, which
+ * shows the person's balance in each. Waited for, so the list is up to date when the dialog closes.
  */
-function useRefetchGroup(groupId: string) {
+export function useRefetchGroup(groupId: string) {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([

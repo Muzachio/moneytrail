@@ -21,6 +21,7 @@ import {
   memberNames,
   myPart,
   paidLine,
+  paymentTitle,
 } from '@/lib/groupExpenses'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
@@ -242,7 +243,7 @@ function ExpenseRow({
   )
 }
 
-/** A payment between two members: its detail and reversal come with settling up (#93). */
+/** A payment between two members, which opens its detail, with its trail and Reverse. */
 function PaymentRow({
   payment,
   names,
@@ -255,43 +256,41 @@ function PaymentRow({
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? 'en'
   const involved = payment.from === me || payment.to === me
-  const what =
-    payment.from === me
-      ? t('groupExpenses.payment.youPaid', { to: names.name(payment.to) })
-      : payment.to === me
-        ? t('groupExpenses.payment.paidYou', { from: names.name(payment.from) })
-        : t('groupExpenses.payment.paid', {
-            from: names.name(payment.from),
-            to: names.name(payment.to),
-          })
   return (
-    <li className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2.5">
-      <span className="grid size-9 place-items-center rounded-full bg-muted text-foreground/75">
-        <Banknote aria-hidden className="size-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{what}</span>
-          {payment.edited && (
-            <Badge variant="outline" className="text-foreground/70">
-              {t('transactions.edited')}
-            </Badge>
+    <li>
+      <Link
+        to={`payments/${payment.id}`}
+        className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-x-3 rounded-[10px] px-3 py-2.5 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span className="grid size-9 place-items-center rounded-full bg-muted text-foreground/75">
+          <Banknote aria-hidden className="size-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-medium">
+              {paymentTitle(payment, names, me, t)}
+            </span>
+            {payment.edited && (
+              <Badge variant="outline" className="text-foreground/70">
+                {t('transactions.edited')}
+              </Badge>
+            )}
+          </span>
+          <span className="block text-[13px] text-muted-foreground">
+            {t('groupExpenses.payment.label')}
+          </span>
+        </span>
+        <span className="text-right whitespace-nowrap">
+          <span className="block font-medium tabular-nums">
+            {formatMoney(payment.amount, language)}
+          </span>
+          {!involved && (
+            <span className="block text-[13px] text-muted-foreground">
+              {t('groupExpenses.row.notInvolved')}
+            </span>
           )}
         </span>
-        <span className="block text-[13px] text-muted-foreground">
-          {t('groupExpenses.payment.label')}
-        </span>
-      </span>
-      <span className="text-right whitespace-nowrap">
-        <span className="block font-medium tabular-nums">
-          {formatMoney(payment.amount, language)}
-        </span>
-        {!involved && (
-          <span className="block text-[13px] text-muted-foreground">
-            {t('groupExpenses.row.notInvolved')}
-          </span>
-        )}
-      </span>
+      </Link>
     </li>
   )
 }
