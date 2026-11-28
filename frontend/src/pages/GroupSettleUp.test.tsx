@@ -7,6 +7,8 @@ import { testActivity } from '@/test/fakeSettlements'
 import { mockApi, testUser } from '@/test/mockApi'
 import { renderApp } from '@/test/renderApp'
 
+const networkError = new TypeError('Failed to fetch')
+
 // Ids chosen so their order as text is Rita, you, João.
 const rita = testMember({
   userId: '0199f0a1-0000-7000-8000-000000000001',
@@ -244,6 +246,104 @@ describe('balances and settling up', () => {
     expect(calls[0][1].params.header['Idempotency-Key']).not.toBe(
       calls[1][1].params.header['Idempotency-Key'],
     )
+  })
+
+  it('records a corrected payment with the same key after a failed attempt', async () => {
+    const group = portoWeekend()
+    const api = mockApi({
+      groups: [group],
+      groupExpenses: weekendExpenses(group.id),
+    })
+    // The first attempt never reaches the API, which stores nothing for it.
+    api.post.mockImplementationOnce((() =>
+      Promise.reject(networkError)) as never)
+    renderApp(`/groups/${group.id}`)
+    const dialog = await openSettleUp()
+
+    fireEvent.change(within(dialog).getByLabelText('Amount'), {
+      target: { value: '20' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Record payment' }),
+    )
+    expect(
+      await within(dialog).findByText(
+        'Could not reach MoneyTrail. Check your connection and try again.',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.change(within(dialog).getByLabelText('Amount'), {
+      target: { value: '25' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Record payment' }),
+    )
+    expect(
+      await within(dialog).findByText('Payment recorded.'),
+    ).toBeInTheDocument()
+
+    const keys = sent(api.post, '/v1/groups/{id}/settlements').map(
+      ([, init]) => init.params.header['Idempotency-Key'],
+    )
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
+    expect(
+      api.groupExpenses.settlements.map(({ amount }) => amount.amountMinor),
+    ).toEqual([2500])
+  })
+
+  it('does not record a payment twice when its answer was lost and the amount changed', async () => {
+    const group = portoWeekend()
+    const api = mockApi({
+      groups: [group],
+      groupExpenses: weekendExpenses(group.id),
+    })
+    const answer = api.post.getMockImplementation()!
+    // Recorded by the API, but the answer never arrives.
+    api.post.mockImplementationOnce((async (
+      ...args: Parameters<typeof answer>
+    ) => {
+      await answer(...args)
+      throw networkError
+    }) as never)
+    renderApp(`/groups/${group.id}`)
+    const dialog = await openSettleUp()
+
+    fireEvent.change(within(dialog).getByLabelText('Amount'), {
+      target: { value: '20' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Record payment' }),
+    )
+    await within(dialog).findByText(
+      'Could not reach MoneyTrail. Check your connection and try again.',
+    )
+
+    // A new key here would record a second payment.
+    fireEvent.change(within(dialog).getByLabelText('Amount'), {
+      target: { value: '21' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Record payment' }),
+    )
+    expect(
+      await within(dialog).findByText(
+        'An earlier attempt was already saved. Close this window and check the list.',
+      ),
+    ).toBeInTheDocument()
+
+    const keys = sent(api.post, '/v1/groups/{id}/settlements').map(
+      ([, init]) => init.params.header['Idempotency-Key'],
+    )
+    expect(keys[1]).toBe(keys[0])
+    expect(
+      api.groupExpenses.settlements.map(({ amount }) => amount.amountMinor),
+    ).toEqual([2000])
+    // The group is asked for again, so the payment that was recorded shows once the dialog closes.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    expect(
+      await screen.findByRole('link', { name: /You paid Rita/ }),
+    ).toBeInTheDocument()
   })
 
   it('says when an amount is missing', async () => {

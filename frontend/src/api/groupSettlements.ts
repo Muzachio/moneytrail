@@ -7,7 +7,7 @@ import { api } from './client'
 import { useRefetchGroup } from './groupExpenses'
 import { groupKey } from './groups'
 import { useMoneyMutation } from './moneyMutation'
-import { dataOrThrow } from './problem'
+import { ApiError, dataOrThrow } from './problem'
 import type { components } from './schema'
 
 export type MemberBalance = components['schemas']['MemberBalance']
@@ -68,7 +68,9 @@ export function useSettlement(groupId: string, settlementId: string) {
 
 /**
  * Records a payment with `idempotencyKey` on every attempt, so a double tap or a retry records it
- * once. Each payment the settle-up dialog offers keeps its own key while the dialog is open.
+ * once, as the transaction dialog does (architecture.md, "Idempotency flow"): an attempt that
+ * failed stored nothing, so the same key works for a corrected payment, and one recorded whose
+ * answer was lost is replayed, or refused with `idempotency_key_reused` if it changed since.
  */
 export function useCreateSettlement(groupId: string, idempotencyKey: string) {
   const refetch = useRefetchGroup(groupId)
@@ -85,6 +87,15 @@ export function useCreateSettlement(groupId: string, idempotencyKey: string) {
         }),
       ),
     onSuccess: refetch,
+    onError: (error) => {
+      // Recorded by an earlier attempt whose answer was lost: the group's list is behind.
+      if (
+        error instanceof ApiError &&
+        error.code === 'idempotency_key_reused'
+      ) {
+        void refetch()
+      }
+    },
   })
 }
 

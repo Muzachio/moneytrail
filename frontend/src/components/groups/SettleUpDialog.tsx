@@ -325,8 +325,10 @@ function SuggestionRow({
 
 /**
  * A payment that is not one of the suggestions: from whom, to whom and how much, any amount above
- * zero, paid today. Each payment keeps its key until it is recorded, then the form starts again
- * with a new one.
+ * zero, paid today. Like the transaction dialog, it keeps one key whatever is changed between
+ * attempts until the payment is recorded: a failed attempt stored nothing, and one whose answer
+ * was lost must not be recorded a second time with a corrected amount. Then the form starts again
+ * with a new key, for the next payment.
  */
 function OtherPayment({
   group,
