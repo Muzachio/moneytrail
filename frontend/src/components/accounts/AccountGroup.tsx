@@ -120,10 +120,15 @@ function AccountRow({
       <RowMenu
         label={t('rowMenu.label', { name: account.name })}
         // An asset's dialog also changes its type; a credit card's only its name.
-        renameLabel={isLiability(account.type) ? undefined : t('rowMenu.edit')}
+        // A group's account only gets a new name: its type stays, and its group's mirror archives it.
+        renameLabel={
+          isLiability(account.type) || account.type === 'GROUP'
+            ? undefined
+            : t('rowMenu.edit')
+        }
         archiveHint={t('accounts.archiveHint')}
         onRename={onRename}
-        onArchive={onArchive}
+        onArchive={account.type === 'GROUP' ? undefined : onArchive}
       />
     </li>
   )

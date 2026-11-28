@@ -27,7 +27,8 @@ export function RowMenu({
   archiveHint: string
   /** Gets the menu's button, for the rename dialog to give focus back to when it closes. */
   onRename: (menuButton: HTMLElement | null) => void
-  onArchive: () => void
+  /** Left out for a row that is not archived here, such as a group's account (#94). */
+  onArchive?: () => void
 }) {
   const { t } = useTranslation()
   const button = useRef<HTMLButtonElement>(null)
@@ -51,13 +52,17 @@ export function RowMenu({
           <Pencil aria-hidden />
           {renameLabel ?? t('rowMenu.rename')}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onArchive} className="items-start">
-          <Archive aria-hidden className="mt-0.5" />
-          <span className="flex flex-col">
-            {t('rowMenu.archive')}
-            <span className="text-xs text-muted-foreground">{archiveHint}</span>
-          </span>
-        </DropdownMenuItem>
+        {onArchive && (
+          <DropdownMenuItem onSelect={onArchive} className="items-start">
+            <Archive aria-hidden className="mt-0.5" />
+            <span className="flex flex-col">
+              {t('rowMenu.archive')}
+              <span className="text-xs text-muted-foreground">
+                {archiveHint}
+              </span>
+            </span>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

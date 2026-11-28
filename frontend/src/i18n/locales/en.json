@@ -195,7 +195,10 @@
     "memberNotFound": "Someone in this expense is no longer in the group. Untick them and try again.",
     "paymentAlreadyReversed": "This payment was already reversed or edited. Close this window and open it again.",
     "paymentMemberLeft": "This payment is from or to someone who left the group, so it can no longer change.",
-    "paymentToSelf": "Someone cannot pay themselves. Pick two different people."
+    "paymentToSelf": "Someone cannot pay themselves. Pick two different people.",
+    "accountFromGroup": "A group's account only records your share of the group. Pick one of your own accounts.",
+    "transactionFromGroup": "This comes from a group: change it in the group.",
+    "mirrorCurrencyMismatch": "This group is in another currency than your accounts, so it cannot be recorded in them."
   },
   "rowMenu": {
     "label": "More actions for {{name}}",
@@ -225,7 +228,8 @@
     "groups": {
       "cashAndBank": "Cash and bank",
       "investments": "Investments",
-      "creditCards": "Credit cards"
+      "creditCards": "Credit cards",
+      "groups": "Groups"
     },
     "columns": {
       "account": "Account",
@@ -266,7 +270,10 @@
       "owedHelp": "Saved as money you owe, so your net worth stays right.",
       "moreCurrencies": "More currencies come later.",
       "submit": "Add account"
-    }
+    },
+    "groupOwedToYou": "Group · you are owed",
+    "groupYouOwe": "Group · you owe",
+    "groupSettled": "Group · settled up"
   },
   "categories": {
     "title": "Categories",
@@ -536,7 +543,8 @@
       "entry": "{{when}} · entry {{entry}}",
       "entryCancels": "{{when}} · entry {{entry}} cancels {{cancelled}}",
       "note": "Edits never overwrite history. MoneyTrail cancels the original with an exact opposite entry, then records the corrected one."
-    }
+    },
+    "fromGroup": "Group"
   },
   "notFound": {
     "title": "Page not found",
@@ -917,5 +925,31 @@
         "you": "reversed a payment of {{amount}} from {{from}} to {{to}}"
       }
     }
+  },
+  "groupMirror": {
+    "menu": "Record in my accounts",
+    "title": "Record in my accounts",
+    "description": "Each expense and payment of {{name}} you take part in is recorded in your accounts too. Only you see this.",
+    "loading": "Loading…",
+    "loadFailed": "Could not load your accounts.",
+    "noAccount": "You need an account of your own for this.",
+    "toAccounts": "Add an account",
+    "howItStarts": "It starts now: your share of each expense counts as spending, what you pay comes from the account you choose, and the rest goes to the group's account, whose balance is your balance in the group. Earlier expenses come in only through today's balance.",
+    "on": "It is on: your share of this group is recorded in your accounts.",
+    "account": "Paid from",
+    "accountHint": "What you pay comes from this account, and what you are paid goes into it. You can change it on each one.",
+    "category": "Category",
+    "categoryHint": "For your share of an expense whose category you do not have; the others go to your category with the same name.",
+    "turnOn": "Turn on",
+    "save": "Save",
+    "turnOff": "Turn off"
+  },
+  "groupShare": {
+    "from": "From the group {{name}}: change it in the group.",
+    "openGroup": "Open the group",
+    "changeAccount": "Change the account",
+    "paidFrom": "Paid from",
+    "receivedInto": "Received into",
+    "save": "Save"
   }
 }

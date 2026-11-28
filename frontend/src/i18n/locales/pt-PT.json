@@ -196,7 +196,10 @@
     "memberNotFound": "Alguém nesta despesa já não está no grupo. Tira-lhe o visto e tenta novamente.",
     "paymentAlreadyReversed": "Este pagamento já foi estornado ou editado. Fecha esta janela e abre-a novamente.",
     "paymentMemberLeft": "Este pagamento é de ou para alguém que saiu do grupo, por isso já não pode mudar.",
-    "paymentToSelf": "Ninguém se pode pagar a si próprio. Escolhe duas pessoas diferentes."
+    "paymentToSelf": "Ninguém se pode pagar a si próprio. Escolhe duas pessoas diferentes.",
+    "accountFromGroup": "A conta de um grupo só regista a tua parte no grupo. Escolhe uma das tuas contas.",
+    "transactionFromGroup": "Isto vem de um grupo: muda-o no grupo.",
+    "mirrorCurrencyMismatch": "Este grupo está noutra moeda que as tuas contas, por isso não pode ser registado nelas."
   },
   "rowMenu": {
     "label": "Mais ações para {{name}}",
@@ -226,7 +229,8 @@
     "groups": {
       "cashAndBank": "Dinheiro e bancos",
       "investments": "Investimentos",
-      "creditCards": "Cartões de crédito"
+      "creditCards": "Cartões de crédito",
+      "groups": "Grupos"
     },
     "columns": {
       "account": "Conta",
@@ -267,7 +271,10 @@
       "owedHelp": "Fica registado como dinheiro que deves, para o teu património líquido estar certo.",
       "moreCurrencies": "Mais moedas virão depois.",
       "submit": "Adicionar conta"
-    }
+    },
+    "groupOwedToYou": "Grupo · devem-te",
+    "groupYouOwe": "Grupo · deves",
+    "groupSettled": "Grupo · contas certas"
   },
   "categories": {
     "title": "Categorias",
@@ -539,7 +546,8 @@
       "entry": "{{when}} · lançamento {{entry}}",
       "entryCancels": "{{when}} · lançamento {{entry}} anula {{cancelled}}",
       "note": "Editar nunca reescreve o histórico. O MoneyTrail anula o original com um lançamento exatamente oposto e depois regista o corrigido."
-    }
+    },
+    "fromGroup": "Grupo"
   },
   "notFound": {
     "title": "Página não encontrada",
@@ -928,5 +936,31 @@
         "you": "estornaste um pagamento de {{amount}} de {{from}} para {{to}}"
       }
     }
+  },
+  "groupMirror": {
+    "menu": "Registar nas minhas contas",
+    "title": "Registar nas minhas contas",
+    "description": "Cada despesa e pagamento de {{name}} em que participas fica também nas tuas contas. Só tu vês isto.",
+    "loading": "A carregar…",
+    "loadFailed": "Não foi possível carregar as tuas contas.",
+    "noAccount": "Para isto precisas de uma conta tua.",
+    "toAccounts": "Criar uma conta",
+    "howItStarts": "Começa agora: a tua parte de cada despesa conta como gasto, o que pagas sai da conta que escolheres, e o resto fica na conta do grupo, cujo saldo é o teu saldo no grupo. As despesas anteriores entram só pelo saldo de hoje.",
+    "on": "Está ligado: a tua parte deste grupo fica registada nas tuas contas.",
+    "account": "Pago com",
+    "accountHint": "O que pagas sai desta conta e o que te pagam entra nela. Podes mudá-la em cada um.",
+    "category": "Categoria",
+    "categoryHint": "Para a tua parte de uma despesa cuja categoria não tens; as outras vão para a tua categoria com o mesmo nome.",
+    "turnOn": "Ligar",
+    "save": "Guardar",
+    "turnOff": "Desligar"
+  },
+  "groupShare": {
+    "from": "Vem do grupo {{name}}: muda-o no grupo.",
+    "openGroup": "Abrir o grupo",
+    "changeAccount": "Mudar a conta",
+    "paidFrom": "Pago com",
+    "receivedInto": "Recebido em",
+    "save": "Guardar"
   }
 }

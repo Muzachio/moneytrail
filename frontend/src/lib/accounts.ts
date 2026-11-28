@@ -56,8 +56,21 @@ export function isLiability(type: AccountType) {
   return type === 'CREDIT_CARD'
 }
 
-/** "Savings", or "Credit card · what you owe": its negative balance is a debt, not a loss. */
+/**
+ * "Savings", or "Credit card · what you owe": its negative balance is a debt, not a loss. A group's
+ * account says who owes whom, since its balance is the person's balance in the group (#94).
+ */
 export function accountKind(account: Account, t: TFunction) {
+  if (account.type === 'GROUP') {
+    const owed = account.balance.amountMinor
+    return t(
+      owed > 0
+        ? 'accounts.groupOwedToYou'
+        : owed < 0
+          ? 'accounts.groupYouOwe'
+          : 'accounts.groupSettled',
+    )
+  }
   const type = t(`accounts.types.${account.type}`)
   return isLiability(account.type) ? t('accounts.owed', { type }) : type
 }

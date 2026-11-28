@@ -92,7 +92,9 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
       title: t('accounts.groups.cashAndBank'),
       accounts: active.filter(
         (account) =>
-          !isLiability(account.type) && account.type !== 'INVESTMENT',
+          !isLiability(account.type) &&
+          account.type !== 'INVESTMENT' &&
+          account.type !== 'GROUP',
       ),
     },
     {
@@ -102,6 +104,11 @@ function Accounts({ onAdd }: { onAdd: (opener: HTMLElement) => void }) {
     {
       title: t('accounts.groups.creditCards'),
       accounts: active.filter((account) => isLiability(account.type)),
+    },
+    // What friends owe the person, or the person owes them, in each group they mirror (#94).
+    {
+      title: t('accounts.groups.groups'),
+      accounts: active.filter((account) => account.type === 'GROUP'),
     },
   ].filter((group) => group.accounts.length > 0)
 

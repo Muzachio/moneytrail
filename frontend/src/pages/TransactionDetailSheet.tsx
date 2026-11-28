@@ -1,5 +1,5 @@
-import { Check, Copy, Pencil, Undo2 } from 'lucide-react'
-import { useId, useState } from 'react'
+import { ArrowLeftRight, Check, Copy, Pencil, Undo2, Users } from 'lucide-react'
+import { type FormEvent, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
@@ -9,6 +9,8 @@ import {
   type TrailStep,
   type Transaction,
   type TransactionDetail,
+  type TransactionGroupLink,
+  useChangeTransactionAccount,
   useReverseTransaction,
   useTransaction,
 } from '@/api/transactions'
@@ -17,6 +19,7 @@ import { TransactionDialog } from '@/components/transactions/TransactionDialog'
 import { useLedgerNames } from '@/components/transactions/useLedgerNames'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { isLiability } from '@/lib/accounts'
 import { formatDateTime, formatDay, formatShortDateTime } from '@/lib/dates'
@@ -147,7 +150,13 @@ function DetailContent({
         )}
       </div>
 
-      {current ? (
+      {current && transaction.group !== undefined ? (
+        <GroupShareActions
+          transaction={transaction}
+          group={transaction.group}
+          names={names}
+        />
+      ) : current ? (
         <>
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -192,7 +201,7 @@ function DetailContent({
       <Ledger detail={detail} names={names} />
       <Trail trail={trail} currentId={currentId} />
 
-      {current && (
+      {current && transaction.group === undefined && (
         <TransactionDialog
           open={editing}
           onOpenChange={setEditing}
@@ -206,6 +215,123 @@ function DetailContent({
           }
           returnFocusTo={editButton}
         />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A share of a group (docs/adr/0015-group-shares-in-the-personal-ledger.md) is edited or reversed
+ * in the group, which changes it here too, so it has neither button. What can change here is the
+ * account the money came from or went to, when some of the person's money moved.
+ */
+function GroupShareActions({
+  transaction,
+  group,
+  names,
+}: {
+  transaction: Transaction
+  group: TransactionGroupLink
+  names: Names
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { search } = useLocation()
+  const selectId = useId()
+  const paymentAccount =
+    transaction.type === 'TRANSFER'
+      ? [transaction.fromAccountId, transaction.toAccountId].find(
+          (id) => id !== group.groupAccountId,
+        )
+      : transaction.accountId === group.groupAccountId
+        ? undefined
+        : transaction.accountId
+  const [changing, setChanging] = useState(false)
+  const [accountId, setAccountId] = useState(paymentAccount ?? '')
+  // One key for as long as the panel shows this version: a second tap changes it once.
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
+  const change = useChangeTransactionAccount(idempotencyKey)
+  const options = (names.accounts.data ?? []).filter(
+    (account) =>
+      account.type !== 'GROUP' &&
+      (!account.archived || account.id === paymentAccount),
+  )
+
+  const save = (event: FormEvent) => {
+    event.preventDefault()
+    change.mutate(
+      { id: transaction.id, accountId },
+      {
+        onSuccess: (detail) =>
+          // The correction is a new entry with its own id: the panel follows it.
+          void navigate(
+            { pathname: `/transactions/${detail.transaction.id}`, search },
+            { replace: true },
+          ),
+      },
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg bg-muted px-3.5 py-3 text-sm">
+      <p>
+        {t('groupShare.from', {
+          name: names.accountName(group.groupAccountId),
+        })}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline">
+          <Link to={`/groups/${group.groupId}`}>
+            <Users aria-hidden />
+            {t('groupShare.openGroup')}
+          </Link>
+        </Button>
+        {paymentAccount !== undefined && (
+          <Button
+            variant="outline"
+            aria-expanded={changing}
+            onClick={() => setChanging(!changing)}
+          >
+            <ArrowLeftRight aria-hidden />
+            {t('groupShare.changeAccount')}
+          </Button>
+        )}
+      </div>
+      {changing && paymentAccount !== undefined && (
+        <form onSubmit={save} className="flex flex-col gap-2">
+          <label htmlFor={selectId} className="font-medium">
+            {t(
+              transaction.type === 'TRANSFER' &&
+                transaction.toAccountId === paymentAccount
+                ? 'groupShare.receivedInto'
+                : 'groupShare.paidFrom',
+            )}
+          </label>
+          <NativeSelect
+            id={selectId}
+            value={accountId}
+            onChange={(event) => setAccountId(event.target.value)}
+          >
+            {options.map((account) => (
+              <NativeSelectOption key={account.id} value={account.id}>
+                {account.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          {change.isError && (
+            <p role="alert" className="font-medium text-destructive">
+              {apiErrorMessage(change.error, t)}
+            </p>
+          )}
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={change.isPending || accountId === paymentAccount}
+            >
+              {t('groupShare.save')}
+            </Button>
+          </div>
+        </form>
       )}
     </div>
   )

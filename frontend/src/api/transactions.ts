@@ -12,6 +12,7 @@ import { reportsKey } from './reports'
 import type { components } from './schema'
 
 export type Transaction = components['schemas']['Transaction']
+export type TransactionGroupLink = components['schemas']['TransactionGroupLink']
 export type TransactionType = components['schemas']['TransactionType']
 export type NewTransaction = components['schemas']['NewTransaction']
 export type TransactionDetail = components['schemas']['TransactionDetail']
@@ -104,6 +105,33 @@ export function useCreateTransaction(idempotencyKey: string) {
         }),
       ),
     onSuccess: refetch,
+  })
+}
+
+/**
+ * Moves what a share of a group took from, or brought to, one of the person's accounts onto
+ * another (`POST /v1/transactions/{id}/account`): the only change of such a transaction made here,
+ * the rest is made in the group. Answers the corrected transaction's detail.
+ */
+export function useChangeTransactionAccount(idempotencyKey: string) {
+  const queryClient = useQueryClient()
+  const refetch = useRefetchAfterMoneyMoved()
+  return useMoneyMutation({
+    idempotencyKey,
+    mutationFn: async (
+      { id, accountId }: { id: string; accountId: string },
+      key: string,
+    ) =>
+      dataOrThrow(
+        await api.POST('/v1/transactions/{id}/account', {
+          params: { path: { id }, header: { 'Idempotency-Key': key } },
+          body: { accountId },
+        }),
+      ),
+    onSuccess: async (detail) => {
+      queryClient.setQueryData(transactionKey(detail.transaction.id), detail)
+      await refetch()
+    },
   })
 }
 

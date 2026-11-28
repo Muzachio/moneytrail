@@ -2,6 +2,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
+  BookUser,
   CircleCheck,
   EllipsisVertical,
   LogOut,
@@ -24,6 +25,7 @@ import { GroupActivity } from '@/components/groups/GroupActivity'
 import { GroupBalances, MyBalanceCard } from '@/components/groups/GroupBalances'
 import { GroupEntries } from '@/components/groups/GroupEntries'
 import { GroupExpenseDialog } from '@/components/groups/GroupExpenseDialog'
+import { GroupMirrorDialog } from '@/components/groups/GroupMirrorDialog'
 import { InvitePeopleDialog } from '@/components/groups/InvitePeopleDialog'
 import { SettleUpDialog } from '@/components/groups/SettleUpDialog'
 import { NameDialog } from '@/components/NameDialog'
@@ -116,6 +118,7 @@ function GroupDetails({ group }: { group: Group }) {
   const [inviting, setInviting] = useState(false)
   const [inviteOpener, setInviteOpener] = useState<HTMLElement | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [mirroring, setMirroring] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addOpener, setAddOpener] = useState<HTMLElement | null>(null)
@@ -232,6 +235,10 @@ function GroupDetails({ group }: { group: Group }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-55">
+              <DropdownMenuItem onSelect={() => setMirroring(true)}>
+                <BookUser aria-hidden />
+                {t('groupMirror.menu')}
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setRenaming(true)}>
                 <Pencil aria-hidden />
                 {t('group.rename')}
@@ -354,6 +361,12 @@ function GroupDetails({ group }: { group: Group }) {
         open={inviting}
         onOpenChange={setInviting}
         returnFocusTo={inviteOpener}
+      />
+      <GroupMirrorDialog
+        group={group}
+        open={mirroring}
+        onOpenChange={setMirroring}
+        opener={menuButton}
       />
       <NameDialog
         open={renaming}

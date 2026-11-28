@@ -13,6 +13,7 @@ import { i18n } from '@/i18n/i18n'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 import type { NewTransaction, Transaction } from '@/api/transactions'
+import type { GroupMirror, GroupMirrorSettings } from '@/api/groupMirror'
 import type { Profile } from '@/api/groups'
 import type { TestExpense, TestSettlement } from './fakeGroupExpenses'
 import type { TestActivity } from './fakeSettlements'
@@ -203,6 +204,55 @@ export function mockApi({
     testId,
   )
   const keys = new Map<string, { request: string; answer: Answer }>()
+  /**
+   * Each group's mirror in the person's ledger (#94): turning it on opens a group account with the
+   * person's balance in the group, as the API does, and turning it off archives it.
+   */
+  const mirrors = new Map<string, GroupMirror>()
+  const turnOnMirror = (groupId: string, settings: GroupMirrorSettings) => {
+    const group = groupsFake.state.groups.find(({ id }) => id === groupId)
+    if (group === undefined) {
+      return problem(404, 'group_not_found')
+    }
+    const existing = state.accounts.find(
+      (account) => account.type === 'GROUP' && account.groupId === groupId,
+    )
+    const groupAccount =
+      existing ??
+      testAccount({
+        name: group.name,
+        type: 'GROUP',
+        groupId,
+        balance: group.myBalance,
+      })
+    if (existing === undefined) {
+      state.accounts.push(groupAccount)
+    }
+    Object.assign(groupAccount, { archived: false, archivedAt: undefined })
+    const mirror = {
+      enabled: true,
+      categoryId: settings.categoryId,
+      accountId: settings.accountId,
+      groupAccountId: groupAccount.id,
+    }
+    mirrors.set(groupId, mirror)
+    return ok(mirror)
+  }
+  const turnOffMirror = (groupId: string) => {
+    const mirror = mirrors.get(groupId)
+    const groupAccount = state.accounts.find(
+      (account) => account.id === mirror?.groupAccountId,
+    )
+    if (groupAccount !== undefined) {
+      Object.assign(groupAccount, {
+        archived: true,
+        archivedAt: '2026-06-03T12:00:00Z',
+        balance: euros(0),
+      })
+    }
+    mirrors.set(groupId, { enabled: false })
+    return ok({ enabled: false })
+  }
 
   /** Runs `handle` once per Idempotency-Key, as the API's idempotency flow does. */
   const idempotent = (
@@ -252,6 +302,10 @@ export function mockApi({
         return refusing(() => ok(ledger.allocation(init?.params?.query ?? {})))
       case '/v1/transactions/{id}':
         return refusing(() => ok(ledger.detail(init?.params?.path?.id ?? '')))
+      case '/v1/groups/{id}/mirror':
+        return ok(
+          mirrors.get(init?.params?.path?.id ?? '') ?? { enabled: false },
+        )
     }
     const answer = groupsFake.get(path, init)
     if (answer) {
@@ -300,6 +354,28 @@ export function mockApi({
       return idempotent(path, init, () =>
         refusing(() => ok(ledger.record(init.body as NewTransaction), 201)),
       )
+    }
+    // A share of a group moves to another account (#94). The API replaces the entry with a new one;
+    // here the version keeps its id, which is all the panel needs.
+    if (path === '/v1/transactions/{id}/account') {
+      return idempotent(path, init, () => {
+        const id = init.params?.path?.id ?? ''
+        const { accountId } = init.body as { accountId: string }
+        const version = ledger.versions.find((found) => found.id === id)
+        if (version?.group === undefined) {
+          return problem(422, 'account_change_refused')
+        }
+        if (version.type === 'TRANSFER') {
+          const field =
+            version.fromAccountId === version.group.groupAccountId
+              ? 'toAccountId'
+              : 'fromAccountId'
+          version[field] = accountId
+        } else {
+          version.accountId = accountId
+        }
+        return ok(ledger.detail(id))
+      })
     }
     if (path === '/v1/transactions/{id}/reverse') {
       const { replacement } = (init.body ?? {}) as {
@@ -397,10 +473,30 @@ export function mockApi({
     throw new Error(`Unexpected PATCH ${path}`)
   }) as never)
 
+  const put = vi.spyOn(api, 'PUT').mockImplementation((async (
+    path: string,
+    init: RequestInit,
+  ) => {
+    if (path === '/v1/groups/{id}/mirror') {
+      return idempotent(path, init, () =>
+        turnOnMirror(
+          init.params?.path?.id ?? '',
+          init.body as GroupMirrorSettings,
+        ),
+      )
+    }
+    throw new Error(`Unexpected PUT ${path}`)
+  }) as never)
+
   const remove = vi.spyOn(api, 'DELETE').mockImplementation((async (
     path: string,
     init: RequestInit,
   ) => {
+    if (path === '/v1/groups/{id}/mirror') {
+      return idempotent(path, init, () =>
+        turnOffMirror(init.params?.path?.id ?? ''),
+      )
+    }
     const answer = groupsFake.remove(path, init)
     if (answer) {
       return fromFake(answer)
@@ -411,8 +507,10 @@ export function mockApi({
   return {
     get,
     post,
+    put,
     patch,
     remove,
+    mirrors,
     state,
     groups: groupsFake.state,
     groupExpenses: groupsFake.expenses,

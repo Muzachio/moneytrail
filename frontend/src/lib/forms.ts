@@ -91,6 +91,12 @@ export function apiErrorMessage(error: unknown, t: TFunction): string {
       return t('errors.categoryArchived')
     case 'transaction_already_reversed':
       return t('errors.alreadyReversed')
+    case 'account_from_group':
+      return t('errors.accountFromGroup')
+    case 'transaction_from_group':
+      return t('errors.transactionFromGroup')
+    case 'mirror_currency_mismatch':
+      return t('errors.mirrorCurrencyMismatch')
     default:
       return t('errors.unexpected', { status: error.status })
   }

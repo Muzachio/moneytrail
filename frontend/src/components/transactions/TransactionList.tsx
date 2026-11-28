@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Users } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
@@ -277,6 +277,13 @@ function TransactionRow({
           {transaction.edited && (
             <Badge variant="outline" className="text-foreground/70">
               {t('transactions.edited')}
+            </Badge>
+          )}
+          {/* A share of a group, recorded by its mirror (#94): it changes in the group. */}
+          {transaction.group !== undefined && (
+            <Badge variant="outline" className="text-foreground/70">
+              <Users aria-hidden />
+              {t('transactions.fromGroup')}
             </Badge>
           )}
         </span>
