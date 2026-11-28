@@ -2,6 +2,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
+  CircleCheck,
   EllipsisVertical,
   LogOut,
   Pencil,
@@ -19,12 +20,15 @@ import {
 } from '@/api/groups'
 import { ApiError } from '@/api/problem'
 import { useCurrentUser } from '@/api/session'
+import { GroupActivity } from '@/components/groups/GroupActivity'
+import { GroupBalances, MyBalanceCard } from '@/components/groups/GroupBalances'
 import { GroupEntries } from '@/components/groups/GroupEntries'
 import { GroupExpenseDialog } from '@/components/groups/GroupExpenseDialog'
 import { InvitePeopleDialog } from '@/components/groups/InvitePeopleDialog'
+import { SettleUpDialog } from '@/components/groups/SettleUpDialog'
 import { NameDialog } from '@/components/NameDialog'
 import { useSetCentreAction } from '@/components/newTransaction'
-import { AvatarStack, PersonAvatar } from '@/components/PersonAvatar'
+import { AvatarStack } from '@/components/PersonAvatar'
 import { LoadFailed, Loading } from '@/components/QueryState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,13 +47,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { formatDate } from '@/lib/dates'
 import { returnFocus } from '@/lib/focus'
 import { apiErrorMessage } from '@/lib/forms'
+import { cn } from '@/lib/utils'
+
+/** What a phone shows of the group's page, one at a time as in the design canvas. */
+const phoneTabs = ['expenses', 'balances', 'activity'] as const
+type PhoneTab = (typeof phoneTabs)[number]
 
 /**
- * A group's page: its name, its expenses and payments, its members and the ways to add an expense,
- * invite people, rename, archive or leave it. Its balances and activity join it in #93.
+ * A group's page: its name, the signed-in person's balance, its expenses and payments, everyone's
+ * balances and what happened, and the ways to add an expense, settle up, invite people, rename,
+ * archive or leave it.
  */
 export function GroupPage() {
   const { t } = useTranslation()
@@ -114,6 +123,17 @@ function GroupDetails({ group }: { group: Group }) {
     setAddOpener(opener)
     setAdding(true)
   }, [])
+  const [settling, setSettling] = useState(false)
+  const [settleOpener, setSettleOpener] = useState<HTMLElement | null>(null)
+  const openSettleUp = (opener: HTMLElement) => {
+    setSettleOpener(opener)
+    setSettling(true)
+  }
+  // An archived group takes no payments, so it offers no settling up.
+  const onSettleUp = group.archived ? undefined : openSettleUp
+  const [phoneTab, setPhoneTab] = useState<PhoneTab>('expenses')
+  // On a phone only the chosen part shows; a computer shows them all side by side.
+  const onPhone = (tab: PhoneTab) => phoneTab !== tab && 'max-sm:hidden'
 
   // On a phone the bottom tabs' centre button adds an expense to this group, as in the design
   // canvas; an archived group takes none, so the button keeps its new transaction.
@@ -174,6 +194,18 @@ function GroupDetails({ group }: { group: Group }) {
             >
               <UserPlus aria-hidden />
               {t('invites.title')}
+            </Button>
+          )}
+          {/* On a phone the balance card at the top holds Settle up, as in the design. */}
+          {onSettleUp !== undefined && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="max-sm:hidden"
+              onClick={(event) => onSettleUp(event.currentTarget)}
+            >
+              <CircleCheck aria-hidden />
+              {t('settleUp.button')}
             </Button>
           )}
           {/* On a phone the bottom tabs' centre button adds the expense, as in the design. */}
@@ -258,44 +290,44 @@ function GroupDetails({ group }: { group: Group }) {
         </p>
       )}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
-        <GroupEntries
-          group={group}
-          onAdd={group.archived ? undefined : openAdd}
-        />
-        <section
-          aria-labelledby="group-members"
-          className="flex flex-col rounded-xl border bg-card"
-        >
-          <h2
-            id="group-members"
-            className="px-5 pt-4.5 pb-1.5 text-[15px] font-semibold"
+      <MyBalanceCard group={group} onSettleUp={onSettleUp} />
+
+      <div
+        role="group"
+        aria-label={t('groupBalances.tabs.label')}
+        className="grid grid-cols-3 gap-0.5 rounded-xl bg-muted p-0.75 sm:hidden"
+      >
+        {phoneTabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            aria-pressed={phoneTab === tab}
+            onClick={() => setPhoneTab(tab)}
+            className={cn(
+              'h-9.5 rounded-[9px] font-medium text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              phoneTab === tab && 'bg-card text-foreground shadow-xs',
+            )}
           >
-            {t('group.membersTitle')}
-          </h2>
-          <ul>
-            {members.map((member) => (
-              <li
-                key={member.userId}
-                className="flex items-center gap-3 border-t px-5 py-3 first:border-t-0"
-              >
-                <PersonAvatar person={member} className="size-8 text-xs" />
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">
-                    {you(member.userId)
-                      ? t('group.youWithName', { name: member.name })
-                      : member.name}
-                  </span>
-                  <span className="block text-sm text-muted-foreground">
-                    {t('group.joined', {
-                      date: formatDate(member.joinedAt, i18n.language),
-                    })}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+            {t(`groupBalances.tabs.${tab}`)}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+        <div className={cn('min-w-0', onPhone('expenses'))}>
+          <GroupEntries
+            group={group}
+            onAdd={group.archived ? undefined : openAdd}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-5">
+          <GroupBalances
+            group={group}
+            onSettleUp={onSettleUp}
+            className={cn(onPhone('balances'))}
+          />
+          <GroupActivity group={group} className={cn(onPhone('activity'))} />
+        </div>
       </div>
 
       {!group.archived && (
@@ -306,7 +338,15 @@ function GroupDetails({ group }: { group: Group }) {
           returnFocusTo={addOpener}
         />
       )}
-      {/* An expense's detail, `/groups/<id>/expenses/<expense id>`, as a panel over the page. */}
+      {!group.archived && (
+        <SettleUpDialog
+          open={settling}
+          onOpenChange={setSettling}
+          group={group}
+          returnFocusTo={settleOpener}
+        />
+      )}
+      {/* An expense's or payment's detail, `/groups/<id>/expenses/<id>`, as a panel over the page. */}
       <Outlet />
 
       <InvitePeopleDialog

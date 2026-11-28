@@ -189,7 +189,10 @@
     "memberNotSettled": "You can leave once your balance in this group is zero. Settle up first.",
     "expenseAlreadyReversed": "This expense was already reversed or edited. Close this window and open it again.",
     "expenseMemberLeft": "Someone who left the group paid this expense or has a part in it, so it can no longer change.",
-    "memberNotFound": "Someone in this expense is no longer in the group. Untick them and try again."
+    "memberNotFound": "Someone in this expense is no longer in the group. Untick them and try again.",
+    "paymentAlreadyReversed": "This payment was already reversed or edited. Close this window and open it again.",
+    "paymentMemberLeft": "This payment is from or to someone who left the group, so it can no longer change.",
+    "paymentToSelf": "Someone cannot pay themselves. Pick two different people."
   },
   "rowMenu": {
     "label": "More actions for {{name}}",
@@ -774,6 +777,141 @@
       "join": "Join group",
       "open": "Open group",
       "privacy": "The members will see your name, your photo and the group's expenses. Never your own accounts."
+    }
+  },
+  "groupBalances": {
+    "title": "Balances",
+    "loading": "Loading the balances…",
+    "loadFailed": "The balances could not be loaded.",
+    "legend": {
+      "owed": "Is owed",
+      "owes": "Owes"
+    },
+    "label": {
+      "owed": "is owed",
+      "owedYou": "are owed",
+      "owes": "owes",
+      "owesYou": "owe",
+      "settled": "settled up"
+    },
+    "card": {
+      "to": "To {{names}}, in the suggested settle-up",
+      "from": "From {{names}}, in the suggested settle-up",
+      "settled": "You owe nobody anything, and nobody owes you."
+    },
+    "tabs": {
+      "label": "What to show",
+      "expenses": "Expenses",
+      "balances": "Balances",
+      "activity": "Activity"
+    }
+  },
+  "settleUp": {
+    "button": "Settle up",
+    "title": "Settle up",
+    "subtitle_one": "{{group}} · 1 payment clears every balance",
+    "subtitle_other": "{{group}} · {{count}} payments clear every balance",
+    "subtitleSettled": "{{group}} · everyone is settled up",
+    "suggested": "Suggested payments",
+    "none": "Everyone is settled up: there is nothing to pay.",
+    "loadFailed": "The suggested payments could not be loaded.",
+    "suggestion": {
+      "youPay": "You pay {{to}}",
+      "paysYou": "{{from}} pays you",
+      "pays": "{{from}} pays {{to}}",
+      "clearsYours": "Clears your balance",
+      "clears": "Clears {{name}}'s balance",
+      "record": "Record",
+      "recordLabel": "Record: {{text}}, {{amount}}",
+      "recording": "Recording…",
+      "recorded": "Recorded"
+    },
+    "or": "or",
+    "other": {
+      "title": "Another payment",
+      "from": "From",
+      "to": "To",
+      "amount": "Amount",
+      "submit": "Record payment",
+      "recorded": "Payment recorded.",
+      "samePerson": "Pick two different people."
+    },
+    "note": "Pay each other the usual way, in cash, by MB WAY or by bank transfer, then record it here. MoneyTrail never moves money.",
+    "done": "Done"
+  },
+  "groupPayments": {
+    "kicker": "Payment · {{group}}",
+    "kickerAlone": "Payment",
+    "loading": "Loading the payment…",
+    "loadFailed": "Could not load this payment.",
+    "meta": "{{date}} · recorded by {{name}}",
+    "effect": {
+      "title": "What it changed",
+      "balanceOf": "{{name}}'s balance",
+      "yours": "Your balance",
+      "noChange": "No change"
+    },
+    "reverse": "Reverse payment",
+    "confirm": {
+      "title": "Reverse this payment?",
+      "description": "Both balances go back to what they were before it. Both entries stay in the trail."
+    },
+    "oldVersion": "This is an earlier version. An edit replaced it, so it no longer counts.",
+    "reversed": "Reversed. It no longer counts towards anyone's balance.",
+    "trailNote": "A payment is never changed: reversing it adds the exact opposite entry, and the trail shows who did it.",
+    "note": "MoneyTrail records payments made outside the app, in cash, by MB WAY or by bank transfer. It never moves money."
+  },
+  "groupActivity": {
+    "title": "Activity",
+    "loading": "Loading the activity…",
+    "loadFailed": "The activity could not be loaded.",
+    "loadMoreFailed": "More activity could not be loaded.",
+    "empty": "Nothing has happened in this group yet.",
+    "items": {
+      "GROUP_CREATED": {
+        "other": "created the group",
+        "you": "created the group"
+      },
+      "MEMBER_JOINED": {
+        "other": "joined the group",
+        "you": "joined the group"
+      },
+      "MEMBER_LEFT": {
+        "other": "left the group",
+        "you": "left the group"
+      },
+      "EXPENSE_ADDED": {
+        "other": "added {{description}}, {{amount}}",
+        "you": "added {{description}}, {{amount}}"
+      },
+      "EXPENSE_EDITED": {
+        "other": "edited {{description}}",
+        "you": "edited {{description}}"
+      },
+      "EXPENSE_EDITED_AMOUNT": {
+        "other": "edited {{description}}: {{previousAmount}} → {{amount}}",
+        "you": "edited {{description}}: {{previousAmount}} → {{amount}}"
+      },
+      "EXPENSE_REVERSED": {
+        "other": "reversed {{description}}, {{amount}}",
+        "you": "reversed {{description}}, {{amount}}"
+      },
+      "SETTLEMENT_RECORDED": {
+        "other": "recorded a payment of {{amount}} to {{to}}",
+        "you": "recorded a payment of {{amount}} to {{to}}"
+      },
+      "SETTLEMENT_RECORDED_BETWEEN": {
+        "other": "recorded a payment of {{amount}} from {{from}} to {{to}}",
+        "you": "recorded a payment of {{amount}} from {{from}} to {{to}}"
+      },
+      "SETTLEMENT_EDITED": {
+        "other": "edited a payment from {{from}} to {{to}}: {{previousAmount}} → {{amount}}",
+        "you": "edited a payment from {{from}} to {{to}}: {{previousAmount}} → {{amount}}"
+      },
+      "SETTLEMENT_REVERSED": {
+        "other": "reversed a payment of {{amount}} from {{from}} to {{to}}",
+        "you": "reversed a payment of {{amount}} from {{from}} to {{to}}"
+      }
     }
   }
 }

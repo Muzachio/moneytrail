@@ -150,6 +150,34 @@ export function formatWeekday(day: Day, language: string) {
 }
 
 /**
+ * When something happened, for a feed: "Today, 18:40" or "Yesterday, 17:05" (`words`, already
+ * translated), the day of the week within the last week ("Saturday, 22:15"), or else the date
+ * ("14 Nov, 22:15"). The day is the one on this device's calendar, as for `today`.
+ */
+export function formatWhen(
+  instant: string,
+  language: string,
+  words: { today: string; yesterday: string },
+) {
+  const date = new Date(instant)
+  const day = today(date)
+  const now = today()
+  const label =
+    day === now
+      ? words.today
+      : day === addDays(now, -1)
+        ? words.yesterday
+        : day > addDays(now, -7) && day < now
+          ? formatWeekday(day, language)
+          : undefined
+  if (label === undefined) {
+    return formatShortDateTime(instant, language)
+  }
+  const time = formatter(language, { hour: '2-digit', minute: '2-digit' })
+  return `${label}, ${time.format(date)}`
+}
+
+/**
  * The heading of a day in a list, newest first: "Today" or "Yesterday" (`words`, already
  * translated) with the long date, or else the day of the week with the date.
  */

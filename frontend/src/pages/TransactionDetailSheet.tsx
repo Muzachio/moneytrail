@@ -1,6 +1,7 @@
 import { Check, Copy, Pencil, Undo2 } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import type { Account } from '@/api/accounts'
 import type { Category } from '@/api/categories'
@@ -215,7 +216,7 @@ function correctedFrom(
   transaction: Transaction,
   trail: TrailStep[],
   language: string,
-  t: ReturnType<typeof useTranslation>['t'],
+  t: TFunction,
 ) {
   const at = trail.findIndex((step) => step.entryId === transaction.id)
   const previous = trail
@@ -377,11 +378,7 @@ function Details({
 }
 
 /** "Expense:Food", "Liability:Credit card": the ledger's name of what a posting moved. */
-function ledgerAccount(
-  id: string,
-  names: Names,
-  t: ReturnType<typeof useTranslation>['t'],
-) {
+function ledgerAccount(id: string, names: Names, t: TFunction) {
   const category: Category | undefined = names.category(id)
   if (category !== undefined) {
     return t(`transactions.detail.ledgerAccount.${category.kind}`, {

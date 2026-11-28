@@ -13,7 +13,9 @@ import { i18n } from '@/i18n/i18n'
 import type { Problem } from '@/api/problem'
 import type { CurrentUser } from '@/api/session'
 import type { NewTransaction, Transaction } from '@/api/transactions'
+import type { Profile } from '@/api/groups'
 import type { TestExpense, TestSettlement } from './fakeGroupExpenses'
+import type { TestActivity } from './fakeSettlements'
 import {
   type FakeAnswer,
   fakeGroups,
@@ -135,7 +137,12 @@ function fromFake({ status, data, code }: FakeAnswer): Answer {
 
 type RequestInit = {
   params?: {
-    path?: { id: string; inviteId?: string; expenseId?: string }
+    path?: {
+      id: string
+      inviteId?: string
+      expenseId?: string
+      settlementId?: string
+    }
     header?: Record<string, string>
     query?: Record<string, string | number | undefined>
   }
@@ -162,6 +169,8 @@ export function mockApi({
   invites = [],
   groupExpenses = [],
   settlements = [],
+  activity = [],
+  formerMembers = [],
 }: {
   user?: CurrentUser | null
   accounts?: Account[]
@@ -171,6 +180,8 @@ export function mockApi({
   invites?: TestInvite[]
   groupExpenses?: TestExpense[]
   settlements?: TestSettlement[]
+  activity?: TestActivity[]
+  formerMembers?: Profile[]
 } = {}) {
   const state = {
     accounts: accounts.map((account) => ({ ...account })),
@@ -182,6 +193,8 @@ export function mockApi({
     user,
     groupExpenses,
     settlements,
+    activity,
+    formerMembers,
   )
   const ledger = fakeTransactions(
     transactions,
@@ -299,7 +312,9 @@ export function mockApi({
     if (
       path === '/v1/groups' ||
       path === '/v1/groups/{id}/expenses' ||
-      path === '/v1/groups/{id}/expenses/{expenseId}/reverse'
+      path === '/v1/groups/{id}/expenses/{expenseId}/reverse' ||
+      path === '/v1/groups/{id}/settlements' ||
+      path === '/v1/groups/{id}/settlements/{settlementId}/reverse'
     ) {
       return idempotent(path, init, () =>
         fromFake(groupsFake.post(path, init)!),
@@ -399,6 +414,7 @@ export function mockApi({
     state,
     groups: groupsFake.state,
     groupExpenses: groupsFake.expenses,
+    groupSettlements: groupsFake.settlements,
     ledger,
     transactions: ledger.versions,
   }

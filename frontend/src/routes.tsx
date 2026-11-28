@@ -3,6 +3,7 @@ import { AppLayout } from '@/components/AppLayout'
 import { AccountsPage } from '@/pages/AccountsPage'
 import { GroupExpenseSheet } from '@/pages/GroupExpenseSheet'
 import { GroupPage } from '@/pages/GroupPage'
+import { GroupPaymentSheet } from '@/pages/GroupPaymentSheet'
 import { GroupsPage } from '@/pages/GroupsPage'
 import { JoinPage } from '@/pages/JoinPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -33,6 +34,7 @@ export const routes: RouteObject[] = [
         element: <GroupPage />,
         children: [
           { path: 'expenses/:expenseId', element: <GroupExpenseSheet /> },
+          { path: 'payments/:settlementId', element: <GroupPaymentSheet /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },
