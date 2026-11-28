@@ -248,6 +248,8 @@ export function mockApi({
         return ok(ledger.list(init?.params?.query ?? {}))
       case '/v1/reports/spending':
         return refusing(() => ok(ledger.report(init?.params?.query ?? {})))
+      case '/v1/reports/income-allocation':
+        return refusing(() => ok(ledger.allocation(init?.params?.query ?? {})))
       case '/v1/transactions/{id}':
         return refusing(() => ok(ledger.detail(init?.params?.path?.id ?? '')))
     }

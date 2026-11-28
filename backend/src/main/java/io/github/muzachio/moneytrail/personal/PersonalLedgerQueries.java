@@ -23,4 +23,10 @@ public interface PersonalLedgerQueries {
      * {@code key} and {@code name} that the categories endpoint sends.
      */
     Map<UUID, CategoryLabel> categoryLabels(UUID ledgerId);
+
+    /**
+     * What each of the user's accounts in a personal ledger is for, archived ones included, by id.
+     * Categories and the opening balances account are not the user's accounts and are not here.
+     */
+    Map<UUID, AccountUse> accountUses(UUID ledgerId);
 }

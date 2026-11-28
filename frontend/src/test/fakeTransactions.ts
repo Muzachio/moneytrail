@@ -2,6 +2,7 @@ import type { Account } from '@/api/accounts'
 import type { Category } from '@/api/categories'
 import type {
   CategorySpending,
+  IncomeAllocation,
   MonthTotals,
   ReportGrouping,
   SpendingReport,
@@ -326,7 +327,61 @@ export function fakeTransactions(
     return { income, spending, months }
   }
 
-  return { versions, detail, record, reverse, list, report }
+  /**
+   * `GET /v1/reports/income-allocation`: the report's income and spending, and how much the
+   * investment and savings accounts changed from `from` to `to`, opening balances aside as the
+   * seeds have none; saved is the rest, as the real one works it out.
+   */
+  function allocation({ from = '', to = '' }: ReportQuery): IncomeAllocation {
+    const { income, spending } = report({ from, to, groupBy: 'category' })
+    const changeOf = (type: Account['type']) => {
+      const ids = new Set(
+        accounts
+          .filter((account) => account.type === type)
+          .map((account) => account.id),
+      )
+      let change = 0
+      for (const transaction of versions) {
+        if (
+          transaction.reversed ||
+          transaction.occurredOn < from ||
+          transaction.occurredOn > to
+        ) {
+          continue
+        }
+        const amount = transaction.amount.amountMinor
+        const into =
+          transaction.type === 'TRANSFER'
+            ? transaction.toAccountId
+            : transaction.type === 'INCOME'
+              ? transaction.accountId
+              : undefined
+        const outOf =
+          transaction.type === 'TRANSFER'
+            ? transaction.fromAccountId
+            : transaction.type === 'EXPENSE'
+              ? transaction.accountId
+              : undefined
+        if (into !== undefined && ids.has(into)) change += amount
+        if (outOf !== undefined && ids.has(outOf)) change -= amount
+      }
+      return { amountMinor: change, currency: 'EUR' }
+    }
+    const invested = changeOf('INVESTMENT')
+    return {
+      income,
+      spending,
+      invested,
+      saved: {
+        amountMinor:
+          income.amountMinor - spending.amountMinor - invested.amountMinor,
+        currency: 'EUR',
+      },
+      savingsAccounts: changeOf('SAVINGS'),
+    }
+  }
+
+  return { versions, detail, record, reverse, list, report, allocation }
 }
 
 function summary(transactions: Transaction[]): MonthSummary {

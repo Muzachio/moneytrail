@@ -2,6 +2,7 @@ package io.github.muzachio.moneytrail.personal.internal;
 
 import io.github.muzachio.moneytrail.ledger.Account;
 import io.github.muzachio.moneytrail.ledger.AccountKind;
+import io.github.muzachio.moneytrail.personal.AccountUse;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.Instant;
 import java.util.Arrays;
@@ -54,6 +55,15 @@ record UserAccount(
 
         String key() {
             return key;
+        }
+
+        /** Where money moved into it counts when the summary splits the income (#125). */
+        AccountUse use() {
+            return switch (this) {
+                case CHECKING, CASH, CREDIT_CARD -> AccountUse.EVERYDAY;
+                case SAVINGS -> AccountUse.SAVINGS;
+                case INVESTMENT -> AccountUse.INVESTMENT;
+            };
         }
 
         /** Empty for a ledger account that is not one of the user's accounts, such as a category. */

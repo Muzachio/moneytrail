@@ -98,20 +98,23 @@
       "ofIncome": "{{percent}} of income",
       "noIncome": "No income to compare with",
       "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions"
+      "count_other": "{{count}} transactions",
+      "over": "You spent {{amount}} more than came in"
     },
-    "net": {
-      "title": "Net this month",
-      "titlePast": "Net in {{month}}",
-      "kept": "You kept {{percent}} of your income",
-      "over": "You spent {{amount}} more than came in",
-      "nothing": "Nothing came in or went out"
+    "split": {
+      "title": "Where the income went",
+      "spent": "Spent",
+      "invested": "Invested",
+      "investedTaken": "Taken from investments",
+      "saved": "Saved",
+      "inSavings": "of which in savings {{amount}}",
+      "intoSavings": "{{amount}} into savings",
+      "takenFromSavings": "{{amount}} taken from savings"
     },
     "spent": {
       "title": "Spent in {{month}}",
       "ofIncome": "{{percent}} of {{income}} income",
       "noIncome": "No income in {{month}}",
-      "kept": "{{amount}} kept",
       "over": "{{amount}} over income"
     },
     "categories": {

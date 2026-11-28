@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 class SpendingReportApiTests extends PostgresIntegrationTest {
 
     private static final String REPORT = "/v1/reports/spending";
+    private static final String ALLOCATION = "/v1/reports/income-allocation";
     private static final String OCTOBER = "from=2026-10-01&to=2026-10-31";
 
     @Autowired
@@ -332,6 +334,117 @@ class SpendingReportApiTests extends PostgresIntegrationTest {
     @Test
     void withoutASessionTheReportAnswers401() {
         assertThat(mvc.get().uri(REPORT + "?" + OCTOBER + "&groupBy=category")).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(mvc.get().uri(ALLOCATION + "?" + OCTOBER)).hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    // GET /v1/reports/income-allocation (#125): where the income went, in the three cases the summary
+    // draws. Each time the three parts add up to the income, and saved is what checking, the card and
+    // savings changed together, as the ledger itself says.
+
+    @Test
+    void aNormalMonthSplitsTheIncomeIntoSpentInvestedAndSaved() {
+        UUID investments = createAccount(ana, "INVESTMENT", "Index funds", 0);
+        record(ana, income(salary, checking, 200000, "October salary", "2026-10-01"));
+        record(ana, transfer(checking, savings, 20000, "Emergency fund", "2026-10-02"));
+        record(ana, transfer(checking, investments, 55700, "Index fund", "2026-10-03"));
+        record(ana, expense(food, checking, 70000, "Groceries", "2026-10-10"));
+        record(ana, expense(leisure, card, 30000, "Concert", "2026-10-12"));
+        record(ana, transfer(checking, savings, 9999, "Next month", "2026-11-01"));
+
+        assertThat(allocation(ana, OCTOBER))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo(allocationJson(200000, 100000, 55700, 44300, 20000));
+        assertThat(savedAccountsChangeInOctober()).isEqualTo(44300);
+    }
+
+    @Test
+    void moneyTakenFromSavingsIsANegativeSavingsPartOfWhatWasSaved() {
+        record(ana, transfer(checking, savings, 50000, "Emergency fund", "2026-09-15"));
+        record(ana, income(salary, checking, 200000, "October salary", "2026-10-01"));
+        record(ana, expense(health, checking, 190000, "Dentist", "2026-10-08"));
+        record(ana, transfer(savings, checking, 30000, "From the fund", "2026-10-09"));
+
+        assertThat(allocation(ana, OCTOBER))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo(allocationJson(200000, 190000, 0, 10000, -30000));
+        assertThat(savedAccountsChangeInOctober()).isEqualTo(10000);
+    }
+
+    @Test
+    void spendingMoreThanCameInSavesANegativeAmount() {
+        record(ana, income(salary, checking, 150000, "October salary", "2026-10-01"));
+        record(ana, expense(transport, checking, 180000, "Car repair", "2026-10-15"));
+
+        assertThat(allocation(ana, OCTOBER))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo(allocationJson(150000, 180000, 0, -30000, 0));
+        assertThat(savedAccountsChangeInOctober()).isEqualTo(-30000);
+    }
+
+    /** Opening balances, posted today when the accounts were created, are money the user already had. */
+    @Test
+    void openingBalancesAndOtherUsersMoneyNeverCount() {
+        createAccount(ana, "INVESTMENT", "Index funds", 100000);
+        UUID rui = signedInUser();
+        UUID ruisChecking = createAccount(rui, "CHECKING", "Checking", 0);
+        UUID ruisSavings = createAccount(rui, "SAVINGS", "Savings", 0);
+        record(rui, transfer(ruisChecking, ruisSavings, 7777, "Rui saves", "2026-10-05"));
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Lisbon"));
+
+        assertThat(allocation(ana, "from=" + today.withDayOfMonth(1) + "&to=" + today))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo(allocationJson(0, 0, 0, 0, 0));
+        assertThat(allocation(ana, OCTOBER)).bodyJson().isStrictlyEqualTo(allocationJson(0, 0, 0, 0, 0));
+        assertThat(allocation(userWithoutALedger(), OCTOBER))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo(allocationJson(0, 0, 0, 0, 0));
+    }
+
+    @Test
+    void theAllocationRefusesAMissingOrMalformedPeriod() {
+        assertProblem(allocation(ana, ""), "bad_request");
+        assertProblem(allocation(ana, "from=2026-10-01"), "bad_request");
+        assertProblem(allocation(ana, "from=2026-10-1&to=2026-10-31"), "bad_request");
+        assertProblem(allocation(ana, "from=2026-10-02&to=2026-10-01"), "invalid_period");
+        assertProblem(allocation(ana, "from=2024-11-30&to=2026-11-01"), "invalid_period");
+    }
+
+    private MvcTestResult allocation(UUID userId, String query) {
+        var request = mvc.get().uri(ALLOCATION).with(user(userId.toString()));
+        for (String pair : query.split("&", -1)) {
+            if (!pair.isEmpty()) {
+                int equals = pair.indexOf('=');
+                request.param(pair.substring(0, equals), pair.substring(equals + 1));
+            }
+        }
+        return request.exchange();
+    }
+
+    private static String allocationJson(long income, long spending, long invested, long saved, long savingsAccounts) {
+        return """
+                {"income": {"amountMinor": %d, "currency": "EUR"},
+                 "spending": {"amountMinor": %d, "currency": "EUR"},
+                 "invested": {"amountMinor": %d, "currency": "EUR"},
+                 "saved": {"amountMinor": %d, "currency": "EUR"},
+                 "savingsAccounts": {"amountMinor": %d, "currency": "EUR"}}""".formatted(income, spending, invested, saved, savingsAccounts);
+    }
+
+    /**
+     * What the ledger itself says checking, the card and savings changed in October, opening
+     * balances left out: everything but the investment accounts.
+     */
+    private long savedAccountsChangeInOctober() {
+        UUID ledgerId = ledger.findLedger(LedgerOwner.user(ana)).orElseThrow().id();
+        var changes = ledger.changes(ledgerId, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31));
+        return Stream.of(checking, card, savings)
+                .mapToLong(account ->
+                        changes.containsKey(account) ? changes.get(account).minor() : 0)
+                .sum();
     }
 
     /** A user who has signed in: the sign-in transaction published UserSignedIn. */

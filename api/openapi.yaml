@@ -496,6 +496,48 @@ paths:
           $ref: '#/components/responses/BadReportQuery'
         '401':
           $ref: '#/components/responses/Unauthenticated'
+  /v1/reports/income-allocation:
+    get:
+      operationId: getIncomeAllocation
+      tags: [reports]
+      summary: Split a period's income into what was spent, invested and saved
+      description: |
+        Where the income of a period went, from `from` to `to`, both days included: spent in the
+        expense categories, moved into investment accounts, and saved, which is everything else.
+        The three parts always add up to `income`.
+
+        Investing is a transfer between the user's own accounts, never spending, so it comes from
+        how much the investment accounts changed in the period, as the accounts page counts it: an
+        account's opening balance is money the user already had and is left out. `savingsAccounts`
+        is the part of `saved` that the savings accounts account for, counted the same way.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: The first day of the period.
+          schema:
+            type: string
+            format: date
+            example: '2026-11-01'
+        - name: to
+          in: query
+          required: true
+          description: The last day of the period, not before `from`.
+          schema:
+            type: string
+            format: date
+            example: '2026-11-30'
+      responses:
+        '200':
+          description: The period's income and how it was split.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncomeAllocation'
+        '400':
+          $ref: '#/components/responses/BadReportQuery'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
   /v1/groups:
     get:
       operationId: listGroups
@@ -2571,6 +2613,36 @@ components:
       type: string
       enum: [category, month]
       description: How a report breaks its totals down.
+    IncomeAllocation:
+      type: object
+      required: [income, spending, invested, saved, savingsAccounts]
+      description: |
+        A period's income and the three parts it went into, which always add up to it:
+        `spending + invested + saved = income`.
+      properties:
+        income:
+          $ref: '#/components/schemas/Money'
+          description: What the income categories received in the period, as in the spending report.
+        spending:
+          $ref: '#/components/schemas/Money'
+          description: What was spent in the expense categories in the period, as in the spending report.
+        invested:
+          $ref: '#/components/schemas/Money'
+          description: |
+            How much the investment accounts changed in the period, opening balances left out:
+            negative when more came out of them than went in.
+        saved:
+          $ref: '#/components/schemas/Money'
+          description: |
+            Everything neither spent nor invested: `income - spending - invested`. It is what the
+            checking, cash and savings accounts gained, less what credit cards' debt grew, so
+            `saved + invested` is what was kept of the income. Negative when more was spent or
+            invested than came in.
+        savingsAccounts:
+          $ref: '#/components/schemas/Money'
+          description: |
+            The part of `saved` in the savings accounts: how much they changed in the period,
+            opening balances left out. Negative when money was taken out of them.
     SpendingReport:
       type: object
       required: [income, spending]

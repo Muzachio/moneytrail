@@ -4,12 +4,14 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.reducing;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.muzachio.moneytrail.personal.AccountUse;
 import io.github.muzachio.moneytrail.personal.CategoryLabel;
 import io.github.muzachio.moneytrail.reports.internal.CategorySum.Kind;
 import io.github.muzachio.moneytrail.shared.Money;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Currency;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,6 +24,8 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
+import net.jqwik.api.constraints.LongRange;
+import net.jqwik.api.constraints.Size;
 
 /**
  * Whatever the categories' monthly sums are, both reports add them up to the same income and
@@ -91,6 +95,45 @@ class SpendingProperties {
                     .isEqualTo(total(sums, Kind.INCOME, month.month()).negate());
             assertThat(month.spending()).isEqualTo(total(sums, Kind.EXPENSE, month.month()));
         });
+    }
+
+    /**
+     * Whatever the accounts' changes, the three parts add up to the income, the income and spending
+     * are the spending report's, and only the user's investment and savings accounts count as
+     * invested and as the savings accounts' part.
+     */
+    @Property
+    void theIncomeAllocationAlwaysAddsUpToTheIncome(
+            @ForAll("sums") Sums sums,
+            @ForAll @Size(max = 8) List<@LongRange(min = -10_000_000, max = 10_000_000) Long> changes) {
+        Map<UUID, Money> byAccount = new HashMap<>();
+        Map<UUID, AccountUse> uses = new HashMap<>();
+        AccountUse[] allUses = AccountUse.values();
+        for (int i = 0; i < changes.size(); i++) {
+            UUID account = UUID.randomUUID();
+            byAccount.put(account, new Money(changes.get(i), ZERO.currency()));
+            // Every fourth account is not one of the user's own and must not count.
+            if (i % 4 != 3) {
+                uses.put(account, allUses[i % allUses.length]);
+            }
+        }
+
+        IncomeAllocation allocation = IncomeAllocation.of(sums.sums(), byAccount, uses, ZERO);
+
+        SpendingByCategory byCategory = SpendingByCategory.of(sums.sums(), LABELS, ZERO);
+        assertThat(allocation.income()).isEqualTo(byCategory.income());
+        assertThat(allocation.spending()).isEqualTo(byCategory.spending());
+        assertThat(allocation.invested()).isEqualTo(changeOf(AccountUse.INVESTMENT, byAccount, uses));
+        assertThat(allocation.savingsAccounts()).isEqualTo(changeOf(AccountUse.SAVINGS, byAccount, uses));
+        assertThat(allocation.spending().plus(allocation.invested()).plus(allocation.saved()))
+                .isEqualTo(allocation.income());
+    }
+
+    private static Money changeOf(AccountUse use, Map<UUID, Money> changes, Map<UUID, AccountUse> uses) {
+        return changes.keySet().stream()
+                .filter(account -> uses.get(account) == use)
+                .map(changes::get)
+                .reduce(ZERO, Money::plus);
     }
 
     /** A period of up to 24 months, and at most one sum per category and month in it, as the query gives. */

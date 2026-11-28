@@ -99,20 +99,23 @@
       "noIncome": "Sem receitas para comparar",
       "count_one": "{{count}} movimento",
       "count_many": "{{count}} movimentos",
-      "count_other": "{{count}} movimentos"
+      "count_other": "{{count}} movimentos",
+      "over": "Gastaste mais {{amount}} do que recebeste"
     },
-    "net": {
-      "title": "Saldo deste mês",
-      "titlePast": "Saldo de {{month}}",
-      "kept": "Ficaste com {{percent}} das tuas receitas",
-      "over": "Gastaste mais {{amount}} do que recebeste",
-      "nothing": "Não entrou nem saiu dinheiro"
+    "split": {
+      "title": "Para onde foram as receitas",
+      "spent": "Gasto",
+      "invested": "Investido",
+      "investedTaken": "Tirado dos investimentos",
+      "saved": "Poupado",
+      "inSavings": "dos quais na poupança {{amount}}",
+      "intoSavings": "{{amount}} para a poupança",
+      "takenFromSavings": "{{amount}} tirados da poupança"
     },
     "spent": {
       "title": "Gasto em {{month}}",
       "ofIncome": "{{percent}} das receitas de {{income}}",
       "noIncome": "Sem receitas em {{month}}",
-      "kept": "{{amount}} poupados",
       "over": "{{amount}} acima das receitas"
     },
     "categories": {
